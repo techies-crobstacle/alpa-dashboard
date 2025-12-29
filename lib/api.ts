@@ -1,9 +1,9 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
 
-// Get auth token from localStorage
+// Get auth token from localStorage (check both keys for compatibility)
 const getAuthToken = () => {
   if (typeof window !== "undefined") {
-    return localStorage.getItem("auth_token");
+    return localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
   }
   return null;
 };

@@ -219,9 +219,12 @@ export default function LoginPage() {
 			// Call the login API
 			const response = await loginUser(values.email, values.password);
 
-			// Store only the token in localStorage
+
+			// Store token in localStorage
 			if (response.token) {
 				localStorage.setItem("alpa_token", response.token);
+				// Also set token as cookie for middleware
+				document.cookie = `alpa_token=${response.token}; path=/; secure; samesite=strict;`;
 			} else {
 				throw new Error("No token received from server");
 			}

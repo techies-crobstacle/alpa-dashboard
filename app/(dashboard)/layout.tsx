@@ -1,6 +1,6 @@
 "use client";
 import { Sidebar } from "@/components/shared/sidebar";
-import { Topbar } from "@/components/shared/topbar";
+import Topbar from "@/components/shared/topbar";
 
 export default function DashboardLayout({
 	children,

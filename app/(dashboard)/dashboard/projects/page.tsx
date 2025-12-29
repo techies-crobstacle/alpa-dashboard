@@ -80,7 +80,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
+  const [layout, setLayout] = useState<'table' | 'card'>("table");
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -172,14 +172,18 @@ export default function ProductsPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">Manage your product inventory and listings.</p>
         </div>
-        <Button className="gap-2" onClick={() => setShowAddModal(true)}>
-          <Plus className="h-4 w-4" /> Add Product
-        </Button>
+        <div className="flex gap-2 mt-2 md:mt-0">
+          <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
+          <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
+          <Button className="gap-2" onClick={() => setShowAddModal(true)}>
+            <Plus className="h-4 w-4" /> Add Product
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -208,61 +212,117 @@ export default function ProductsPage() {
       </div>
 
       {/* Product List */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {products.map((product) => (
-          <Card key={product.id} className="overflow-hidden flex flex-col">
-            {/* --- PRODUCT IMAGE DISPLAY --- */}
-            <div className="relative h-48 w-full bg-muted">
-              {product.images && product.images.length > 0 ? (
-                <img 
-                  src={product.images[0]} 
-                  alt={product.title} 
-                  className="h-full w-full object-cover transition-transform hover:scale-105"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "https://placehold.co/400x300?text=No+Image";
-                  }}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <Image className="h-12 w-12 text-muted-foreground/50" />
-                </div>
-              )}
-              <Badge 
-                className="absolute top-2 right-2" 
-                variant={product.status === "ACTIVE" ? "default" : "secondary"}
-              >
-                {product.status || "Active"}
-              </Badge>
-            </div>
-
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg line-clamp-1">{product.title}</CardTitle>
-              <CardDescription className="line-clamp-2">{product.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 mt-auto">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground font-medium">{product.category}</span>
-                <span className="font-bold text-lg text-primary">${product.price}</span>
-              </div>
-              <div className="flex justify-between text-sm border-t pt-2">
-                <span className="text-muted-foreground">Stock Available</span>
-                <span className="font-semibold">{product.stock} units</span>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" size="sm" className="flex-1 gap-1"><Edit className="h-3 w-3" /> Edit</Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                  onClick={() => handleDeleteProduct(product.id)}
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : products.length === 0 ? (
+        <Card className="col-span-full text-center py-12">No products found.</Card>
+      ) : layout === 'table' ? (
+        <div className="overflow-x-auto rounded-lg border bg-background">
+          <table className="min-w-full divide-y divide-muted">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Image</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Title</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Price</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Stock</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-muted">
+              {products.map((product) => (
+                <tr key={product.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-2">
+                    {product.images && product.images.length > 0 ? (
+                      <img src={product.images[0]} alt={product.title} className="h-12 w-12 object-cover rounded" onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }} />
+                    ) : (
+                      <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
+                        <Image className="h-6 w-6 text-muted-foreground/50" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 font-semibold">{product.title}</td>
+                  <td className="px-4 py-2">{product.category}</td>
+                  <td className="px-4 py-2">${product.price}</td>
+                  <td className="px-4 py-2">{product.stock}</td>
+                  <td className="px-4 py-2">
+                    <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
+                  </td>
+                  <td className="px-4 py-2">
+                    <Button variant="outline" size="sm" className="flex-1 gap-1"><Edit className="h-3 w-3" /> Edit</Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                      onClick={() => handleDeleteProduct(product.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {products.map((product) => (
+            <Card key={product.id} className="overflow-hidden flex flex-col">
+              <div className="relative h-48 w-full bg-muted">
+                {product.images && product.images.length > 0 ? (
+                  <img 
+                    src={product.images[0]} 
+                    alt={product.title} 
+                    className="h-full w-full object-cover transition-transform hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "https://placehold.co/400x300?text=No+Image";
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <Image className="h-12 w-12 text-muted-foreground/50" />
+                  </div>
+                )}
+                <Badge 
+                  className="absolute top-2 right-2" 
+                  variant={product.status === "ACTIVE" ? "default" : "secondary"}
                 >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                  {product.status || "Active"}
+                </Badge>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg line-clamp-1">{product.title}</CardTitle>
+                <CardDescription className="line-clamp-2">{product.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 mt-auto">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground font-medium">{product.category}</span>
+                  <span className="font-bold text-lg text-primary">${product.price}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t pt-2">
+                  <span className="text-muted-foreground">Stock Available</span>
+                  <span className="font-semibold">{product.stock} units</span>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" size="sm" className="flex-1 gap-1"><Edit className="h-3 w-3" /> Edit</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                    onClick={() => handleDeleteProduct(product.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+      {/* Add Product Modal */}
 
       {/* Add Product Modal */}
       {showAddModal && (

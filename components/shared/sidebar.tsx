@@ -63,6 +63,12 @@ const baseSidebarGroups = [
 				icon: FolderKanban,
 				badge: null,
 			},
+			{
+				title: "Products",
+				href: "/dashboard/admin/products",
+				icon: FolderKanban,
+				badge: null,
+			},
 			// {
 			// 	title: "Documents",
 			// 	href: "/dashboard/documents",
@@ -72,6 +78,12 @@ const baseSidebarGroups = [
 			{
 				title: "Orders",
 				href: "/dashboard/orders",
+				icon: ListOrdered,
+				badge: "3",
+			},
+			{
+				title: "Orders",
+				href: "/dashboard/admin/orders",
 				icon: ListOrdered,
 				badge: "3",
 			},
@@ -161,15 +173,19 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/database", "/dashboard/errors"].includes(item.href)) {
+			if (["/dashboard/database", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders" ].includes(item.href)) {
 				return role === "ADMIN";
 			}
+			// Seller-only pages
+			if (["/dashboard/projects","/dashboard/orders"].includes(item.href)) {
+				return role === "SELLER";
+			}
 			// Orders and Auth Pages: visible to all roles
-			if (["/dashboard/orders", "/dashboard/auth","/dashboard/role"].includes(item.href)) {
+			if (["/dashboard/auth","/dashboard/role"].includes(item.href)) {
 				return true;
 			}
-			// Users, Products, Analytics, Settings, Dashboard: visible to admin and seller
-			if (["/dashboard/users", "/dashboard/projects", "/dashboard/analytics", "/dashboard/settings", "/dashboard"].includes(item.href)) {
+			// Users, Analytics, Settings, Dashboard: visible to admin and seller
+			if (["/dashboard/users", "/dashboard/analytics", "/dashboard/settings", "/dashboard"].includes(item.href)) {
 				return role === "ADMIN" || role === "SELLER";
 			}
 			// Default: visible to all
