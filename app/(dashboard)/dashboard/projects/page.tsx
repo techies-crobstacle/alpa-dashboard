@@ -12,7 +12,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 
 // --- CONFIGURATION ---
-const BASE_URL = "http://127.0.0.1:5000";
+const BASE_URL = "https://alpa-be-1.onrender.com";
 
 // --- HELPER: Get Auth Token ---
 const getAuthToken = () => {

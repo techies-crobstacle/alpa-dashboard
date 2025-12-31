@@ -40,7 +40,7 @@ const formSchema = z.object({
 });
 
 // API Configuration - Use consistent URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
 
 // Login API function
 async function loginUser(email: string, password: string) {
