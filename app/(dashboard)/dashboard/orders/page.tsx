@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, RefreshCcw, X } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash } from "lucide-react";
 import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
  
@@ -32,6 +32,7 @@ type OrderItem = {
   };
   title?: string;
   quantity: number;
+  price?: string;
 };
 type Order = {
   id: string;
@@ -42,14 +43,18 @@ type Order = {
   totalAmount: number;
   trackingNumber?: string;
   estimatedDelivery?: string;
+  paymentMethod?: string;
+  shippingAddress?: string;
 };
 
 export default function OrdersPage() {
+    // Only declare expandedOrderId once at the top of the component
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
   const [layout, setLayout] = useState<'table' | 'card'>("card");
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -115,9 +120,6 @@ export default function OrdersPage() {
         <div className="flex gap-2 mt-2 md:mt-0">
           <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
           <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
-          <Button onClick={fetchOrders} variant="outline" size="icon">
-            <RefreshCcw className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
@@ -127,7 +129,6 @@ export default function OrdersPage() {
         <div className="grid gap-4">
           {orders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
-              {/* ...existing card view code... */}
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -135,24 +136,31 @@ export default function OrdersPage() {
                   </div>
                   <div>
                     <p className="font-bold">Order #{order.id.slice(-6).toUpperCase()}</p>
-                    <p className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(order.createdAt).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-sm font-medium">Customer</p>
+                    <p className="text-sm font-medium flex items-center gap-1"><ClipboardList className="h-4 w-4" /> Customer</p>
                     <p className="text-sm text-muted-foreground">{order.customerName || "Guest"}</p>
                   </div>
-                  <Badge variant={order.status === "delivered" ? "default" : "secondary"}>
-                    {order.status.toUpperCase()}
+                  <Badge variant={order.status === "delivered" ? "default" : "secondary"} className="flex items-center gap-1">
+                    <Hash className="h-3 w-3" /> {order.status.toUpperCase()}
                   </Badge>
+                </div>
+                <div>
+                  <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                    <Eye className="h-4 w-4" />
+                    {expandedOrderId === order.id ? "Hide" : "View"}
+                    {expandedOrderId === order.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
               <CardContent className="p-6">
                 <div className="grid md:grid-cols-3 gap-6">
                   {/* Items Summary */}
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase text-muted-foreground tracking-wider">Order Items</Label>
+                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Order Items</Label>
                     <div className="text-sm space-y-1">
                       {order.items?.map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
@@ -169,19 +177,20 @@ export default function OrdersPage() {
                           <span>{item.product?.title || item.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
                         </div>
                       ))}
-                      <p className="font-bold pt-2 border-t">Total: ${order.totalAmount}</p>
+                      <p className="font-bold pt-2 border-t flex items-center gap-1"><DollarSign className="h-3 w-3" /> Total: ${order.totalAmount}</p>
                     </div>
                   </div>
                   {/* Actions: Update Status */}
                   <div className="space-y-3">
-                    <Label className="text-xs uppercase text-muted-foreground tracking-wider">Management</Label>
-                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status}>
+                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Management</Label>
+                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status || "pending"}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Update Status" />
+                        <SelectValue>
+                          {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Pending"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
                         <SelectItem value="shipped">Shipped</SelectItem>
                         <SelectItem value="delivered">Delivered</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -190,7 +199,7 @@ export default function OrdersPage() {
                   </div>
                   {/* Actions: Tracking */}
                   <div className="space-y-3">
-                    <Label className="text-xs uppercase text-muted-foreground tracking-wider">Shipping</Label>
+                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><Truck className="h-3 w-3" /> Shipping</Label>
                     {order.trackingNumber ? (
                        <div className="bg-blue-50 p-3 rounded-md text-sm border border-blue-100">
                           <p className="flex items-center gap-2 text-blue-700 font-medium">
@@ -205,60 +214,137 @@ export default function OrdersPage() {
                     )}
                   </div>
                 </div>
+                {expandedOrderId === order.id && (
+                  <div className="mt-6 border-t pt-4 space-y-2 bg-muted/40 rounded">
+                    <div className="flex items-center gap-2"><Hash className="h-4 w-4" /><strong>Order ID:</strong> {order.id}</div>
+                    <div className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /><strong>Status:</strong> {order.status}</div>
+                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><strong>Created At:</strong> {new Date(order.createdAt).toLocaleString()}</div>
+                    <div className="flex items-center gap-2"><DollarSign className="h-4 w-4" /><strong>Total Amount:</strong> ${order.totalAmount}</div>
+                    <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><strong>Payment Method:</strong> {order.paymentMethod}</div>
+                    <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><strong>Shipping Address:</strong> {order.shippingAddress}</div>
+                    <div className="flex items-center gap-2"><Truck className="h-4 w-4" /><strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}</div>
+                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</div>
+                    <div className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /><strong>Items:</strong></div>
+                    <ul className="list-disc ml-8">
+                      {order.items?.map((item, i) => (
+                        <li key={i}>
+                          {item.product?.title || item.title} x {item.quantity} @ ${item.price}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>All Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.map((order) => (
+        <div className="overflow-x-auto rounded-lg border bg-background">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order #</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Tracking</TableHead>
+                <TableHead>View</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orders.map((order) => (
+                <>
                   <TableRow key={order.id}>
                     <TableCell>#{order.id.slice(-6).toUpperCase()}</TableCell>
                     <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell>{order.customerName || "Guest"}</TableCell>
                     <TableCell>
-                      <Badge variant={order.status === "delivered" ? "default" : "secondary"}>{order.status.toUpperCase()}</Badge>
+                      <Badge variant={order.status === "delivered" ? "default" : "secondary"}>
+                        {order.status.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {order.items?.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          {item.product?.images?.[0] && (
+                            <Image
+                              src={item.product.images[0]}
+                              alt={item.product.title || "Product image"}
+                              width={24}
+                              height={24}
+                              className="w-6 h-6 object-cover rounded inline-block"
+                            />
+                          )}
+                          <span>{item.product?.title || item.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
+                        </div>
+                      ))}
                     </TableCell>
                     <TableCell>${order.totalAmount}</TableCell>
                     <TableCell>
-                      <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue placeholder="Update Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="processing">Processing</SelectItem>
-                          <SelectItem value="shipped">Shipped</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button variant="outline" size="sm" className="ml-2" onClick={() => setActiveTrackingOrder(order)}>
-                        <Truck className="h-4 w-4" />
+                      {order.trackingNumber ? (
+                        <div className="flex flex-col">
+                          <span className="font-medium">{order.trackingNumber}</span>
+                          <span className="text-xs text-muted-foreground">Est: {order.estimatedDelivery}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">No tracking</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="outline" size="sm" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                        {expandedOrderId === order.id ? "Hide" : "View"}
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                  {expandedOrderId === order.id && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="bg-muted/40 p-0">
+                        <div className="p-4 space-y-2">
+                          <div>
+                            <strong>Order ID:</strong> {order.id}
+                          </div>
+                          <div>
+                            <strong>Status:</strong> {order.status}
+                          </div>
+                          <div>
+                            <strong>Created At:</strong> {new Date(order.createdAt).toLocaleString()}
+                          </div>
+                          <div>
+                            <strong>Total Amount:</strong> ${order.totalAmount}
+                          </div>
+                          <div>
+                            <strong>Payment Method:</strong> {order.paymentMethod}
+                          </div>
+                          <div>
+                            <strong>Shipping Address:</strong> {order.shippingAddress}
+                          </div>
+                          <div>
+                            <strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}
+                          </div>
+                          <div>
+                            <strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}
+                          </div>
+                          <div>
+                            <strong>Items:</strong>
+                            <ul className="list-disc ml-6">
+                              {order.items?.map((item, i) => (
+                                <li key={i}>
+                                  {item.product?.title || item.title} x {item.quantity} @ ${item.price}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {/* Tracking Modal */}

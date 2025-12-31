@@ -165,7 +165,7 @@ export default function UsersPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div>
+            <div className="flex gap-2 items-center">
               <select
                 className="border rounded px-3 py-2 text-sm"
                 value={roleFilter}
@@ -176,6 +176,7 @@ export default function UsersPage() {
                 <option value="SELLER">Seller</option>
                 <option value="CUSTOMER">Customer</option>
               </select>
+              
             </div>
             <div>
               <select
@@ -198,7 +199,16 @@ export default function UsersPage() {
                 <option value="desc">Descending</option>
                 <option value="asc">Ascending</option>
               </select>
-            </div>
+            <Button
+                variant="outline"
+                size="sm"
+                className="ml-2"
+                onClick={() => { setRoleFilter("ALL"); setSearch(""); }}
+                type="button"
+              >
+                Clear Filter
+              </Button>
+			</div>
           </div>
         </CardContent>
       </Card>
@@ -259,28 +269,13 @@ export default function UsersPage() {
                   <TableCell className="text-muted-foreground">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="flex items-center gap-2">
-                          <Mail className="h-4 w-4" />
-                          Send Email
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          Call
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>Edit User</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
-                          Delete User
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <TableCell className="text-right flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={() => {/* TODO: handle edit user */}}>
+                      Edit
+                    </Button>
+                    <Button variant="destructive" size="sm" onClick={() => {/* TODO: handle delete user */}}>
+                      Delete
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

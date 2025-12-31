@@ -1,4 +1,7 @@
+
 "use client";
+
+import React from "react";
 
 import { useState, useEffect } from "react";
 // import { Input } from "@/components/ui/input";
@@ -47,6 +50,9 @@ export default function AdminProductsPage() {
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
   const totalRevenue = products.reduce((sum, p) => sum + (Number(p.price) * (Number((p as { sales?: number }).sales) || 0)), 0);
+
+  // Accordion state for expanded product details
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSellers();
@@ -106,7 +112,7 @@ export default function AdminProductsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">View and manage products by seller.</p>
         </div>
-        <div className="flex flex-col md:flex-row gap-2 md:items-center">
+        <div className="flex gap-4 items-center w-full md:w-auto md:justify-end justify-between">
           <div className="min-w-[250px]">
             <label className="block mb-1 font-medium">Select Seller</label>
             <select
@@ -122,7 +128,7 @@ export default function AdminProductsPage() {
               ))}
             </select>
           </div>
-          <div className="flex gap-2 mt-2 md:mt-0">
+          <div className="flex gap-2 items-end">
             <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
             <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
           </div>
@@ -177,40 +183,97 @@ export default function AdminProductsPage() {
             </thead>
             <tbody className="divide-y divide-muted">
               {products.map((product) => (
-                <tr key={product.id} className="hover:bg-muted/20">
-                  <td className="px-4 py-2">
-                    {product.images && product.images.length > 0 ? (
-                      <Image
-                        src={product.images[0]}
-                        alt={product.title || "Product image"}
-                        width={48}
-                        height={48}
-                        className="h-12 w-12 object-cover rounded"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image';
-                        }}
-                      />
-                    ) : (
-                      <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
-                        <LucideImage className="h-6 w-6 text-muted-foreground/50" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 font-semibold">{product.title}</td>
-                  <td className="px-4 py-2">{product.category}</td>
-                  <td className="px-4 py-2">${product.price}</td>
-                  <td className="px-4 py-2">{product.stock}</td>
-                  <td className="px-4 py-2">
-                    <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
-                  </td>
-                  <td className="px-4 py-2">
-                    {product.status !== 'INACTIVE' && (
-                      <Button variant="outline" size="sm" className="gap-1" onClick={() => handleInactivate(product.id)}>
-                        Mark Inactive
+                <React.Fragment key={product.id}>
+                  <tr className="hover:bg-muted/20">
+                    <td className="px-4 py-2">
+                      {product.images && product.images.length > 0 ? (
+                        <Image
+                          src={product.images[0]}
+                          alt={product.title || "Product image"}
+                          width={48}
+                          height={48}
+                          className="h-12 w-12 object-cover rounded"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image';
+                          }}
+                        />
+                      ) : (
+                        <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
+                          <LucideImage className="h-6 w-6 text-muted-foreground/50" />
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 font-semibold">{product.title}</td>
+                    <td className="px-4 py-2">{product.category}</td>
+                    <td className="px-4 py-2">${product.price}</td>
+                    <td className="px-4 py-2">{product.stock}</td>
+                    <td className="px-4 py-2">
+                      <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
+                    </td>
+                    <td className="px-4 py-2 flex gap-1">
+                      {product.status !== 'INACTIVE' && (
+                        <Button variant="outline" size="sm" className="gap-1" onClick={() => handleInactivate(product.id)}>
+                          Mark Inactive
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                      >
+                        {expandedProductId === product.id ? (
+                          <>
+                            <span>&#x2715;</span> Hide
+                          </>
+                        ) : (
+                          <>
+                            <span>&#128065;</span> View
+                          </>
+                        )}
                       </Button>
-                    )}
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+                  {expandedProductId === product.id && (
+                    <tr>
+                      <td colSpan={7} className="bg-muted/10 p-4">
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <h3 className="font-bold text-lg mb-2">{product.title}</h3>
+                            <p className="mb-2 text-muted-foreground">{product.description}</p>
+                            <div className="mb-2"><strong>Category:</strong> {product.category}</div>
+                            <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
+                            <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
+                            <div className="mb-2"><strong>Status:</strong> {product.status || 'Active'}</div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            {product.images && product.images.length > 0 ? (
+                              product.images.map((img, idx) => (
+                                <Image
+                                  key={img + idx}
+                                  src={img}
+                                  alt={product.title || "Product image"}
+                                  width={120}
+                                  height={120}
+                                  className="rounded object-cover border"
+                                  unoptimized
+                                />
+                              ))
+                            ) : (
+                              <Image
+                                src="/placeholder.svg"
+                                alt="No image"
+                                width={120}
+                                height={120}
+                                className="rounded object-cover border"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

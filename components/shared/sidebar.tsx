@@ -113,12 +113,12 @@ const baseSidebarGroups = [
 			// 	icon: MessageSquare,
 			// 	badge: "5",
 			// },
-			{
-				title: "Database",
-				href: "/dashboard/database",
-				icon: Database,
-				badge: null,
-			},
+			// {
+			// 	title: "Database",
+			// 	href: "/dashboard/database",
+			// 	icon: Database,
+			// 	badge: null,
+			// },
 			// {
 			// 	title: "Security",
 			// 	href: "/dashboard/security",
@@ -176,19 +176,19 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/database", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers" ].includes(item.href)) {
+			if (["/dashboard/users", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth" ].includes(item.href)) {
 				return role === "ADMIN";
 			}
 			// Seller-only pages
 			if (["/dashboard/projects","/dashboard/orders"].includes(item.href)) {
 				return role === "SELLER";
 			}
-			// Orders and Auth Pages: visible to all roles
-			if (["/dashboard/auth","/dashboard/role"].includes(item.href)) {
+			// Role page: visible to all roles
+			if (["/dashboard/role"].includes(item.href)) {
 				return true;
 			}
 			// Users, Analytics, Settings, Dashboard: visible to admin and seller
-			if (["/dashboard/users", "/dashboard/analytics", "/dashboard/settings", "/dashboard"].includes(item.href)) {
+			if ([ "/dashboard/analytics", "/dashboard/settings", "/dashboard"].includes(item.href)) {
 				return role === "ADMIN" || role === "SELLER";
 			}
 			// Default: visible to all

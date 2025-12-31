@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X } from "lucide-react";
+import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 
@@ -95,9 +96,11 @@ const deleteProduct = async (productId: string) => {
   return response.json();
 };
 
-export default function ProductsPage() {
+function ProjectsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [layout, setLayout] = useState<'table' | 'card'>("table");
@@ -289,7 +292,7 @@ export default function ProductsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -302,7 +305,14 @@ export default function ProductsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">Manage your product inventory and listings.</p>
         </div>
-        <div className="flex gap-2 mt-2 md:mt-0">
+        <div className="flex gap-2 mt-2 md:mt-0 items-center">
+          <input
+            type="text"
+            placeholder="Search products..."
+            className="border rounded px-3 py-2 w-[200px]"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
           <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
           <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
           <Button className="gap-2" onClick={() => setShowAddModal(true)}>
@@ -341,7 +351,7 @@ export default function ProductsPage() {
         <div className="flex items-center justify-center min-h-[200px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : products.length === 0 ? (
+      ) : products.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || (p.category?.toLowerCase().includes(search.toLowerCase()))).length === 0 ? (
         <Card className="col-span-full text-center py-12">No products found.</Card>
       ) : layout === 'table' ? (
         <div className="overflow-x-auto rounded-lg border bg-background">
@@ -358,8 +368,9 @@ export default function ProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {products.map((product) => (
-                <tr key={product.id} className="hover:bg-muted/20">
+              {products.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || (p.category?.toLowerCase().includes(search.toLowerCase()))).map((product) => (
+                <React.Fragment key={product.id}>
+                <tr className="hover:bg-muted/20">
                   <td className="px-4 py-2">
                     {product.images && product.images.length > 0 ? (
                       <Image
@@ -393,7 +404,130 @@ export default function ProductsPage() {
                   <td className="px-4 py-2">
                     <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2 flex gap-1">
+                    <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                      onClick={() => handleDeleteProduct(product.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                    >
+                      {expandedProductId === product.id ? (
+                        <>
+                          <X className="h-3 w-3" /> Hide
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3" /> View
+                        </>
+                      )}
+                    </Button>
+                  </td>
+                </tr>
+                {expandedProductId === product.id && (
+                  <tr>
+                    <td colSpan={7} className="bg-muted/10 p-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="font-bold text-lg mb-2">{product.title}</h3>
+                          <p className="mb-2 text-muted-foreground">{product.description}</p>
+                          <div className="mb-2"><strong>Category:</strong> {product.category}</div>
+                          <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
+                          <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
+                          <div className="mb-2"><strong>Status:</strong> {product.status || 'Active'}</div>
+                          <div className="mb-2"><strong>Sales:</strong> {product.sales ?? 0}</div>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {product.images && product.images.length > 0 ? (
+                            product.images.map((img, idx) => (
+                              <Image
+                                key={idx}
+                                src={img}
+                                alt={product.title}
+                                width={120}
+                                height={120}
+                                className="rounded object-cover border"
+                                unoptimized
+                              />
+                            ))
+                          ) : (
+                            <Image
+                              src="/placeholder.svg"
+                              alt="No image"
+                              width={120}
+                              height={120}
+                              className="rounded object-cover border"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {products.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || (p.category?.toLowerCase().includes(search.toLowerCase()))).map((product) => (
+            <div key={product.id} className="flex flex-col">
+              <Card className="overflow-hidden flex flex-col">
+                <div className="relative h-48 w-full bg-muted">
+                  {product.images && product.images.length > 0 ? (
+                    <Image
+                      src={product.images[0]}
+                      alt={product.title}
+                      width={400}
+                      height={192}
+                      className="h-full w-full object-cover transition-transform hover:scale-105"
+                      onError={e => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://placehold.co/400x300?text=No+Image';
+                      }}
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <Image
+                        src="/placeholder.svg"
+                        alt="No image"
+                        width={48}
+                        height={48}
+                        className="h-12 w-12 text-muted-foreground/50"
+                      />
+                    </div>
+                  )}
+                  <Badge 
+                    className="absolute top-2 right-2" 
+                    variant={product.status === "ACTIVE" ? "default" : "secondary"}
+                  >
+                    {product.status || "Active"}
+                  </Badge>
+                </div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg line-clamp-1">{product.title}</CardTitle>
+                  <CardDescription className="line-clamp-2">{product.description}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 mt-auto">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground font-medium">{product.category}</span>
+                    <span className="font-bold text-lg text-primary">${product.price}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t pt-2">
+                    <span className="text-muted-foreground">Stock Available</span>
+                    <span className="font-semibold">{product.stock} units</span>
+                  </div>
+                  <div className="flex gap-2 pt-2">
                     <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
                     <Button 
                       variant="outline" 
@@ -403,74 +537,64 @@ export default function ProductsPage() {
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => (
-            <Card key={product.id} className="overflow-hidden flex flex-col">
-              <div className="relative h-48 w-full bg-muted">
-                {product.images && product.images.length > 0 ? (
-                  <Image
-                    src={product.images[0]}
-                    alt={product.title}
-                    width={400}
-                    height={192}
-                    className="h-full w-full object-cover transition-transform hover:scale-105"
-                    onError={e => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = 'https://placehold.co/400x300?text=No+Image';
-                    }}
-                    unoptimized
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <Image
-                      src="/placeholder.svg"
-                      alt="No image"
-                      width={48}
-                      height={48}
-                      className="h-12 w-12 text-muted-foreground/50"
-                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 gap-1"
+                      onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                    >
+                      {expandedProductId === product.id ? (
+                        <>
+                          <X className="h-3 w-3" /> Hide
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-3 w-3" /> View
+                        </>
+                      )}
+                    </Button>
                   </div>
-                )}
-                <Badge 
-                  className="absolute top-2 right-2" 
-                  variant={product.status === "ACTIVE" ? "default" : "secondary"}
-                >
-                  {product.status || "Active"}
-                </Badge>
-              </div>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg line-clamp-1">{product.title}</CardTitle>
-                <CardDescription className="line-clamp-2">{product.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 mt-auto">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">{product.category}</span>
-                  <span className="font-bold text-lg text-primary">${product.price}</span>
-                </div>
-                <div className="flex justify-between text-sm border-t pt-2">
-                  <span className="text-muted-foreground">Stock Available</span>
-                  <span className="font-semibold">{product.stock} units</span>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                    onClick={() => handleDeleteProduct(product.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  {expandedProductId === product.id && (
+                    <div className="mt-4 p-4 rounded bg-muted/10 border">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <h3 className="font-bold text-lg mb-2">{product.title}</h3>
+                          <p className="mb-2 text-muted-foreground">{product.description}</p>
+                          <div className="mb-2"><strong>Category:</strong> {product.category}</div>
+                          <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
+                          <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
+                          <div className="mb-2"><strong>Status:</strong> {product.status || 'Active'}</div>
+                          <div className="mb-2"><strong>Sales:</strong> {product.sales ?? 0}</div>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {product.images && product.images.length > 0 ? (
+                            product.images.map((img, idx) => (
+                              <Image
+                                key={idx}
+                                src={img}
+                                alt={product.title}
+                                width={120}
+                                height={120}
+                                className="rounded object-cover border"
+                                unoptimized
+                              />
+                            ))
+                          ) : (
+                            <Image
+                              src="/placeholder.svg"
+                              alt="No image"
+                              width={120}
+                              height={120}
+                              className="rounded object-cover border"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           ))}
         </div>
       )}
@@ -617,3 +741,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+export default ProjectsPage;

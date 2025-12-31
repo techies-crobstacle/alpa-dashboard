@@ -3,9 +3,9 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-// import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, Truck ,Loader2 } from "lucide-react";
@@ -47,6 +47,7 @@ export default function AdminOrdersPage() {
   const [loadingSellers, setLoadingSellers] = useState(true);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingData, setTrackingData] = useState<{ trackingNumber: string; estimatedDelivery: string }>({ trackingNumber: "", estimatedDelivery: "" });
+  const [layout, setLayout] = useState<'table' | 'card'>('card');
 
   useEffect(() => {
     fetchSellers();
@@ -113,20 +114,26 @@ export default function AdminOrdersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">View and manage orders by seller.</p>
         </div>
-        <div className="min-w-[250px]">
-          <label className="block mb-1 font-medium">Select Seller</label>
-          <select
-            className="border rounded px-3 py-2 w-full"
-            value={selectedSeller}
-            onChange={e => setSelectedSeller(e.target.value)}
-            disabled={loadingSellers}
-          >
-            {sellers.map(seller => (
-              <option key={seller.id} value={seller.id}>
-                {seller.name} ({seller.email})
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto md:justify-end justify-between">
+          <div className="min-w-[250px]">
+            <label className="block mb-1 font-medium">Select Seller</label>
+            <select
+              className="border rounded px-3 py-2 w-full"
+              value={selectedSeller}
+              onChange={e => setSelectedSeller(e.target.value)}
+              disabled={loadingSellers}
+            >
+              {sellers.map(seller => (
+                <option key={seller.id} value={seller.id}>
+                  {seller.name} ({seller.email})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2 items-end">
+            <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
+            <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
+          </div>
         </div>
       </div>
 
@@ -137,7 +144,7 @@ export default function AdminOrdersPage() {
           </div>
         ) : orders.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
-        ) : (
+        ) : layout === 'card' ? (
           orders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
@@ -211,6 +218,63 @@ export default function AdminOrdersPage() {
               </CardContent>
             </Card>
           ))
+        ) : (
+          <div className="overflow-x-auto rounded-lg border bg-background">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order #</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Tracking</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell>#{order.id?.slice(-6)?.toUpperCase?.()}</TableCell>
+                    <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}</TableCell>
+                    <TableCell>{order.customerName || "Guest"}</TableCell>
+                    <TableCell>
+                      <Badge variant={order.status === "delivered" ? "default" : "secondary"}>
+                        {order.status?.toUpperCase?.()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {order.items?.map((item, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          {item.product?.images?.[0] && (
+                            <Image
+                              src={item.product.images[0]}
+                              alt={item.product.title || "Product image"}
+                              width={24}
+                              height={24}
+                              className="w-6 h-6 object-cover rounded inline-block"
+                            />
+                          )}
+                          <span>{item.product?.title || item.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
+                        </div>
+                      ))}
+                    </TableCell>
+                    <TableCell>${order.totalAmount}</TableCell>
+                    <TableCell>
+                      {order.trackingNumber ? (
+                        <div className="flex flex-col">
+                          <span className="font-medium">{order.trackingNumber}</span>
+                          <span className="text-xs text-muted-foreground">Est: {order.estimatedDelivery}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">No tracking</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </div>
 
