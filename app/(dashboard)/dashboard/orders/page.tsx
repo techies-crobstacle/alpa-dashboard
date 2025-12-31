@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Calendar, Loader2, RefreshCcw, ExternalLink, X } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ 
 import { toast } from "sonner";
 
 const BASE_URL = "http://127.0.0.1:5000";
@@ -27,7 +29,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<any | null>(null);
   const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
-
+ const [layout, setLayout] = useState<'table' | 'card'>("card");
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -85,22 +87,27 @@ export default function OrdersPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">Manage customer purchases and shipping status.</p>
         </div>
-        <Button onClick={fetchOrders} variant="outline" size="icon">
-          <RefreshCcw className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-2 mt-2 md:mt-0">
+          <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
+          <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
+          <Button onClick={fetchOrders} variant="outline" size="icon">
+            <RefreshCcw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4">
-        {orders.length === 0 ? (
-          <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
-        ) : (
-          orders.map((order) => (
+      {orders.length === 0 ? (
+        <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
+      ) : layout === 'card' ? (
+        <div className="grid gap-4">
+          {orders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
+              {/* ...existing card view code... */}
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -121,7 +128,6 @@ export default function OrdersPage() {
                   </Badge>
                 </div>
               </div>
-
               <CardContent className="p-6">
                 <div className="grid md:grid-cols-3 gap-6">
                   {/* Items Summary */}
@@ -143,7 +149,6 @@ export default function OrdersPage() {
                       <p className="font-bold pt-2 border-t">Total: ${order.totalAmount}</p>
                     </div>
                   </div>
-
                   {/* Actions: Update Status */}
                   <div className="space-y-3">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider">Management</Label>
@@ -160,7 +165,6 @@ export default function OrdersPage() {
                       </SelectContent>
                     </Select>
                   </div>
-
                   {/* Actions: Tracking */}
                   <div className="space-y-3">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider">Shipping</Label>
@@ -180,9 +184,59 @@ export default function OrdersPage() {
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>All Orders</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell>#{order.id.slice(-6).toUpperCase()}</TableCell>
+                    <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{order.customerName || "Guest"}</TableCell>
+                    <TableCell>
+                      <Badge variant={order.status === "delivered" ? "default" : "secondary"}>{order.status.toUpperCase()}</Badge>
+                    </TableCell>
+                    <TableCell>${order.totalAmount}</TableCell>
+                    <TableCell>
+                      <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status}>
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Update Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="processing">Processing</SelectItem>
+                          <SelectItem value="shipped">Shipped</SelectItem>
+                          <SelectItem value="delivered">Delivered</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" className="ml-2" onClick={() => setActiveTrackingOrder(order)}>
+                        <Truck className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tracking Modal */}
       {activeTrackingOrder && (

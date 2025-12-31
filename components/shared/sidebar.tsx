@@ -12,12 +12,9 @@ import {
 	FolderKanban,
 	ChevronLeft,
 	ChevronRight,
-	FileText,
-	Calendar,
+	
 	Database,
-	MessageSquare,
-	Shield,
-	HelpCircle,
+	
 	LogIn,
 	AlertCircle,
 	ListOrdered,
@@ -54,6 +51,12 @@ const baseSidebarGroups = [
 			{
 				title: "Users",
 				href: "/dashboard/users",
+				icon: Users,
+				badge: "12",
+			},
+			{
+				title: "Sellers",
+				href: "/dashboard/admin/sellers",
 				icon: Users,
 				badge: "12",
 			},
@@ -173,7 +176,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/database", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders" ].includes(item.href)) {
+			if (["/dashboard/database", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers" ].includes(item.href)) {
 				return role === "ADMIN";
 			}
 			// Seller-only pages

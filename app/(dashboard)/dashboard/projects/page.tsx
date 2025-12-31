@@ -89,6 +89,18 @@ export default function ProductsPage() {
     category: "",
     images: [] as File[],
   });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    description: "",
+    price: "",
+    stock: "",
+    category: "",
+    images: [] as File[],
+    oldImages: [] as string[],
+  });
 
   useEffect(() => {
     // Check if token exists before loading
@@ -158,6 +170,104 @@ export default function ProductsPage() {
     }
   };
 
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setEditFormData({ ...editFormData, images: Array.from(e.target.files) });
+    }
+  };
+
+  const openEditModal = async (productId: string) => {
+    setEditProductId(productId);
+    setEditSubmitting(false);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${BASE_URL}/api/products/${productId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch product details");
+      const data = await response.json();
+      const prod = data.product || data;
+      setEditFormData({
+        title: prod.title || "",
+        description: prod.description || "",
+        price: prod.price?.toString() || "",
+        stock: prod.stock?.toString() || "",
+        category: prod.category || "",
+        images: [],
+        oldImages: prod.images || [],
+      });
+      setShowEditModal(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load product");
+    }
+  };
+
+ const handleEditProduct = async () => {
+    if (!editProductId) return;
+    if (!editFormData.title || !editFormData.price || !editFormData.stock) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    try {
+      setEditSubmitting(true);
+      const token = getAuthToken();
+      const form = new FormData();
+      form.append("title", editFormData.title.trim());
+      form.append("description", editFormData.description.trim());
+      form.append("price", String(editFormData.price));
+      form.append("stock", String(editFormData.stock));
+      form.append("category", editFormData.category.trim());
+      
+      // Only append images if new images are selected
+      if (editFormData.images && editFormData.images.length > 0) {
+        for (let i = 0; i < editFormData.images.length; i++) {
+          form.append("images", editFormData.images[i]);
+        }
+      }
+      
+      // Debug: Log what we're sending
+      console.log("Sending edit request for product:", editProductId);
+      console.log("FormData contents:");
+      for (let pair of form.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+      
+      const response = await fetch(`${BASE_URL}/api/products/${editProductId}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+        body: form,
+      });
+      
+      // Debug: Log response
+      console.log("Response status:", response.status);
+      
+      if (!response.ok) {
+        let errorMsg = "Failed to update product";
+        try {
+          const errorData = await response.json();
+          console.error("Error response:", errorData);
+          errorMsg = errorData.message || errorData.error || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
+      }
+      
+      toast.success("Product updated successfully!");
+      setShowEditModal(false);
+      setEditProductId(null);
+      loadProducts();
+    } catch (err: any) {
+      console.error("Edit product error:", err);
+      toast.error(err.message || "Failed to update product");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
   const totalRevenue = products.reduce((sum, p) => sum + (Number(p.price) * (Number(p.sales) || 0)), 0);
@@ -252,7 +362,7 @@ export default function ProductsPage() {
                     <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
                   </td>
                   <td className="px-4 py-2">
-                    <Button variant="outline" size="sm" className="flex-1 gap-1"><Edit className="h-3 w-3" /> Edit</Button>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -307,7 +417,7 @@ export default function ProductsPage() {
                   <span className="font-semibold">{product.stock} units</span>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" className="flex-1 gap-1"><Edit className="h-3 w-3" /> Edit</Button>
+                  <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -322,6 +432,76 @@ export default function ProductsPage() {
           ))}
         </div>
       )}
+            {/* Edit Product Modal */}
+            {showEditModal && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                  <CardHeader className="border-b">
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Edit Product</CardTitle>
+                      <Button variant="ghost" size="sm" onClick={() => setShowEditModal(false)}><X className="h-4 w-4" /></Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-title">Title *</Label>
+                      <Input id="edit-title" placeholder="E.g. Ergonomic Office Chair" value={editFormData.title} onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-description">Description</Label>
+                      <Textarea id="edit-description" placeholder="Product details..." value={editFormData.description} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })} rows={3} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-price">Price ($) *</Label>
+                        <Input id="edit-price" type="number" placeholder="0.00" value={editFormData.price} onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-stock">Stock Quantity *</Label>
+                        <Input id="edit-stock" type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-category">Category</Label>
+                      <Input id="edit-category" placeholder="E.g. Furniture" value={editFormData.category} onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })} />
+                    </div>
+                    {/* --- IMAGE UPLOAD --- */}
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-images">Product Images</Label>
+                      <Input id="edit-images" type="file" accept="image/*" multiple onChange={handleEditImageChange} />
+                      <div className="flex gap-2 flex-wrap pt-2">
+                        {editFormData.oldImages && editFormData.oldImages.length > 0 && editFormData.oldImages.map((img, idx) => (
+                          <div key={idx} className="h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                            <img
+                              src={img}
+                              className="h-full w-full object-cover"
+                              alt="Preview"
+                              onError={(e) => (e.target as any).style.display='none'}
+                            />
+                          </div>
+                        ))}
+                        {editFormData.images && editFormData.images.length > 0 && editFormData.images.map((file, idx) => (
+                          <div key={idx} className="h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                            <img
+                              src={URL.createObjectURL(file)}
+                              className="h-full w-full object-cover"
+                              alt="Preview"
+                              onError={(e) => (e.target as any).style.display='none'}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-6 border-t">
+                      <Button className="flex-1" onClick={handleEditProduct} disabled={editSubmitting}>
+                        {editSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
+                      </Button>
+                      <Button variant="outline" onClick={() => setShowEditModal(false)} disabled={editSubmitting}>Cancel</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
       {/* Add Product Modal */}
 
       {/* Add Product Modal */}

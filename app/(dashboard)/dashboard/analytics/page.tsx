@@ -2,39 +2,38 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+// import { Progress } from "@/components/ui/progress";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 // --- Export Sales API Helper ---
-const exportSales = async (params: {
-  reportType: string;
-  startDate: string;
-  endDate: string;
-}) => {
-  const BASE_URL = "http://127.0.0.1:5000";
-  const token =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWppZjNrOTEwMDAyd296eDdma3BidWhxIiwidXNlclR5cGUiOiJzZWxsZXIiLCJyb2xlIjoiU0VMTEVSIiwiaWF0IjoxNzY2NDg0NTEzLCJleHAiOjE3NjkwNzY1MTN9.Y82RBMLKkta1bb1Lj7ZsWjKdHky4AwQe1lg80_yjjCk";
-  const res = await fetch(
-    `${BASE_URL}/api/seller/orders/export-sales?reportType=${params.reportType}&startDate=${params.startDate}&endDate=${params.endDate}`,
-    {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-  return res.json();
-};
+// const exportSales = async (params: {
+//   reportType: string;
+//   startDate: string;
+//   endDate: string;
+// }) => {
+//   const BASE_URL = "http://127.0.0.1:5000";
+//   const token =
+//     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWppZjNrOTEwMDAyd296eDdma3BidWhxIiwidXNlclR5cGUiOiJzZWxsZXIiLCJyb2xlIjoiU0VMTEVSIiwiaWF0IjoxNzY2NDg0NTEzLCJleHAiOjE3NjkwNzY1MTN9.Y82RBMLKkta1bb1Lj7ZsWjKdHky4AwQe1lg80_yjjCk";
+//   const res = await fetch(
+//     `${BASE_URL}/api/seller/orders/export-sales?reportType=${params.reportType}&startDate=${params.startDate}&endDate=${params.endDate}`,
+//     {
+//       headers: {
+//         "Content-Type": "application/json",
+//         Authorization: `Bearer ${token}`,
+//       },
+//     }
+//   );
+//   return res.json();
+// };
 import {
-  DollarSign,
+  
   BarChart3,
-  PieChart,
+  
   Download,
   Filter,
   Calendar,
-  TrendingUp,
-  TrendingDown,
+  
 } from "lucide-react";
 
 const BASE_URL = "http://127.0.0.1:5000";
@@ -117,47 +116,47 @@ export default function AnalyticsPage() {
   };
 
   // CSV Download Helper
-  function downloadCSV() {
-    if (!exportData.length) return;
-    const headers = [
-      "Order ID",
-      "Order Date",
-      "Product Title",
-      "Product ID",
-      "Quantity Sold",
-      "Unit Price",
-      "Total Amount",
-      "Order Status",
-      "Payment Method",
-      "Customer Name",
-      "Customer Phone",
-      "Customer Email",
-      "Shipping Address",
-      "Shipping City",
-      "Shipping State",
-      "Shipping Pincode",
-      "Tracking Number",
-      "Estimated Delivery",
-    ];
-    const csvRows = [
-      headers.join(","),
-      ...exportData.map((row) =>
-        headers
-          .map((h) => `"${(row[h] ?? "").toString().replace(/"/g, '""')}"`)
-          .join(",")
-      ),
-    ];
-    const csvContent = csvRows.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sales_export_${Date.now()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
+  // function downloadCSV() {
+  //   if (!exportData.length) return;
+  //   const headers = [
+  //     "Order ID",
+  //     "Order Date",
+  //     "Product Title",
+  //     "Product ID",
+  //     "Quantity Sold",
+  //     "Unit Price",
+  //     "Total Amount",
+  //     "Order Status",
+  //     "Payment Method",
+  //     "Customer Name",
+  //     "Customer Phone",
+  //     "Customer Email",
+  //     "Shipping Address",
+  //     "Shipping City",
+  //     "Shipping State",
+  //     "Shipping Pincode",
+  //     "Tracking Number",
+  //     "Estimated Delivery",
+  //   ];
+  //   const csvRows = [
+  //     headers.join(","),
+  //     ...exportData.map((row) =>
+  //       headers
+  //         .map((h) => `"${(row[h] ?? "").toString().replace(/"/g, '""')}"`)
+  //         .join(",")
+  //     ),
+  //   ];
+  //   const csvContent = csvRows.join("\n");
+  //   const blob = new Blob([csvContent], { type: "text/csv" });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement("a");
+  //   a.href = url;
+  //   a.download = `sales_export_${Date.now()}.csv`;
+  //   document.body.appendChild(a);
+  //   a.click();
+  //   document.body.removeChild(a);
+  //   URL.revokeObjectURL(url);
+  // }
 
   if (loading)
     return (
