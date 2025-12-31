@@ -11,7 +11,8 @@ import { toast } from "sonner";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Image } from "lucide-react";
+import { Loader2, Image as LucideImage } from "lucide-react";
+import Image from "next/image";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
@@ -45,7 +46,7 @@ export default function AdminProductsPage() {
   // Stats
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
-  const totalRevenue = products.reduce((sum, p) => sum + (Number(p.price) * (Number((p as any).sales) || 0)), 0);
+  const totalRevenue = products.reduce((sum, p) => sum + (Number(p.price) * (Number((p as { sales?: number }).sales) || 0)), 0);
 
   useEffect(() => {
     fetchSellers();
@@ -64,11 +65,11 @@ export default function AdminProductsPage() {
     try {
       const res = await api.get("/api/users/all");
       const sellersOnly = Array.isArray(res)
-        ? res.filter((u: any) => u.role === "SELLER")
-        : (res.users || []).filter((u: any) => u.role === "SELLER");
+        ? res.filter((u: { role: string }) => u.role === "SELLER")
+        : (res.users || []).filter((u: { role: string }) => u.role === "SELLER");
       setSellers(sellersOnly);
       if (sellersOnly.length > 0) setSelectedSeller(sellersOnly[0].id);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load sellers");
     } finally {
       setLoadingSellers(false);
@@ -80,7 +81,7 @@ export default function AdminProductsPage() {
     try {
       const res = await api.get(`/api/admin/sellers/${sellerId}/products`);
       setProducts(Array.isArray(res) ? res : res.products || []);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load products");
       setProducts([]);
     } finally {
@@ -93,7 +94,7 @@ export default function AdminProductsPage() {
       await api.put(`/api/admin/products/${productId}/inactive`);
       toast.success("Product marked as inactive");
       fetchProducts(selectedSeller);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to inactivate product");
     }
   };
@@ -179,10 +180,19 @@ export default function AdminProductsPage() {
                 <tr key={product.id} className="hover:bg-muted/20">
                   <td className="px-4 py-2">
                     {product.images && product.images.length > 0 ? (
-                      <img src={product.images[0]} alt={product.title} className="h-12 w-12 object-cover rounded" onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }} />
+                      <Image
+                        src={product.images[0]}
+                        alt={product.title || "Product image"}
+                        width={48}
+                        height={48}
+                        className="h-12 w-12 object-cover rounded"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image';
+                        }}
+                      />
                     ) : (
                       <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
-                        <Image className="h-6 w-6 text-muted-foreground/50" />
+                        <LucideImage className="h-6 w-6 text-muted-foreground/50" />
                       </div>
                     )}
                   </td>
@@ -211,9 +221,11 @@ export default function AdminProductsPage() {
             <Card key={product.id} className="overflow-hidden flex flex-col">
               <div className="relative h-48 w-full bg-muted">
                 {product.images && product.images.length > 0 ? (
-                  <img 
-                    src={product.images[0]} 
-                    alt={product.title} 
+                  <Image
+                    src={product.images[0]}
+                    alt={product.title || "Product image"}
+                    width={400}
+                    height={192}
                     className="h-full w-full object-cover transition-transform hover:scale-105"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = "https://placehold.co/400x300?text=No+Image";
@@ -221,7 +233,7 @@ export default function AdminProductsPage() {
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <Image className="h-12 w-12 text-muted-foreground/50" />
+                    <LucideImage className="h-12 w-12 text-muted-foreground/50" />
                   </div>
                 )}
                 <Badge 

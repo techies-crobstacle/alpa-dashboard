@@ -161,7 +161,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token");
 			const decoded = token ? decodeJWT(token) : null;
-			setRole(decoded?.role || null);
+			setRole(typeof decoded?.role === 'string' ? decoded.role : null);
 		}
 	}, []);
 

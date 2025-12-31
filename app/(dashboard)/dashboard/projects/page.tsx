@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Image } from "lucide-react";
+import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 
 // --- CONFIGURATION ---
@@ -38,7 +39,26 @@ const fetchProducts = async () => {
   return response.json();
 };
 
-const addProduct = async (productData: any) => {
+type Product = {
+  id: string;
+  title: string;
+  description?: string;
+  price: number;
+  stock: number;
+  category?: string;
+  images: string[];
+  status?: string;
+  sales?: number;
+};
+
+const addProduct = async (productData: {
+  title: string;
+  description: string;
+  price: string;
+  stock: string;
+  category: string;
+  images: File[];
+}) => {
   const token = getAuthToken();
   if (!token) throw new Error("No authentication token found. Please log in.");
   const form = new FormData();
@@ -76,7 +96,7 @@ const deleteProduct = async (productId: string) => {
 };
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -119,8 +139,8 @@ export default function ProductsPage() {
       setLoading(true);
       const data = await fetchProducts();
       setProducts(data.products || []);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to load products");
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -146,7 +166,7 @@ export default function ProductsPage() {
       setShowAddModal(false);
       setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [] });
       loadProducts();
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to add product");
     } finally {
       setSubmitting(false);
@@ -159,7 +179,7 @@ export default function ProductsPage() {
       await deleteProduct(productId);
       toast.success("Product deleted!");
       loadProducts();
-    } catch (error: any) {
+    } catch {
       toast.error("Delete failed");
     }
   };
@@ -201,12 +221,12 @@ export default function ProductsPage() {
         oldImages: prod.images || [],
       });
       setShowEditModal(true);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load product");
+    } catch (err) {
+      toast.error((err as Error).message || "Failed to load product");
     }
   };
 
- const handleEditProduct = async () => {
+  const handleEditProduct = async () => {
     if (!editProductId) return;
     if (!editFormData.title || !editFormData.price || !editFormData.stock) {
       toast.error("Please fill in all required fields");
@@ -221,21 +241,18 @@ export default function ProductsPage() {
       form.append("price", String(editFormData.price));
       form.append("stock", String(editFormData.stock));
       form.append("category", editFormData.category.trim());
-      
       // Only append images if new images are selected
       if (editFormData.images && editFormData.images.length > 0) {
         for (let i = 0; i < editFormData.images.length; i++) {
           form.append("images", editFormData.images[i]);
         }
       }
-      
       // Debug: Log what we're sending
       console.log("Sending edit request for product:", editProductId);
       console.log("FormData contents:");
-      for (let pair of form.entries()) {
+      for (const pair of form.entries()) {
         console.log(pair[0], pair[1]);
       }
-      
       const response = await fetch(`${BASE_URL}/api/products/${editProductId}`, {
         method: "PUT",
         headers: {
@@ -243,10 +260,8 @@ export default function ProductsPage() {
         },
         body: form,
       });
-      
       // Debug: Log response
       console.log("Response status:", response.status);
-      
       if (!response.ok) {
         let errorMsg = "Failed to update product";
         try {
@@ -256,14 +271,14 @@ export default function ProductsPage() {
         } catch {}
         throw new Error(errorMsg);
       }
-      
       toast.success("Product updated successfully!");
       setShowEditModal(false);
       setEditProductId(null);
       loadProducts();
-    } catch (err: any) {
-      console.error("Edit product error:", err);
-      toast.error(err.message || "Failed to update product");
+    } catch (err: unknown) {
+      const error = err as Error;
+      console.error("Edit product error:", error);
+      toast.error(error.message || "Failed to update product");
     } finally {
       setEditSubmitting(false);
     }
@@ -347,10 +362,27 @@ export default function ProductsPage() {
                 <tr key={product.id} className="hover:bg-muted/20">
                   <td className="px-4 py-2">
                     {product.images && product.images.length > 0 ? (
-                      <img src={product.images[0]} alt={product.title} className="h-12 w-12 object-cover rounded" onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }} />
+                      <Image
+                        src={product.images[0]}
+                        alt={product.title}
+                        width={48}
+                        height={48}
+                        className="h-12 w-12 object-cover rounded"
+                        onError={e => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://placehold.co/100x100?text=No+Image';
+                        }}
+                        unoptimized
+                      />
                     ) : (
                       <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
-                        <Image className="h-6 w-6 text-muted-foreground/50" />
+                        <Image
+                          src="/placeholder.svg"
+                          alt="No image"
+                          width={24}
+                          height={24}
+                          className="h-6 w-6 text-muted-foreground/50"
+                        />
                       </div>
                     )}
                   </td>
@@ -383,17 +415,27 @@ export default function ProductsPage() {
             <Card key={product.id} className="overflow-hidden flex flex-col">
               <div className="relative h-48 w-full bg-muted">
                 {product.images && product.images.length > 0 ? (
-                  <img 
-                    src={product.images[0]} 
-                    alt={product.title} 
+                  <Image
+                    src={product.images[0]}
+                    alt={product.title}
+                    width={400}
+                    height={192}
                     className="h-full w-full object-cover transition-transform hover:scale-105"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "https://placehold.co/400x300?text=No+Image";
+                    onError={e => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = 'https://placehold.co/400x300?text=No+Image';
                     }}
+                    unoptimized
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <Image className="h-12 w-12 text-muted-foreground/50" />
+                    <Image
+                      src="/placeholder.svg"
+                      alt="No image"
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 text-muted-foreground/50"
+                    />
                   </div>
                 )}
                 <Badge 
@@ -472,21 +514,25 @@ export default function ProductsPage() {
                       <div className="flex gap-2 flex-wrap pt-2">
                         {editFormData.oldImages && editFormData.oldImages.length > 0 && editFormData.oldImages.map((img, idx) => (
                           <div key={idx} className="h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
-                            <img
+                            <Image
                               src={img}
                               className="h-full w-full object-cover"
                               alt="Preview"
-                              onError={(e) => (e.target as any).style.display='none'}
+                              width={80}
+                              height={80}
+                              onError={(e) => (e.target as HTMLImageElement).style.display='none'}
                             />
                           </div>
                         ))}
                         {editFormData.images && editFormData.images.length > 0 && editFormData.images.map((file, idx) => (
                           <div key={idx} className="h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
-                            <img
+                            <Image
                               src={URL.createObjectURL(file)}
                               className="h-full w-full object-cover"
                               alt="Preview"
-                              onError={(e) => (e.target as any).style.display='none'}
+                              width={80}
+                              height={80}
+                              onError={(e) => (e.target as HTMLImageElement).style.display='none'}
                             />
                           </div>
                         ))}
@@ -545,11 +591,13 @@ export default function ProductsPage() {
                 <div className="flex gap-2 flex-wrap pt-2">
                   {formData.images && formData.images.length > 0 && formData.images.map((file, idx) => (
                     <div key={idx} className="h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
-                      <img
+                      <Image
                         src={URL.createObjectURL(file)}
                         className="h-full w-full object-cover"
                         alt="Preview"
-                        onError={(e) => (e.target as any).style.display='none'}
+                        width={80}
+                        height={80}
+                        onError={(e) => (e.target as HTMLImageElement).style.display='none'}
                       />
                     </div>
                   ))}

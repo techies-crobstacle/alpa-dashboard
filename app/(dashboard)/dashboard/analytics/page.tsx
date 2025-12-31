@@ -45,16 +45,36 @@ const getAuthHeaders = () => {
   };
 };
 
+type Analytics = {
+  monthlySales?: number[];
+  topProducts?: Array<{
+    productId: string;
+    title: string;
+    quantitySold: number;
+    revenue: number;
+  }>;
+  period?: {
+    startDate?: string;
+    endDate?: string;
+  };
+  totalRevenue?: number;
+  totalOrders?: number;
+  totalItemsSold?: number;
+  averageOrderValue?: number;
+  statusBreakdown?: Record<string, number>;
+};
+type ExportRow = Record<string, string | number | null | undefined>;
+
 export default function AnalyticsPage() {
   // All hooks at top level
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [exportParams, setExportParams] = useState({
     reportType: "summary",
     startDate: "",
     endDate: "",
   });
-  const [exportData, setExportData] = useState<any[]>([]);
+  const [exportData] = useState<ExportRow[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportError, setExportError] = useState("");
   const [showExportFilters, setShowExportFilters] = useState(false);
@@ -75,7 +95,7 @@ export default function AnalyticsPage() {
       });
       const data = await res.json();
       setAnalytics(data.analytics || null);
-    } catch (error) {
+    } catch {
       setAnalytics(null);
     } finally {
       setLoading(false);
@@ -108,7 +128,7 @@ export default function AnalyticsPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
       setExportError("");
-    } catch (err: any) {
+    } catch {
       setExportError("Failed to fetch export data.");
     } finally {
       setExportLoading(false);
@@ -218,7 +238,7 @@ export default function AnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {exportData.map((row: any, idx: number) => (
+                    {exportData.map((row, idx: number) => (
                       <tr
                         key={idx}
                         className="border-b hover:bg-muted/50 transition-colors"
@@ -262,7 +282,7 @@ export default function AnalyticsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {exportData.map((row: any, idx: number) => (
+                    {exportData.map((row, idx: number) => (
                       <tr
                         key={idx}
                         className="border-b hover:bg-muted/50 transition-colors"
@@ -593,7 +613,7 @@ export default function AnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {analytics.topProducts?.map((product: any) => (
+                {analytics.topProducts?.map((product) => (
                   <tr key={product.productId} className="border-b">
                     <td className="py-2 px-4">{product.title}</td>
                     <td className="py-2 px-4">{product.quantitySold}</td>

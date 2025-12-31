@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, Truck, Loader2, RefreshCcw, X } from "lucide-react";
+import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
  
 import { toast } from "sonner";
@@ -24,12 +25,31 @@ const getAuthHeaders = () => {
   };
 };
 
+type OrderItem = {
+  product: {
+    images?: string[];
+    title?: string;
+  };
+  title?: string;
+  quantity: number;
+};
+type Order = {
+  id: string;
+  createdAt: string;
+  customerName?: string;
+  status: string;
+  items?: OrderItem[];
+  totalAmount: number;
+  trackingNumber?: string;
+  estimatedDelivery?: string;
+};
+
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTrackingOrder, setActiveTrackingOrder] = useState<any | null>(null);
+  const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
- const [layout, setLayout] = useState<'table' | 'card'>("card");
+  const [layout, setLayout] = useState<'table' | 'card'>("card");
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -41,7 +61,7 @@ export default function OrdersPage() {
       const res = await fetch(`${BASE_URL}/api/seller/orders`, { headers: getAuthHeaders() });
       const data = await res.json();
       setOrders(data.orders || []);
-    } catch (error) {
+    } catch {
       toast.error("Failed to load orders");
     } finally {
       setLoading(false);
@@ -52,14 +72,14 @@ export default function OrdersPage() {
   const updateStatus = async (orderId: string, newStatus: string) => {
     try {
       const res = await fetch(`${BASE_URL}/api/seller/orders/update-status/${orderId}`, {
-        method: "PUT", // or PUT depending on your backend
+        method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) throw new Error();
       toast.success(`Order marked as ${newStatus}`);
       fetchOrders();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update status");
     }
   };
@@ -69,7 +89,7 @@ export default function OrdersPage() {
     if (!activeTrackingOrder) return;
     try {
       const res = await fetch(`${BASE_URL}/api/seller/orders/tracking/${activeTrackingOrder.id}`, {
-        method: "PUT", // or PUT
+        method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify(trackingData),
       });
@@ -78,7 +98,7 @@ export default function OrdersPage() {
       setActiveTrackingOrder(null);
       setTrackingData({ trackingNumber: "", estimatedDelivery: "" });
       fetchOrders();
-    } catch (err) {
+    } catch {
       toast.error("Failed to update tracking");
     }
   };
@@ -134,13 +154,16 @@ export default function OrdersPage() {
                   <div className="space-y-2">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider">Order Items</Label>
                     <div className="text-sm space-y-1">
-                      {order.items?.map((item: any, i: number) => (
+                      {order.items?.map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
                           {item.product?.images?.[0] && (
-                            <img
+                            <Image
                               src={item.product.images[0]}
-                              alt={item.product.title}
+                              alt={item.product.title || "Product image"}
+                              width={40}
+                              height={40}
                               className="w-10 h-10 object-cover rounded"
+                              unoptimized
                             />
                           )}
                           <span>{item.product?.title || item.title} <span className="text-muted-foreground">x {item.quantity}</span></span>

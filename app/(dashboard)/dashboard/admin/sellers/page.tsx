@@ -13,11 +13,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Search, MoreHorizontal, Check, X as XIcon, Building2, Store, User, Mail, Phone, Briefcase, Package, Tag, Calendar, MapPin, Banknote, Flag, Globe } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, Check, X as XIcon, Building2, Store, User, Mail, Phone, Briefcase, Package, Tag, Calendar, MapPin, Banknote, Flag, Globe } from "lucide-react";
 // Helper for icons
 const iconClass = "inline-block mr-2 text-muted-foreground";
 import { api } from "@/lib/api";
@@ -56,7 +54,6 @@ export default function SellersPage() {
 
   useEffect(() => {
     fetchSellers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchSellers = async () => {
@@ -64,7 +61,7 @@ export default function SellersPage() {
     try {
       const res = await api.get("/api/admin/sellers");
       setSellers(res.sellers || []);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load sellers");
       setSellers([]);
     } finally {
@@ -77,7 +74,7 @@ export default function SellersPage() {
       await api.post(`/api/admin/sellers/${sellerId}/approve`, {});
       toast.success("Seller approved successfully");
       fetchSellers();
-    } catch (err) {
+    } catch {
       toast.error("Failed to approve seller");
     }
   };
@@ -87,7 +84,7 @@ export default function SellersPage() {
       await api.post(`/api/admin/sellers/${sellerId}/reject`, {});
       toast.success("Seller rejected");
       fetchSellers();
-    } catch (err) {
+    } catch {
       toast.error("Failed to reject seller");
     }
   };
@@ -97,7 +94,7 @@ export default function SellersPage() {
       await api.post(`/api/admin/sellers/${sellerId}/activate`, {});
       toast.success("Seller activated");
       fetchSellers();
-    } catch (err) {
+    } catch {
       toast.error("Failed to activate seller");
     }
   };
@@ -107,7 +104,7 @@ export default function SellersPage() {
       await api.post(`/api/admin/sellers/${sellerId}/cultural-approval`, {});
       toast.success("Cultural approval granted");
       fetchSellers();
-    } catch (err) {
+    } catch {
       toast.error("Failed to grant cultural approval");
     }
   };

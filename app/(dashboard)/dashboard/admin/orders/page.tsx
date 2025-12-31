@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, Truck ,Loader2 } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
@@ -18,14 +19,34 @@ type Seller = {
   email: string;
 };
 
+type OrderItem = {
+  product?: {
+    title?: string;
+    images?: string[];
+  };
+  title?: string;
+  quantity: number;
+};
+
+type Order = {
+  id: string;
+  createdAt?: string;
+  customerName?: string;
+  status?: string;
+  items?: OrderItem[];
+  totalAmount?: number;
+  trackingNumber?: string;
+  estimatedDelivery?: string;
+};
+
 export default function AdminOrdersPage() {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<string>("");
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingSellers, setLoadingSellers] = useState(true);
-  const [activeTrackingOrder, setActiveTrackingOrder] = useState<any | null>(null);
-  const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
+  const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
+  const [trackingData, setTrackingData] = useState<{ trackingNumber: string; estimatedDelivery: string }>({ trackingNumber: "", estimatedDelivery: "" });
 
   useEffect(() => {
     fetchSellers();
@@ -44,11 +65,11 @@ export default function AdminOrdersPage() {
     try {
       const res = await api.get("/api/users/all");
       const sellersOnly = Array.isArray(res)
-        ? res.filter((u: any) => u.role === "SELLER")
-        : (res.users || []).filter((u: any) => u.role === "SELLER");
+        ? res.filter((u: { role: string }) => u.role === "SELLER")
+        : (res.users || []).filter((u: { role: string }) => u.role === "SELLER");
       setSellers(sellersOnly);
       if (sellersOnly.length > 0) setSelectedSeller(sellersOnly[0].id);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load sellers");
     } finally {
       setLoadingSellers(false);
@@ -60,7 +81,7 @@ export default function AdminOrdersPage() {
     try {
       const res = await api.get(`/api/admin/orders/by-seller/${sellerId}`);
       setOrders(Array.isArray(res) ? res : res.orders || []);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to load orders");
       setOrders([]);
     } finally {
@@ -69,6 +90,7 @@ export default function AdminOrdersPage() {
   };
 
   // Optionally, add tracking update logic if admin can update tracking
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const submitTracking = async () => {
     if (!activeTrackingOrder) return;
     try {
@@ -77,7 +99,7 @@ export default function AdminOrdersPage() {
       setActiveTrackingOrder(null);
       setTrackingData({ trackingNumber: "", estimatedDelivery: "" });
       fetchOrders(selectedSeller);
-    } catch (err) {
+    } catch {
       toast.error("Failed to update tracking");
     }
   };
@@ -145,12 +167,14 @@ export default function AdminOrdersPage() {
                   <div className="space-y-2">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider">Order Items</Label>
                     <div className="text-sm space-y-1">
-                      {order.items?.map((item: any, i: number) => (
+                      {order.items?.map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
                           {item.product?.images?.[0] && (
-                            <img
+                            <Image
                               src={item.product.images[0]}
-                              alt={item.product.title}
+                              alt={item.product.title || "Product image"}
+                              width={40}
+                              height={40}
                               className="w-10 h-10 object-cover rounded"
                             />
                           )}

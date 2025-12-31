@@ -43,26 +43,25 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
     }
 
     return response.json();
-  } catch (error: any) {
+  } catch (error) {
+    const err = error as Error;
     // Handle network errors
-    if (error.message === "Failed to fetch") {
+    if (err.message === "Failed to fetch") {
       throw new Error("Network error. Please check your connection and ensure the server is running.");
     }
-    throw error;
+    throw err;
   }
 };
 
 // Convenience methods
 export const api = {
   get: (endpoint: string) => apiClient(endpoint, { method: "GET" }),
-  
-  post: (endpoint: string, data?: any) => 
+  post: <T = unknown>(endpoint: string, data?: T) => 
     apiClient(endpoint, {
       method: "POST",
       body: JSON.stringify(data),
     }),
-  
-  put: (endpoint: string, data?: any) => 
+  put: <T = unknown>(endpoint: string, data?: T) => 
     apiClient(endpoint, {
       method: "PUT",
       body: JSON.stringify(data),

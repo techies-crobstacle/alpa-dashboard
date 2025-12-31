@@ -26,10 +26,19 @@ import { ThemeToggle } from "@/components/theme-toggle";
 			if (typeof window !== "undefined") {
 				const token = localStorage.getItem("alpa_token");
 				const decoded = token ? decodeJWT(token) : null;
-				setUser({
-					name: decoded?.name && decoded.name.trim() !== "" ? decoded.name : (decoded?.email || "Unknown"),
-					email: decoded?.email || "",
-				});
+				let name = "Unknown";
+				let email = "";
+				type Decoded = { name?: string; email?: string };
+				const safeDecoded: Decoded = (decoded && typeof decoded === 'object') ? decoded as Decoded : {};
+				if (typeof safeDecoded.name === 'string' && safeDecoded.name.trim() !== "") {
+					name = safeDecoded.name;
+				} else if (typeof safeDecoded.email === 'string') {
+					name = safeDecoded.email;
+				}
+				if (typeof safeDecoded.email === 'string') {
+					email = safeDecoded.email;
+				}
+				setUser({ name, email });
 			}
 		}, []);
 

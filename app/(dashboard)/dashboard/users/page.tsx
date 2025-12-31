@@ -15,12 +15,11 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
-	Search,
-	Plus,
-	MoreHorizontal,
-	Mail,
-	Phone,
-	Filter,
+  Search,
+  Plus,
+  MoreHorizontal,
+  Mail,
+  Phone,
 } from "lucide-react";
 import {
 	DropdownMenu,
@@ -76,7 +75,6 @@ export default function UsersPage() {
     }
     setIsAdmin(true);
     // Show the base URL for debugging
-    // @ts-ignore
     console.log("[DEBUG] API Base URL:", process.env.NEXT_PUBLIC_API_URL);
     api.get("/api/users/all")
       .then((res) => {
@@ -122,8 +120,8 @@ export default function UsersPage() {
 
   // Sorting logic
   filteredUsers = filteredUsers.sort((a, b) => {
-    let aValue: any = a[sortBy as keyof User];
-    let bValue: any = b[sortBy as keyof User];
+    let aValue: string | number | boolean | undefined = a[sortBy as keyof User] as string | number | boolean | undefined;
+    let bValue: string | number | boolean | undefined = b[sortBy as keyof User] as string | number | boolean | undefined;
     // For string fields, compare case-insensitive
     if (typeof aValue === "string" && typeof bValue === "string") {
       aValue = aValue.toLowerCase();
@@ -131,11 +129,11 @@ export default function UsersPage() {
     }
     // For date, convert to timestamp
     if (sortBy === "createdAt") {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
+      aValue = new Date(aValue as string).getTime();
+      bValue = new Date(bValue as string).getTime();
     }
-    if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
-    if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
+    if (aValue! < bValue!) return sortOrder === "asc" ? -1 : 1;
+    if (aValue! > bValue!) return sortOrder === "asc" ? 1 : -1;
     return 0;
   });
 
