@@ -195,7 +195,7 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       {/* Tabs Carousel */}
-      <div className="flex gap-2 mb-4">
+      {/* <div className="flex gap-2 mb-4">
         {[
           { key: "overview", label: "Overview" },
           { key: "analysis", label: "Analysis" },
@@ -212,7 +212,7 @@ export default function AnalyticsPage() {
             {tab.label}
           </Button>
         ))}
-      </div>
+      </div> */}
       {/* Export Sales Data Button and Filters */}
       
 

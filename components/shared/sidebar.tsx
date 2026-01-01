@@ -49,6 +49,12 @@ const baseSidebarGroups = [
 		title: "Pages",
 		items: [
 			{
+				title: "Report",
+				href: "/dashboard/report",
+				icon: Users,
+				badge: "12",
+			},
+			{
 				title: "Users",
 				href: "/dashboard/users",
 				icon: Users,
@@ -72,12 +78,19 @@ const baseSidebarGroups = [
 				icon: FolderKanban,
 				badge: null,
 			},
-			// {
-			// 	title: "Documents",
-			// 	href: "/dashboard/documents",
-			// 	icon: FileText,
-			// 	badge: null,
-			// },
+			{
+				title: "Categories",
+				href: "/dashboard/admin/categories",
+				icon: FolderKanban,
+				badge: null,
+			},
+			{
+				title: "Coupons",
+				href: "/dashboard/admin/coupon",
+				icon: FolderKanban,
+				badge: null,
+			},
+			
 			{
 				title: "Orders",
 				href: "/dashboard/orders",
@@ -91,17 +104,36 @@ const baseSidebarGroups = [
 				badge: "3",
 			},
 			{
+				title: "Invoices",
+				href: "/dashboard/invoice",
+				icon: ListOrdered,
+				badge: "4",
+			},
+			{
 				title: "Auth Pages",
 				href: "/dashboard/auth",
 				icon: LogIn,
 				badge: null,
 			},
 			{
-				title: "Error Pages",
-				href: "/dashboard/errors",
-				icon: AlertCircle,
+				title: "Profile",
+				href: "/dashboard/customer/profile",
+				icon: ListOrdered,
 				badge: null,
 			},
+			{
+				title: "My Orders",
+				href: "/dashboard/customer/orders",
+				icon: ListOrdered,
+				badge: null,
+			},
+
+			// {
+			// 	title: "Error Pages",
+			// 	href: "/dashboard/errors",
+			// 	icon: AlertCircle,
+			// 	badge: null,
+			// },
 		],
 	},
 	{
@@ -176,19 +208,27 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/users", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth" ].includes(item.href)) {
+			if (["/dashboard/users", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ].includes(item.href)) {
 				return role === "ADMIN";
 			}
+			// Seller and customer can see /dashboard/orders
+			// if (["/dashboard/orders"].includes(item.href)) {
+			// 	return role === "SELLER" || role === "CUSTOMER";
+			// }
 			// Seller-only pages
-			if (["/dashboard/projects","/dashboard/orders"].includes(item.href)) {
+			if (["/dashboard/projects", "/dashboard/orders"].includes(item.href)) {
 				return role === "SELLER";
+			}
+			// Customer-only pages
+			if (["/dashboard/customer/orders", "/dashboard/customer/profile", "/dashboard/settings"].includes(item.href)) {
+				return role === "CUSTOMER";
 			}
 			// Role page: visible to all roles
 			if (["/dashboard/role"].includes(item.href)) {
 				return true;
 			}
 			// Users, Analytics, Settings, Dashboard: visible to admin and seller
-			if ([ "/dashboard/analytics", "/dashboard/settings", "/dashboard"].includes(item.href)) {
+			if ([ "/dashboard/analytics", "/dashboard/settings", "/dashboard", "/dashboard/invoice","/dashboard/report"].includes(item.href)) {
 				return role === "ADMIN" || role === "SELLER";
 			}
 			// Default: visible to all

@@ -124,6 +124,7 @@ function ProjectsPage() {
     images: [] as File[],
     oldImages: [] as string[],
   });
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
 
   useEffect(() => {
     // Check if token exists before loading
@@ -290,6 +291,17 @@ function ProjectsPage() {
   const totalStock = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
   const totalRevenue = products.reduce((sum, p) => sum + (Number(p.price) * (Number(p.sales) || 0)), 0);
 
+  // Get unique categories from products
+  const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
+
+  // Filtered products by search and category
+  const filteredProducts = products.filter(
+    (p) =>
+      (p.title.toLowerCase().includes(search.toLowerCase()) ||
+        (p.category?.toLowerCase().includes(search.toLowerCase()))) &&
+      (categoryFilter ? p.category === categoryFilter : true)
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -313,6 +325,17 @@ function ProjectsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {/* Category Filter Dropdown */}
+          <select
+            className="border rounded px-3 py-2 w-[180px]"
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
           <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
           <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
           <Button className="gap-2" onClick={() => setShowAddModal(true)}>
@@ -351,7 +374,7 @@ function ProjectsPage() {
         <div className="flex items-center justify-center min-h-[200px]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : products.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || (p.category?.toLowerCase().includes(search.toLowerCase()))).length === 0 ? (
+      ) : filteredProducts.length === 0 ? (
         <Card className="col-span-full text-center py-12">No products found.</Card>
       ) : layout === 'table' ? (
         <div className="overflow-x-auto rounded-lg border bg-background">
@@ -368,7 +391,7 @@ function ProjectsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {products.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || (p.category?.toLowerCase().includes(search.toLowerCase()))).map((product) => (
+              {filteredProducts.map((product) => (
                 <React.Fragment key={product.id}>
                 <tr className="hover:bg-muted/20">
                   <td className="px-4 py-2">
@@ -479,7 +502,7 @@ function ProjectsPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {products.filter(p => p.title.toLowerCase().includes(search.toLowerCase()) || (p.category?.toLowerCase().includes(search.toLowerCase()))).map((product) => (
+          {filteredProducts.map((product) => (
             <div key={product.id} className="flex flex-col">
               <Card className="overflow-hidden flex flex-col">
                 <div className="relative h-48 w-full bg-muted">

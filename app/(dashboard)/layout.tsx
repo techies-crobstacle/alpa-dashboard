@@ -2,11 +2,41 @@
 import { Sidebar } from "@/components/shared/sidebar";
 import Topbar from "@/components/shared/topbar";
 
-export default function DashboardLayout({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { Loader2 } from "lucide-react";
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+	const router = useRouter();
+	const pathname = usePathname();
+	const [checking, setChecking] = useState(true);
+
+	useEffect(() => {
+		// Only run on client
+		if (typeof window !== "undefined") {
+			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
+			if (token) {
+				try {
+					const payload = JSON.parse(atob(token.split(".")[1]));
+					if (payload.role === "customer" && !pathname.startsWith("/dashboard/customer/profile")) {
+						router.replace("/dashboard/customer/profile");
+						return;
+					}
+				} catch (e) {
+					// Ignore decoding errors
+				}
+			}
+		}
+		setChecking(false);
+	}, [router, pathname]);
+
+	if (checking) {
+		return (
+			<div className="flex h-screen w-screen items-center justify-center">
+				<Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+			</div>
+		);
+	}
 
 	return (
 		<div className="relative flex h-screen overflow-hidden bg-background">

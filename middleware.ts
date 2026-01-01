@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("alpa_token")?.value || request.cookies.get("auth_token")?.value;
   const url = request.nextUrl;
@@ -13,6 +14,22 @@ export function middleware(request: NextRequest) {
   // If accessing login and already logged in, redirect to dashboard
   if (url.pathname === "/login" && token) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // If token exists, decode and check role
+  if (token) {
+    try {
+      // Decode JWT payload
+      const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
+      if (payload.role === "customer") {
+        // If already on profile, don't redirect again
+        if (!url.pathname.startsWith("/dashboard/customer/profile")) {
+          return NextResponse.redirect(new URL("/dashboard/customer/profile", request.url));
+        }
+      }
+    } catch (e) {
+      // Ignore decoding errors
+    }
   }
 
   return NextResponse.next();

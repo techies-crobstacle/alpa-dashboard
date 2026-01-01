@@ -46,9 +46,32 @@ const stats = [
 	},
 ];
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
-	return (
+	const router = useRouter();
+	const [checking, setChecking] = useState(true);
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
+			if (token) {
+				try {
+					const payload = JSON.parse(atob(token.split(".")[1]));
+					if (payload.role === "customer") {
+						router.replace("/dashboard/customer/profile");
+					}
+				} catch (e) {
+					// Ignore decoding errors
+				}
+			}
+		}
+		setChecking(false);
+	}, [router]);
+	if (checking) {
+		return <div className="flex h-screen w-screen items-center justify-center"><span>Loading...</span></div>;
+	}
+   return (
 		<div className="space-y-8">
 			{/* Header Section */}
 			<div className="flex flex-col gap-2">
@@ -167,5 +190,4 @@ export default function DashboardPage() {
 				</Card>
 			</div>
 		</div>
-	);
-}
+	)};
