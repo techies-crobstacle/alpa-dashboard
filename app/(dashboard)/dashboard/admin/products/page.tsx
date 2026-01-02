@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 // import { Input } from "@/components/ui/input";
 // import { Label } from "@/components/ui/label";
 // import { Textarea } from "@/components/ui/textarea";
-import { Package, DollarSign} from "lucide-react";
+import { Package, DollarSign, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 // --- CONFIGURATION ---
@@ -18,6 +18,9 @@ import { Loader2, Image as LucideImage } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+
+// Add edit price modal dependencies
+import { Input } from "@/components/ui/input";
 
 type Seller = {
   id: string;
@@ -53,6 +56,41 @@ export default function AdminProductsPage() {
 
   // Accordion state for expanded product details
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+
+  // Edit price modal state
+  const [editPriceProductId, setEditPriceProductId] = useState<string | null>(null);
+  const [editPriceValue, setEditPriceValue] = useState<string>("");
+  const [editPriceLoading, setEditPriceLoading] = useState(false);
+
+  const openEditPrice = (product: Product) => {
+    setEditPriceProductId(product.id);
+    setEditPriceValue(product.price.toString());
+  };
+
+  const closeEditPrice = () => {
+    setEditPriceProductId(null);
+    setEditPriceValue("");
+  };
+
+  const handleEditPrice = async () => {
+    if (!editPriceProductId) return;
+    const newPrice = parseFloat(editPriceValue);
+    if (isNaN(newPrice) || newPrice < 0) {
+      toast.error("Please enter a valid price.");
+      return;
+    }
+    setEditPriceLoading(true);
+    try {
+      await api.put(`/api/admin/products/${editPriceProductId}/price`, { price: newPrice });
+      toast.success("Price updated successfully");
+      closeEditPrice();
+      fetchProducts(selectedSeller);
+    } catch {
+      toast.error("Failed to update price");
+    } finally {
+      setEditPriceLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchSellers();
@@ -205,33 +243,44 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-2 font-semibold">{product.title}</td>
                     <td className="px-4 py-2">{product.category}</td>
-                    <td className="px-4 py-2">${product.price}</td>
+                    <td className="px-4 py-2 flex items-center gap-1">
+                      ${product.price}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 p-0 ml-1"
+                        aria-label="Edit Price"
+                        onClick={() => openEditPrice(product)}
+                      >
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </td>
                     <td className="px-4 py-2">{product.stock}</td>
                     <td className="px-4 py-2">
                       <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
                     </td>
                     <td className="px-4 py-2 flex gap-1">
-                      {product.status !== 'INACTIVE' && (
-                        <Button variant="outline" size="sm" className="gap-1" onClick={() => handleInactivate(product.id)}>
-                          Mark Inactive
-                        </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1"
-                        onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
-                      >
-                        {expandedProductId === product.id ? (
-                          <>
-                            <span>&#x2715;</span> Hide
-                          </>
-                        ) : (
-                          <>
-                            <span>&#128065;</span> View
-                          </>
+                        {product.status !== 'INACTIVE' && (
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => handleInactivate(product.id)}>
+                            Mark Inactive
+                          </Button>
                         )}
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                        >
+                          {expandedProductId === product.id ? (
+                            <>
+                              <span>&#x2715;</span> Hide
+                            </>
+                          ) : (
+                            <>
+                              <span>&#128065;</span> View
+                            </>
+                          )}
+                        </Button>
                     </td>
                   </tr>
                   {expandedProductId === product.id && (
@@ -320,22 +369,55 @@ export default function AdminProductsPage() {
                   <span className="font-semibold">{product.stock} units</span>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  {product.status !== "INACTIVE" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-1"
-                      onClick={() => handleInactivate(product.id)}
-                    >
-                      Mark Inactive
-                    </Button>
-                  )}
+                    {product.status !== "INACTIVE" && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1"
+                          onClick={() => handleInactivate(product.id)}
+                        >
+                          Mark Inactive
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 gap-1"
+                          onClick={() => openEditPrice(product)}
+                        >
+                          Edit Price
+                        </Button>
+                      </>
+                    )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
-    </div>
+    {/* Edit Price Modal */}
+    {editPriceProductId && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-lg p-6 w-full max-w-xs space-y-4">
+          <h2 className="text-lg font-bold mb-2">Edit Product Price</h2>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={editPriceValue}
+            onChange={e => setEditPriceValue(e.target.value)}
+            className="w-full"
+            disabled={editPriceLoading}
+          />
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={closeEditPrice} disabled={editPriceLoading}>Cancel</Button>
+            <Button onClick={handleEditPrice} disabled={editPriceLoading}>
+              {editPriceLoading ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>  
   );
 }
