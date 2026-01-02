@@ -255,9 +255,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 			<div className="flex h-16 items-center border-b px-6 justify-between">
 				{!isCollapsed && (
 					<Link href="/dashboard" className="flex items-center py-4 gap-3 group">
-						<div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-							<LayoutDashboard className="w-4 h-4 text-primary-foreground" />
-						</div>
+						<img src="/navbarLogo.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-primary p-1" />
 						<span className="text-xl font-bold group-hover:text-primary transition-colors">
 							Dashboard
 						</span>
@@ -265,7 +263,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 				)}
 				{isCollapsed && (
 					<div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
-						<LayoutDashboard className="w-4 h-4 text-primary-foreground" />
+						<img src="/navbarLogo.png" alt="Logo" className="w-6 h-6 object-contain" />
 					</div>
 				)}
 				<Button
