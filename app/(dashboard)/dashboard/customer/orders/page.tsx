@@ -1,4 +1,4 @@
-// "use client"
+"use client";
 // import React, { useEffect, useState } from "react";
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import { Badge } from "@/components/ui/badge";
@@ -161,6 +161,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp, Package, CheckCircle2, XCircle } from "lucide-react";
 import Image from "next/image";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
 
 const BASE_URL = "https://alpa-be-1.onrender.com";
 
@@ -260,6 +262,7 @@ const CustomerOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -281,6 +284,26 @@ const CustomerOrdersPage = () => {
       setOrders([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    setCancellingOrderId(orderId);
+    try {
+      await api.put(`/api/orders/cancel/${orderId}`);
+      toast.success("Order cancelled successfully.");
+      fetchOrders();
+    } catch (err: any) {
+      // Log the error for debugging
+      console.error('Cancel order error:', err);
+      if (err.response) {
+        const errorText = await err.response.text();
+        toast.error(`API Error: ${errorText}`);
+      } else {
+        toast.error(err.message || "Failed to cancel order.");
+      }
+    } finally {
+      setCancellingOrderId(null);
     }
   };
 
@@ -387,6 +410,18 @@ const CustomerOrdersPage = () => {
                                 <span className="text-sm text-muted-foreground">Shipping Address</span>
                                 <p className="font-medium">{order.shippingAddress}</p>
                               </div>
+                              {/* Cancel Order Button */}
+                              {order.status.toLowerCase() === "pending" && (
+                                <Button
+                                  variant="destructive"
+                                  disabled={cancellingOrderId === order.id}
+                                  onClick={() => handleCancelOrder(order.id)}
+                                  className="mt-4"
+                                >
+                                  {cancellingOrderId === order.id && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+                                  Cancel Order
+                                </Button>
+                              )}
                             </CardContent>
                           </Card>
 

@@ -16,11 +16,12 @@ const isAuthError = (status: number) => {
 // Main API client
 export const apiClient = async (endpoint: string, options: RequestInit = {}) => {
   const token = getAuthToken();
-  
+  // Only set Content-Type if there is a body
+  const hasBody = !!options.body;
   const config: RequestInit = {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
       ...(token && { "Authorization": `Bearer ${token}` }),
       ...options.headers,
     },
