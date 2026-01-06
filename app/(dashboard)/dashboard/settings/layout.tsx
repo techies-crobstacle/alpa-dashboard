@@ -69,10 +69,10 @@ const sidebarNavItems = [
 		title: "Display",
 		href: "/dashboard/settings/display",
 	},
-	{
-		title: "API Keys",
-		href: "/dashboard/settings/api-keys",
-	},
+	// {
+	// 	title: "API Keys",
+	// 	href: "/dashboard/settings/api-keys",
+	// },
 ];
 
 interface SettingsLayoutProps {

@@ -73,18 +73,52 @@ import { ThemeToggle } from "@/components/theme-toggle";
 					{/* Theme Toggle */}
 					<ThemeToggle />
 
-					{/* Notifications */}
-					<Button
-						variant="ghost"
-						size="icon"
-						className="relative h-9 w-9 hover:bg-muted transition-colors"
-						aria-label="Notifications"
-					>
-						<Bell className="h-4 w-4" />
-						<span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-medium">
-							3
-						</span>
-					</Button>
+					{/* Notifications Dropdown */}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="relative h-9 w-9 hover:bg-muted transition-colors"
+								aria-label="Notifications"
+							>
+								<Bell className="h-4 w-4" />
+								<span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-medium">
+									3
+								</span>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent className="w-80 p-2" align="end" forceMount>
+							<DropdownMenuLabel className="font-semibold p-3">Notifications</DropdownMenuLabel>
+							<DropdownMenuSeparator />
+							{/* Example notifications, replace with dynamic data */}
+							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
+								<div className="flex items-center gap-2">
+									<span className="inline-block w-2 h-2 rounded-full bg-primary" />
+									<span className="font-medium">Order #1234 shipped</span>
+									<span className="ml-auto text-xs text-muted-foreground">2m ago</span>
+								</div>
+							</DropdownMenuItem>
+							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
+								<div className="flex items-center gap-2">
+									<span className="inline-block w-2 h-2 rounded-full bg-secondary" />
+									<span className="font-medium">New message from support</span>
+									<span className="ml-auto text-xs text-muted-foreground">10m ago</span>
+								</div>
+							</DropdownMenuItem>
+							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
+								<div className="flex items-center gap-2">
+									<span className="inline-block w-2 h-2 rounded-full bg-destructive" />
+									<span className="font-medium">Payment failed</span>
+									<span className="ml-auto text-xs text-muted-foreground">1h ago</span>
+								</div>
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem className="p-3 cursor-pointer text-primary hover:bg-muted rounded-md transition-colors">
+								<span className="flex items-center gap-2">View all notifications</span>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 
 					{/* Profile */}
 					<DropdownMenu>

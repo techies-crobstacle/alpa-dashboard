@@ -224,7 +224,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 				return role === "CUSTOMER";
 			}
 			// Role page: visible to all roles
-			if (["/dashboard/role"].includes(item.href)) {
+			if (["/dashboard/role", "/dashboard/settings"].includes(item.href)) {
 				return true;
 			}
 			// Users, Analytics, Settings, Dashboard: visible to admin and seller
