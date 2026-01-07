@@ -18,6 +18,8 @@ import {
 	LogIn,
 	AlertCircle,
 	ListOrdered,
+	icons,
+	Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -41,6 +43,12 @@ const baseSidebarGroups = [
 				title: "Settings",
 				href: "/dashboard/settings",
 				icon: Settings,
+				badge: null,
+			},
+			{
+				title: "Profile",
+				href: "/dashboard/customer/profile",
+				icon: ListOrdered,
 				badge: null,
 			},
 		],
@@ -115,16 +123,17 @@ const baseSidebarGroups = [
 				icon: LogIn,
 				badge: null,
 			},
-			{
-				title: "Profile",
-				href: "/dashboard/customer/profile",
-				icon: ListOrdered,
-				badge: null,
-			},
+			
 			{
 				title: "My Orders",
 				href: "/dashboard/customer/orders",
 				icon: ListOrdered,
+				badge: null,
+			},
+			{
+				title: "My Wishlist",
+				href: "/dashboard/customer/wishList",
+				icon: Heart,
 				badge: null,
 			},
 
@@ -139,6 +148,14 @@ const baseSidebarGroups = [
 	{
 		title: "Others",
 		items: [
+			
+			{
+				title: "Return Policy",
+				href: "/dashboard/customer/returnPolicy",
+				icon: AlertCircle,
+				badge: null,
+			}
+			
 			// {
 			// 	title: "Messages",
 			// 	href: "/dashboard/messages",
@@ -220,11 +237,11 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 				return role === "SELLER";
 			}
 			// Customer-only pages
-			if (["/dashboard/customer/orders", "/dashboard/customer/profile", "/dashboard/settings"].includes(item.href)) {
+			if (["/dashboard/customer/orders", , "/dashboard/settings", "/dashboard/customer/returnPolicy","/dashboard/customer/wishList"].includes(item.href)) {
 				return role === "CUSTOMER";
 			}
 			// Role page: visible to all roles
-			if (["/dashboard/role", "/dashboard/settings"].includes(item.href)) {
+			if (["/dashboard/role", "/dashboard/settings","/dashboard/customer/profile"].includes(item.href)) {
 				return true;
 			}
 			// Users, Analytics, Settings, Dashboard: visible to admin and seller
