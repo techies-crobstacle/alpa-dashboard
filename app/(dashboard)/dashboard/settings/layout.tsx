@@ -31,7 +31,7 @@ function SettingsSidebarNav({
 					key={item.href}
 					href={item.href}
 					className={cn(
-						"w-full",
+						"w-50",
 						"inline-flex items-center justify-start whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors",
 						"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
 						pathname === item.href
@@ -65,10 +65,10 @@ const sidebarNavItems = [
 		title: "Notifications",
 		href: "/dashboard/settings/notifications",
 	},
-	{
-		title: "Display",
-		href: "/dashboard/settings/display",
-	},
+	// {
+	// 	title: "Display",
+	// 	href: "/dashboard/settings/display",
+	// },
 	// {
 	// 	title: "API Keys",
 	// 	href: "/dashboard/settings/api-keys",

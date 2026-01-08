@@ -28,6 +28,12 @@ const baseSidebarGroups = [
 		title: "General",
 		items: [
 			{
+				title: "Profile",
+				href: "/dashboard/customer/profile",
+				icon: ListOrdered,
+				badge: null,
+			},
+			{
 				title: "Dashboard",
 				href: "/dashboard",
 				icon: LayoutDashboard,
@@ -45,12 +51,7 @@ const baseSidebarGroups = [
 				icon: Settings,
 				badge: null,
 			},
-			{
-				title: "Profile",
-				href: "/dashboard/customer/profile",
-				icon: ListOrdered,
-				badge: null,
-			},
+			
 		],
 	},
 	{
@@ -237,7 +238,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 				return role === "SELLER";
 			}
 			// Customer-only pages
-			if (["/dashboard/customer/orders", , "/dashboard/settings", "/dashboard/customer/returnPolicy","/dashboard/customer/wishList"].includes(item.href)) {
+			if (["/dashboard/customer/orders", "/dashboard/customer/returnPolicy", "/dashboard/customer/wishList"].includes(item.href)) {
 				return role === "CUSTOMER";
 			}
 			// Role page: visible to all roles
@@ -245,7 +246,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 				return true;
 			}
 			// Users, Analytics, Settings, Dashboard: visible to admin and seller
-			if ([ "/dashboard/analytics", "/dashboard/settings", "/dashboard", "/dashboard/invoice","/dashboard/report"].includes(item.href)) {
+			if ([ "/dashboard/analytics", "/dashboard", "/dashboard/invoice","/dashboard/report"].includes(item.href)) {
 				return role === "ADMIN" || role === "SELLER";
 			}
 			// Default: visible to all

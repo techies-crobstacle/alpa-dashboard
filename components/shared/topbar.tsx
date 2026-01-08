@@ -1,8 +1,10 @@
 "use client";
+import Link from "next/link";
 import { Bell, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
+import { api } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,26 +21,58 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 
 	export default function Topbar() {
-		const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+		const [user, setUser] = useState<{ name: string; email: string; profileImage?: string } | null>(null);
+		const [isLoading, setIsLoading] = useState(true);
 		const router = useRouter();
 
-		useEffect(() => {
-			if (typeof window !== "undefined") {
+		// Fetch profile data from API
+		const fetchProfileData = async () => {
+			try {
+				setIsLoading(true);
+				const data = await api.get('/api/profile');
+				console.log('Profile API Response:', data); // Debug log
+				
+				const profile = data.profile || data;
+				
+				// Try different common field names for profile image
+				const profileImageUrl = profile.profileImage || profile.profile_image || profile.avatar || profile.picture || profile.image || '';
+				
+				setUser({
+					name: profile.name || 'Unknown User',
+					email: profile.email || '',
+					profileImage: profileImageUrl,
+				});
+			} catch (error) {
+				console.error('Failed to fetch profile:', error);
+				
+				// Fallback to JWT data if API fails
 				const token = localStorage.getItem("alpa_token");
 				const decoded = token ? decodeJWT(token) : null;
 				let name = "Unknown";
 				let email = "";
+				
 				type Decoded = { name?: string; email?: string };
 				const safeDecoded: Decoded = (decoded && typeof decoded === 'object') ? decoded as Decoded : {};
+				
 				if (typeof safeDecoded.name === 'string' && safeDecoded.name.trim() !== "") {
 					name = safeDecoded.name;
 				} else if (typeof safeDecoded.email === 'string') {
 					name = safeDecoded.email;
 				}
+				
 				if (typeof safeDecoded.email === 'string') {
 					email = safeDecoded.email;
 				}
+				
 				setUser({ name, email });
+			} finally {
+				setIsLoading(false);
+			}
+		};
+
+		useEffect(() => {
+			if (typeof window !== "undefined") {
+				fetchProfileData();
 			}
 		}, []);
 
@@ -115,7 +149,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem className="p-3 cursor-pointer text-primary hover:bg-muted rounded-md transition-colors">
-								<span className="flex items-center gap-2">View all notifications</span>
+								<Link href="/dashboard/settings/notifications"><span className="flex items-center gap-2">View all notifications</span></Link>
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
@@ -126,11 +160,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 							<Button
 								variant="ghost"
 								className="relative h-9 w-9 rounded-full hover:bg-muted transition-colors"
+								disabled={isLoading}
 							>
 								<Avatar className="h-8 w-8 ring-2 ring-background">
-									<AvatarImage src="/avatar.png" alt={user?.name || "User"} />
+									<AvatarImage src={user?.profileImage || "/avatar.png"} alt={user?.name || "User"} />
 									<AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-										{user?.name ? user.name.split(" ").map(n => n[0]).join("") : "UN"}
+										{isLoading ? "..." : (user?.name ? user.name.split(" ").map(n => n[0]).join("") : "UN")}
 									</AvatarFallback>
 								</Avatar>
 							</Button>
@@ -139,25 +174,31 @@ import { ThemeToggle } from "@/components/theme-toggle";
 							<DropdownMenuLabel className="font-normal p-3">
 								<div className="flex items-center gap-3">
 									<Avatar className="h-10 w-10">
-										<AvatarImage src="/avatar.png" alt={user?.name || "User"} />
+										<AvatarImage src={user?.profileImage || "/avatar.png"} alt={user?.name || "User"} />
 										<AvatarFallback className="bg-primary text-primary-foreground">
-											{user?.name ? user.name.split(" ").map(n => n[0]).join("") : "UN"}
+											{isLoading ? "..." : (user?.name ? user.name.split(" ").map(n => n[0]).join("") : "UN")}
 										</AvatarFallback>
 									</Avatar>
 									<div className="flex flex-col space-y-1">
-										<p className="text-sm font-medium leading-none">{user?.name || "Unknown"}</p>
+										<p className="text-sm font-medium leading-none">
+											{isLoading ? "Loading..." : (user?.name || "Unknown")}
+										</p>
 										<p className="text-xs leading-none text-muted-foreground">
-											{user?.email || ""}
+											{isLoading ? "..." : (user?.email || "")}
 										</p>
 									</div>
 								</div>
 							</DropdownMenuLabel>
 							<DropdownMenuSeparator className="my-2" />
 							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<span className="flex items-center gap-2">👤 Profile</span>
+								<Link href="/dashboard/settings" className="flex items-center gap-2 w-full">
+									<span>👤 Profile</span>
+								</Link>
 							</DropdownMenuItem>
 							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<span className="flex items-center gap-2">⚙️ Settings</span>
+								<Link href="/dashboard/settings" className="flex items-center gap-2 w-full">
+									<span>⚙️ Settings</span>
+								</Link>
 							</DropdownMenuItem>
 							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
 								<span className="flex items-center gap-2">💳 Billing</span>
