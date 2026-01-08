@@ -139,7 +139,7 @@ export default function SettingsPage() {
 					console.log("Submitting with file:", selectedFile.name);
 					
 					// Use fetch directly for FormData
-					const response = await fetch('http://127.0.0.1:5000/api/profile', {
+					const response = await fetch('https://alpa-be-1.onrender.com/api/profile', {
 						method: 'PUT',
 						body: formData,
 						headers: {
