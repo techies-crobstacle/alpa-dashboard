@@ -1,6 +1,5 @@
 "use client";
 
-
 import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/api";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -138,21 +137,8 @@ export default function SettingsPage() {
 					
 					console.log("Submitting with file:", selectedFile.name);
 					
-					// Use fetch directly for FormData
-					const response = await fetch('https://alpa-be-1.onrender.com/api/profile', {
-						method: 'PUT',
-						body: formData,
-						headers: {
-							'Authorization': `Bearer ${localStorage.getItem("auth_token")}`,
-						},
-					});
-
-					if (!response.ok) {
-						const errorData = await response.json().catch(() => ({}));
-						throw new Error(errorData.message || errorData.error || `Request failed (${response.status})`);
-					}
-
-					return await response.json();
+					// Use api.put without Content-Type header for FormData
+					return await api.put('/api/profile', formData);
 				} else {
 					// No file, use regular JSON payload
 					const updatePayload = {
@@ -189,7 +175,7 @@ export default function SettingsPage() {
 			let errorMessage = "Failed to update profile";
 			let errorDescription = "Please try again later.";
 			
-			if (err.message?.includes("Authentication")) {
+			if (err.message?.includes("Invalid or expired token") || err.message?.includes("Authentication")) {
 				errorMessage = "Authentication required";
 				errorDescription = "Please log in again.";
 			} else if (err.message?.includes("validation")) {

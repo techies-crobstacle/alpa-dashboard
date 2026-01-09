@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
-import { Bell, Search } from "lucide-react";
+import { Bell, Search, ShoppingCart, Package, DollarSign, UserCheck, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
 import { api } from "@/lib/api";
+import { formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +20,57 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AppSwitcher } from "./app-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+type Notification = {
+	id: string;
+	title: string;
+	message: string;
+	type: string;
+	isRead: boolean;
+	createdAt: string;
+	metadata?: Record<string, any>;
+};
+
+const getNotificationIcon = (type: string) => {
+	switch (type) {
+		case "NEW_ORDER":
+			return <ShoppingCart className="h-4 w-4 text-blue-600" />;
+		case "ORDER_UPDATE":
+			return <Package className="h-4 w-4 text-orange-600" />;
+		case "PAYMENT":
+			return <DollarSign className="h-4 w-4 text-green-600" />;
+		case "USER_ACTION":
+			return <UserCheck className="h-4 w-4 text-purple-600" />;
+		case "ALERT":
+			return <AlertCircle className="h-4 w-4 text-red-600" />;
+		default:
+			return <Bell className="h-4 w-4 text-gray-600" />;
+	}
+};
 
 	export default function Topbar() {
 		const [user, setUser] = useState<{ name: string; email: string; profileImage?: string } | null>(null);
 		const [isLoading, setIsLoading] = useState(true);
+		const [notifications, setNotifications] = useState<Notification[]>([]);
+		const [unreadCount, setUnreadCount] = useState(0);
+		const [notificationsLoading, setNotificationsLoading] = useState(false);
 		const router = useRouter();
+
+		// Fetch notifications from API
+		const fetchNotifications = async () => {
+			try {
+				setNotificationsLoading(true);
+				const response = await api.get('/api/notifications?limit=4');
+				setNotifications(response.notifications || []);
+				setUnreadCount(response.unreadCount || 0);
+			} catch (error) {
+				console.error('Failed to fetch notifications:', error);
+				// Set fallback data on error
+				setNotifications([]);
+				setUnreadCount(0);
+			} finally {
+				setNotificationsLoading(false);
+			}
+		};
 
 		// Fetch profile data from API
 		const fetchProfileData = async () => {
@@ -73,6 +120,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 		useEffect(() => {
 			if (typeof window !== "undefined") {
 				fetchProfileData();
+				fetchNotifications();
 			}
 		}, []);
 
@@ -117,36 +165,73 @@ import { ThemeToggle } from "@/components/theme-toggle";
 								aria-label="Notifications"
 							>
 								<Bell className="h-4 w-4" />
-								<span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-medium">
-									3
-								</span>
+								{unreadCount > 0 && (
+									<span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-medium">
+										{unreadCount > 99 ? '99+' : unreadCount}
+									</span>
+								)}
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent className="w-80 p-2" align="end" forceMount>
-							<DropdownMenuLabel className="font-semibold p-3">Notifications</DropdownMenuLabel>
+							<DropdownMenuLabel className="font-semibold p-3 flex items-center justify-between">
+								<span>Notifications</span>
+								{unreadCount > 0 && (
+									<span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+										{unreadCount} new
+									</span>
+								)}
+							</DropdownMenuLabel>
 							<DropdownMenuSeparator />
-							{/* Example notifications, replace with dynamic data */}
-							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<div className="flex items-center gap-2">
-									<span className="inline-block w-2 h-2 rounded-full bg-primary" />
-									<span className="font-medium">Order #1234 shipped</span>
-									<span className="ml-auto text-xs text-muted-foreground">2m ago</span>
+							
+							{notificationsLoading ? (
+								<div className="p-4 text-center text-sm text-muted-foreground">
+									Loading notifications...
 								</div>
-							</DropdownMenuItem>
-							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<div className="flex items-center gap-2">
-									<span className="inline-block w-2 h-2 rounded-full bg-secondary" />
-									<span className="font-medium">New message from support</span>
-									<span className="ml-auto text-xs text-muted-foreground">10m ago</span>
+							) : notifications.length === 0 ? (
+								<div className="p-4 text-center text-sm text-muted-foreground">
+									<Bell className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+									No new notifications
 								</div>
-							</DropdownMenuItem>
-							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<div className="flex items-center gap-2">
-									<span className="inline-block w-2 h-2 rounded-full bg-destructive" />
-									<span className="font-medium">Payment failed</span>
-									<span className="ml-auto text-xs text-muted-foreground">1h ago</span>
-								</div>
-							</DropdownMenuItem>
+							) : (
+								<>
+									{notifications.map((notification) => (
+										<DropdownMenuItem 
+											key={notification.id} 
+											className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors"
+										>
+											<div className="flex items-start gap-3">
+												<div className="flex-shrink-0 mt-0.5">
+													{getNotificationIcon(notification.type)}
+												</div>
+												<div className="flex-1 min-w-0">
+													<div className="flex items-center gap-2">
+														<span className="font-medium text-sm line-clamp-1">
+															{notification.title}
+														</span>
+														{!notification.isRead && (
+															<span className="inline-block w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+														)}
+													</div>
+													<p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+														{notification.message}
+													</p>
+													<div className="flex items-center justify-between mt-2">
+														<span className="text-xs text-muted-foreground">
+															{formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+														</span>
+														{notification.metadata?.totalAmount && (
+															<span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+																${notification.metadata.totalAmount}
+															</span>
+														)}
+													</div>
+												</div>
+											</div>
+										</DropdownMenuItem>
+									))}
+								</>
+							)}
+							
 							<DropdownMenuSeparator />
 							<DropdownMenuItem className="p-3 cursor-pointer text-primary hover:bg-muted rounded-md transition-colors">
 								<Link href="/dashboard/settings/notifications"><span className="flex items-center gap-2">View all notifications</span></Link>

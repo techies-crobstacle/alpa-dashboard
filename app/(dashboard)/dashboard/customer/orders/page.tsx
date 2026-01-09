@@ -7,7 +7,7 @@
 // import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp } from "lucide-react";
 // import Image from "next/image";
 
-// const BASE_URL = "https://alpa-be-1.onrender.com";
+// const BASE_URL = "http://127.0.0.1:5000";
 
 // function getAuthHeaders() {
 //   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -164,7 +164,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
-const BASE_URL = "https://alpa-be-1.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 function getAuthHeaders() {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -193,7 +193,7 @@ type Order = {
 };
 
 const OrderProgressTracker = ({ status }: { status: string }) => {
-  const statuses = ['pending', 'shipped', 'delivered'];
+  const statuses = ['pending', 'processing', 'shipped', 'delivered'];
   const isCancelled = status === 'cancelled';
   
   const getStatusIndex = (orderStatus: string) => {
@@ -233,7 +233,11 @@ const OrderProgressTracker = ({ status }: { status: string }) => {
         {statuses.map((statusName, index) => {
           const isActive = index <= currentIndex;
           const isCurrent = index === currentIndex;
-          
+          let icon = null;
+          if (statusName === 'pending') icon = <ClipboardList className="h-6 w-6" />;
+          else if (statusName === 'processing') icon = <Package className="h-6 w-6" />;
+          else if (statusName === 'shipped') icon = <Truck className="h-6 w-6" />;
+          else if (statusName === 'delivered') icon = <CheckCircle2 className="h-6 w-6" />;
           return (
             <div key={statusName} className="flex flex-col items-center flex-1">
               <div 
@@ -243,9 +247,7 @@ const OrderProgressTracker = ({ status }: { status: string }) => {
                     : 'bg-muted text-muted-foreground'
                 } ${isCurrent ? 'ring-4 ring-primary/20' : ''}`}
               >
-                {statusName === 'pending' && <ClipboardList className="h-6 w-6" />}
-                {statusName === 'shipped' && <Truck className="h-6 w-6" />}
-                {statusName === 'delivered' && <CheckCircle2 className="h-6 w-6" />}
+                {icon}
               </div>
               <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
                 {statusName.charAt(0).toUpperCase() + statusName.slice(1)}

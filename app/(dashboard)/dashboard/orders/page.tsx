@@ -14,7 +14,7 @@
  
 // import { toast } from "sonner";
 
-// const BASE_URL = "https://alpa-be-1.onrender.com";
+// const BASE_URL = "http://127.0.0.1:5000";
 
 // // --- API HELPERS ---
 // const getAuthHeaders = () => {
@@ -433,7 +433,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
  
 import { toast } from "sonner";
 
-const BASE_URL = "https://alpa-be-1.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 // --- API HELPERS ---
 const getAuthHeaders = () => {
@@ -611,6 +611,7 @@ export default function OrdersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="processing">Processing</SelectItem>
                         <SelectItem value="shipped">Shipped</SelectItem>
                         <SelectItem value="delivered">Delivered</SelectItem>
                         <SelectItem value="cancelled">Cancelled</SelectItem>
