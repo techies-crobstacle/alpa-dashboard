@@ -380,19 +380,53 @@ export default function DashboardPage() {
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
-			if (token) {
-				try {
-					const payload = JSON.parse(atob(token.split(".")[1]));
-					setUserRole(payload.role);
+			
+			if (!token) {
+				console.log("No token found, redirecting to login");
+				toast.error("Please login to continue");
+				setTimeout(() => router.push("/login"), 500);
+				setChecking(false);
+				return;
+			}
+			
+			try {
+				// Validate token format
+				const parts = token.split(".");
+				if (parts.length !== 3) {
+					throw new Error("Invalid token format");
+				}
+				
+				const payload = JSON.parse(atob(parts[1]));
+				console.log("User payload:", payload);
+				
+				// Check if token is expired
+				if (payload.exp && payload.exp * 1000 < Date.now()) {
+					console.warn("Token expired");
+					localStorage.removeItem("alpa_token");
+					localStorage.removeItem("auth_token");
+					toast.error("Session expired. Please login again.");
+					setTimeout(() => router.push("/login"), 500);
+					setChecking(false);
+					return;
+				}
+				
+				// Check user role - be flexible with case
+				const userRole = payload.role?.toLowerCase()?.trim();
+				console.log(`User role from token: "${userRole}"`);
+				
+				setUserRole(payload.role);
+				
+				// Allow seller and admin to view seller dashboard
+				const isSeller = userRole?.includes("seller");
+				const isAdmin = userRole?.includes("admin");
+				
+				if (isSeller || isAdmin) {
+					console.log(`User is ${isAdmin ? 'admin' : 'seller'}, loading dashboard`);
 					// Fetch notifications data
 					const fetchSlaData = async () => {
 						setLoadingSla(true);
 						try {
-							const response = await api.get("/api/seller/notifications", {
-								headers: {
-									Authorization: ""
-								}
-							});
+							const response = await api.get("/api/seller/notifications");
 							setSlaData(response);
 							// Initialize ackState for notifications
 							if (response.notifications) {
@@ -402,7 +436,8 @@ export default function DashboardPage() {
 								});
 								setAckState(ackInit);
 							}
-						} catch (error) {
+						} catch (error: any) {
+							console.error("Error loading notifications:", error);
 							setSlaData({
 								success: false,
 								notifications: [],
@@ -417,13 +452,24 @@ export default function DashboardPage() {
 							setLoadingSla(false);
 						}
 					};
-					fetchSlaData();
-				} catch (e) {
-					console.error("Token decode error:", e);
+					Promise.resolve().then(() => fetchSlaData());
+				} else {
+					console.error(`Access denied: user role is "${userRole}"`);
+					toast.error(`Unauthorized - Your role is: ${payload.role}. Seller or admin access required.`);
+					setTimeout(() => router.push("/dashboard/customer/profile"), 1000);
 				}
+				setChecking(false);
+			} catch (e) {
+				console.error("Token validation error:", e);
+				localStorage.removeItem("alpa_token");
+				localStorage.removeItem("auth_token");
+				toast.error("Invalid session. Please login again.");
+				setTimeout(() => router.push("/login"), 500);
+				setChecking(false);
 			}
+		} else {
+			setChecking(false);
 		}
-		setChecking(false);
 	}, [router]);
 
 	if (checking) {
