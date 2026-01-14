@@ -113,11 +113,11 @@ export default function LoginPage() {
 			// Redirect to dashboard based on user role
 			setTimeout(() => {
 				if (role === "admin") {
-					router.push("/dashboard");
+					router.push("/dashboard/admin/dashboard");
 				} else if (role === "seller") {
 					router.push("/dashboard");
 				} else {
-					router.push("/dashboard");
+					router.push("/dashboard/customer/profile");
 				}
 			}, 1000);
 

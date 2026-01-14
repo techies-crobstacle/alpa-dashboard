@@ -12,23 +12,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 	const [checking, setChecking] = useState(true);
 
 	useEffect(() => {
-		// Only run on client
+		// Only run on client to verify token exists
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
-			if (token) {
-				try {
-					const payload = JSON.parse(atob(token.split(".")[1]));
-					if (payload.role === "customer" && !pathname.startsWith("/dashboard/customer/profile")) {
-						router.replace("/dashboard/customer/profile");
-						return;
-					}
-				} catch (e) {
-					// Ignore decoding errors
-				}
+			if (!token) {
+				router.replace("/login");
+				return;
 			}
 		}
 		setChecking(false);
-	}, [router, pathname]);
+	}, [router]);
 
 	if (checking) {
 		return (

@@ -5,6 +5,7 @@
 // 	CreditCard,
 // 	DollarSign,
 // 	Users,
+// 	ChevronDown,
 // } from "lucide-react";
 // import { useEffect, useState } from "react";
 // import { toast } from "sonner";
@@ -50,13 +51,63 @@
 // 	},
 // ];
 
+// export default function DashboardPage() {
 // 	const router = useRouter();
 // 	const [checking, setChecking] = useState(true);
 // 	const [userRole, setUserRole] = useState<string | null>(null);
 // 	const [slaData, setSlaData] = useState<any>(null);
 // 	const [loadingSla, setLoadingSla] = useState(false);
-// 	// Track acknowledge loading and status for each notification
-// 	const [ackState, setAckState] = useState<Record<string, { loading: boolean; acknowledged: boolean }>>({});
+// 	const [sellers, setSellers] = useState<any[]>([]);
+// 	const [selectedSeller, setSelectedSeller] = useState<string>("");
+// 	const [loadingSellers, setLoadingSellers] = useState(false);
+
+// 	// Function to fetch sellers list
+// 	const fetchSellers = async () => {
+// 		setLoadingSellers(true);
+// 		try {
+// 			const res = await api.get("/api/users/all");
+// 			console.log("/api/users/all response:", res);
+// 			const sellersOnly = Array.isArray(res)
+// 				? res.filter((u) => u.role === "SELLER")
+// 				: (res.users || []).filter((u: { role: string; }) => u.role === "SELLER");
+// 			console.log("Filtered sellers:", sellersOnly);
+// 			setSellers(sellersOnly);
+// 			if (sellersOnly.length > 0) setSelectedSeller(sellersOnly[0].id);
+// 			else setSelectedSeller("");
+// 		} catch (err) {
+// 			toast.error("Failed to load sellers");
+// 			setSellers([]);
+// 			setSelectedSeller("");
+// 			console.error("Error fetching sellers:", err);
+// 		} finally {
+// 			setLoadingSellers(false);
+// 		}
+// 	};
+
+// 	// Function to fetch notifications for selected seller
+// 	const fetchSlaData = async (sellerId: string) => {
+// 		if (!sellerId) return;
+		
+// 		setLoadingSla(true);
+// 		try {
+// 			const response = await api.get(`/api/seller/notifications?sellerId=${sellerId}`);
+// 			setSlaData(response);
+// 		} catch (error) {
+// 			console.error("Failed to fetch SLA data:", error);
+// 			setSlaData({
+// 				success: false,
+// 				notifications: [],
+// 				summary: {
+// 					total: 0,
+// 					pending: 0,
+// 					overdue: 0,
+// 					critical: 0
+// 				}
+// 			});
+// 		} finally {
+// 			setLoadingSla(false);
+// 		}
+// 	};
 
 // 	useEffect(() => {
 // 		if (typeof window !== "undefined") {
@@ -65,36 +116,11 @@
 // 				try {
 // 					const payload = JSON.parse(atob(token.split(".")[1]));
 // 					setUserRole(payload.role);
-// 					// Fetch notifications data
-// 					const fetchSlaData = async () => {
-// 						setLoadingSla(true);
-// 						try {
-// 							const response = await api.get("/api/seller/notifications");
-// 							setSlaData(response);
-// 							// Initialize ackState for notifications
-// 							if (response.notifications) {
-// 								const ackInit: Record<string, { loading: boolean; acknowledged: boolean }> = {};
-// 								response.notifications.forEach((n: any) => {
-// 									ackInit[n.id] = { loading: false, acknowledged: !!n.acknowledged };
-// 								});
-// 								setAckState(ackInit);
-// 							}
-// 						} catch (error) {
-// 							setSlaData({
-// 								success: false,
-// 								notifications: [],
-// 								summary: {
-// 									total: 0,
-// 									pending: 0,
-// 									overdue: 0,
-// 									critical: 0
-// 								}
-// 							});
-// 						} finally {
-// 							setLoadingSla(false);
-// 						}
-// 					};
-// 					fetchSlaData();
+					
+// 					if (payload.role === "admin") {
+// 						// Fetch sellers list for admin
+// 						fetchSellers();
+// 					}
 // 				} catch (e) {
 // 					console.error("Token decode error:", e);
 // 				}
@@ -102,6 +128,13 @@
 // 		}
 // 		setChecking(false);
 // 	}, [router]);
+
+// 	// Fetch SLA data when seller is selected
+// 	useEffect(() => {
+// 		if (selectedSeller && userRole === "admin") {
+// 			fetchSlaData(selectedSeller);
+// 		}
+// 	}, [selectedSeller, userRole]);
 
 // 	if (checking) {
 // 		return <div className="flex h-screen w-screen items-center justify-center"><span>Loading...</span></div>;
@@ -151,15 +184,70 @@
 // 				{/* SLA Dashboard Card */}
 // 				<Card>
 // 					<CardHeader>
-// 						<CardTitle className="text-xl font-semibold">
-// 							SLA Dashboard
-// 						</CardTitle>
-// 						<p className="text-muted-foreground">
-// 							Service Level Agreement monitoring
-// 						</p>
+// 						<div className="flex items-start justify-between">
+// 							<div className="flex-1">
+// 								<CardTitle className="text-xl font-semibold">
+// 									SLA Dashboard
+// 								</CardTitle>
+// 								<p className="text-muted-foreground">
+// 									Service Level Agreement monitoring
+// 								</p>
+// 							</div>
+// 							<div className="flex items-center gap-2 ml-4">
+// 								<span className="text-sm text-muted-foreground">Select Seller:</span>
+// 								<div className="relative">
+// 									<select
+// 										value={selectedSeller}
+// 										onChange={(e) => setSelectedSeller(e.target.value)}
+// 										disabled={loadingSellers || sellers.length === 0}
+// 										style={{
+// 											minWidth: '200px',
+// 											padding: '8px 32px 8px 12px',
+// 											border: '1px solid #d1d5db',
+// 											borderRadius: '6px',
+// 											background: 'white',
+// 											appearance: 'none',
+// 											cursor: loadingSellers ? 'not-allowed' : 'pointer'
+// 										}}
+// 									>
+// 										<option value="">
+// 											{loadingSellers ? "Loading..." : sellers.length === 0 ? "No sellers available" : "Choose a seller"}
+// 										</option>
+// 										{sellers.map((seller) => (
+// 											<option key={seller.id} value={seller.id}>
+// 												{seller.name || seller.email || `Seller ${seller.id}`}
+// 											</option>
+// 										))}
+// 									</select>
+// 									<ChevronDown 
+// 										style={{
+// 											position: 'absolute',
+// 											right: '8px',
+// 											top: '50%',
+// 											transform: 'translateY(-50%)',
+// 											pointerEvents: 'none',
+// 											width: '16px',
+// 											height: '16px',
+// 											color: '#9CA3AF'
+// 										}}
+// 									/>
+// 								</div>
+// 								<div className="text-xs text-muted-foreground">
+// 									({sellers.length} sellers loaded)
+// 								</div>
+// 							</div>
+// 						</div>
 // 					</CardHeader>
 // 					<CardContent className="space-y-4">
-// 						{loadingSla ? (
+// 						{loadingSellers ? (
+// 							<div className="flex items-center justify-center p-8">
+// 								<span className="text-muted-foreground">Loading sellers...</span>
+// 							</div>
+// 						) : !selectedSeller ? (
+// 							<div className="flex items-center justify-center p-8">
+// 								<span className="text-muted-foreground">Please select a seller to view SLA data</span>
+// 							</div>
+// 						) : loadingSla ? (
 // 							<div className="flex items-center justify-center p-8">
 // 								<span className="text-muted-foreground">Loading SLA data...</span>
 // 							</div>
@@ -203,7 +291,7 @@
 // 												const isOverdue = notification.isOverdue;
 // 												const badgeColor = isOverdue ? "bg-red-500" : isHighPriority ? "bg-orange-500" : "bg-blue-500";
 // 												const bgColor = isOverdue ? "border-red-200 bg-red-50" : isHighPriority ? "border-orange-200 bg-orange-50" : "border-blue-200 bg-blue-50";
-// 												const ack = ackState[notification.id] || { loading: false, acknowledged: !!notification.acknowledged };
+												
 // 												return (
 // 													<div key={notification.id} className={`flex items-start gap-4 p-3 rounded-lg border ${bgColor}`}>
 // 														<div className={`w-2 h-2 rounded-full mt-2 ${badgeColor}`} />
@@ -230,25 +318,8 @@
 // 																		</span>
 // 																	</div>
 // 																</div>
-// 																<div className="flex flex-col items-end ml-2 gap-2">
-// 																	<span className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleDateString()}</span>
-// 																	<button
-// 																		className={`px-3 py-1 rounded text-xs font-medium border ${ack.acknowledged ? 'bg-green-100 text-green-700 border-green-300 cursor-default' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} disabled:opacity-60`}
-// 																		disabled={ack.loading || ack.acknowledged}
-// 																		onClick={async () => {
-// 																			setAckState((prev) => ({ ...prev, [notification.id]: { ...ack, loading: true } }));
-// 																			try {
-// 																				await api.patch(`/api/seller/notifications/${notification.id}/acknowledge`);
-// 																				toast.success("Notification acknowledged");
-// 																				setAckState((prev) => ({ ...prev, [notification.id]: { loading: false, acknowledged: true } }));
-// 																			} catch {
-// 																				toast.error("Failed to acknowledge notification");
-// 																				setAckState((prev) => ({ ...prev, [notification.id]: { ...ack, loading: false } }));
-// 																			}
-// 																		}}
-// 																	>
-// 																		{ack.loading ? 'Acknowledging...' : ack.acknowledged ? 'Acknowledged' : 'Acknowledge'}
-// 																	</button>
+// 																<div className="text-xs text-gray-500 ml-2">
+// 																	{new Date(notification.createdAt).toLocaleDateString()}
 // 																</div>
 // 															</div>
 // 														</div>
@@ -309,25 +380,25 @@
 // 					</CardContent>
 // 				</Card>
 // 			</div>
-// 		</div>	
-
-// );
+// 		</div>
+// 	);
 // }
 
 
 "use client";
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	Activity,
 	CreditCard,
 	DollarSign,
 	Users,
+	ChevronDown,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import UserListCard from "../UserListCard";
 
 const stats = [
 	{
@@ -374,64 +445,150 @@ export default function DashboardPage() {
 	const [userRole, setUserRole] = useState<string | null>(null);
 	const [slaData, setSlaData] = useState<any>(null);
 	const [loadingSla, setLoadingSla] = useState(false);
-	// Track acknowledge loading and status for each notification
-	const [ackState, setAckState] = useState<Record<string, { loading: boolean; acknowledged: boolean }>>({});
+	const [sellers, setSellers] = useState<any[]>([]);
+	const [selectedSeller, setSelectedSeller] = useState<string>("");
+	const [loadingSellers, setLoadingSellers] = useState(false);
 
+	// Function to fetch sellers list
+	const fetchSellers = async () => {
+		setLoadingSellers(true);
+		try {
+			const res = await api.get("/api/users/all");
+			console.log("API Response:", res);
+			
+			// Handle different response structures
+			let sellersOnly = [];
+			
+			if (Array.isArray(res)) {
+				// Response is directly an array
+				sellersOnly = res.filter((u) => u.role === "SELLER");
+			} else if (res.users && Array.isArray(res.users)) {
+				// Response has a 'users' property
+				sellersOnly = res.users.filter((u: any) => u.role === "SELLER");
+			} else if (res.data && Array.isArray(res.data)) {
+				// Response has a 'data' property
+				sellersOnly = res.data.filter((u: any) => u.role === "SELLER");
+			}
+			
+			console.log("Filtered sellers:", sellersOnly);
+			setSellers(sellersOnly);
+			
+			// Auto-select first seller if available
+			if (sellersOnly.length > 0) {
+				setSelectedSeller(sellersOnly[0].id);
+			} else {
+				setSelectedSeller("");
+				toast.info("No sellers found in the system");
+			}
+		} catch (err: any) {
+			console.error("Error fetching sellers:", err);
+			toast.error(err?.response?.data?.message || "Failed to load sellers");
+			setSellers([]);
+			setSelectedSeller("");
+		} finally {
+			setLoadingSellers(false);
+		}
+	};
+
+	// Function to fetch notifications for selected seller
+	const fetchSlaData = async (sellerId: string) => {
+		if (!sellerId) {
+			setSlaData(null);
+			return;
+		}
+		
+		setLoadingSla(true);
+		try {
+			console.log(`Fetching SLA data for seller: ${sellerId}`);
+			const response = await api.get(`/api/seller/notifications?sellerId=${sellerId}`);
+			console.log("SLA Response:", response);
+			
+			setSlaData(response);
+			
+			// Show success message if notifications exist
+			if (response?.notifications?.length > 0) {
+				toast.success(`Loaded ${response.notifications.length} notifications`);
+			}
+		} catch (error: any) {
+			console.error("Failed to fetch SLA data:", error);
+			toast.error(error?.response?.data?.message || "Failed to fetch SLA data");
+			
+			// Set empty state on error
+			setSlaData({
+				success: false,
+				notifications: [],
+				summary: {
+					total: 0,
+					pending: 0,
+					overdue: 0,
+					critical: 0
+				}
+			});
+		} finally {
+			setLoadingSla(false);
+		}
+	};
+
+	// Initial auth check
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
-			if (token) {
-				try {
-					const payload = JSON.parse(atob(token.split(".")[1]));
-					setUserRole(payload.role);
-					// Fetch notifications data
-					const fetchSlaData = async () => {
-						setLoadingSla(true);
-						try {
-							const response = await api.get("/api/seller/notifications");
-							setSlaData(response);
-							// Initialize ackState for notifications
-							if (response.notifications) {
-								const ackInit: Record<string, { loading: boolean; acknowledged: boolean }> = {};
-								response.notifications.forEach((n: any) => {
-									ackInit[n.id] = { loading: false, acknowledged: !!n.acknowledged };
-								});
-								setAckState(ackInit);
-							}
-						} catch (error) {
-							setSlaData({
-								success: false,
-								notifications: [],
-								summary: {
-									total: 0,
-									pending: 0,
-									overdue: 0,
-									critical: 0
-								}
-							});
-						} finally {
-							setLoadingSla(false);
-						}
-					};
-					fetchSlaData();
-				} catch (e) {
-					console.error("Token decode error:", e);
+			
+			if (!token) {
+				toast.error("Please login to continue");
+				router.push("/login");
+				return;
+			}
+			
+			try {
+				const payload = JSON.parse(atob(token.split(".")[1]));
+				console.log("User payload:", payload);
+				setUserRole(payload.role);
+				
+				// Only fetch sellers if user is admin
+				if (payload.role === "admin" || payload.role === "ADMIN") {
+					fetchSellers();
+				} else {
+					toast.error("Unauthorized access");
+					router.push("/");
 				}
+			} catch (e) {
+				console.error("Token decode error:", e);
+				toast.error("Invalid session. Please login again.");
+				router.push("/login");
 			}
 		}
 		setChecking(false);
 	}, [router]);
 
+	// Fetch SLA data when seller is selected
+	useEffect(() => {
+		if (selectedSeller && (userRole === "admin" || userRole === "ADMIN")) {
+			console.log(`Selected seller changed to: ${selectedSeller}`);
+			fetchSlaData(selectedSeller);
+		}
+	}, [selectedSeller, userRole]);
+
+	// Handle seller selection change
+	const handleSellerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+		const newSellerId = e.target.value;
+		console.log(`Seller selection changed to: ${newSellerId}`);
+		setSelectedSeller(newSellerId);
+	};
+
 	if (checking) {
 		return (
 			<div className="flex h-screen w-screen items-center justify-center">
-				<span>Loading...</span>
+				<div className="text-center">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+					<span className="text-lg">Loading...</span>
+				</div>
 			</div>
 		);
 	}
 
 	return (
-		<div className="space-y-8 p-8">
+		<div className="space-y-8">
 			{/* Header Section */}
 			<div className="flex flex-col gap-2">
 				<h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
@@ -444,6 +601,7 @@ export default function DashboardPage() {
 			<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 				{stats.map((stat) => {
 					const Icon = stat.icon;
+
 					return (
 						<Card
 							key={stat.title}
@@ -473,20 +631,79 @@ export default function DashboardPage() {
 				{/* SLA Dashboard Card */}
 				<Card>
 					<CardHeader>
-						<CardTitle className="text-xl font-semibold">
-							SLA Dashboard
-						</CardTitle>
-						<p className="text-muted-foreground">
-							Service Level Agreement monitoring
-						</p>
+                        <div>
+						<div className="flex items-start justify-between">
+							<div className="flex-1">
+								<CardTitle className="text-xl font-semibold">
+									SLA Dashboard
+								</CardTitle>
+								<p className="text-muted-foreground mt-1">
+									Service Level Agreement monitoring
+								</p>
+							</div>
+							<div className="flex items-center gap-2 ml-4">
+								<span className="text-sm text-muted-foreground whitespace-nowrap">
+									Select Seller:
+								</span>
+								<div className="relative">
+									<select
+										value={selectedSeller}
+										onChange={handleSellerChange}
+										disabled={loadingSellers || sellers.length === 0}
+										className="min-w-[200px] px-3 py-2 pr-8 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none"
+									>
+										<option value="">
+											{loadingSellers 
+												? "Loading sellers..." 
+												: sellers.length === 0 
+													? "No sellers available" 
+													: "Choose a seller"}
+										</option>
+										{sellers.map((seller) => (
+											<option key={seller.id} value={seller.id}>
+												{seller.name || seller.email || `Seller ${seller.id.slice(0, 8)}`}
+											</option>
+										))}
+									</select>
+									<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4 text-gray-400" />
+								</div>
+								{/* <div className="text-xs text-muted-foreground whitespace-nowrap">
+									({sellers.length} {sellers.length === 1 ? 'seller' : 'sellers'})
+								</div> */}
+							</div>
+						</div>
+                        
+                        </div>
 					</CardHeader>
 					<CardContent className="space-y-4">
-						{loadingSla ? (
+						{loadingSellers ? (
 							<div className="flex items-center justify-center p-8">
-								<span className="text-muted-foreground">Loading SLA data...</span>
+								<div className="text-center">
+									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+									<span className="text-muted-foreground">Loading sellers...</span>
+								</div>
+							</div>
+						) : !selectedSeller ? (
+							<div className="flex items-center justify-center p-8">
+								<div className="text-center">
+									<Users className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+									<span className="text-muted-foreground">
+										{sellers.length === 0 
+											? "No sellers found. Please add sellers first." 
+											: "Please select a seller to view SLA data"}
+									</span>
+								</div>
+							</div>
+						) : loadingSla ? (
+							<div className="flex items-center justify-center p-8">
+								<div className="text-center">
+									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+									<span className="text-muted-foreground">Loading SLA data...</span>
+								</div>
 							</div>
 						) : (
 							<div className="space-y-4">
+								{/* Summary Stats */}
 								<div className="grid grid-cols-2 gap-4">
 									<div className="p-4 rounded-lg border bg-blue-50">
 										<p className="text-sm font-medium text-blue-600">Total Notifications</p>
@@ -515,9 +732,10 @@ export default function DashboardPage() {
 										</p>
 									</div>
 								</div>
+
 								{/* Notifications List */}
 								<div className="space-y-2">
-									<p className="font-medium text-gray-700">Notifications</p>
+									<p className="font-medium text-gray-700">Recent Notifications</p>
 									<div className="max-h-64 overflow-y-auto space-y-2">
 										{slaData?.notifications?.length > 0 ? (
 											slaData.notifications.map((notification: any) => {
@@ -525,52 +743,43 @@ export default function DashboardPage() {
 												const isOverdue = notification.isOverdue;
 												const badgeColor = isOverdue ? "bg-red-500" : isHighPriority ? "bg-orange-500" : "bg-blue-500";
 												const bgColor = isOverdue ? "border-red-200 bg-red-50" : isHighPriority ? "border-orange-200 bg-orange-50" : "border-blue-200 bg-blue-50";
-												const ack = ackState[notification.id] || { loading: false, acknowledged: !!notification.acknowledged };
+												
 												return (
-													<div key={notification.id} className={`flex items-start gap-4 p-3 rounded-lg border ${bgColor}`}>
-														<div className={`w-2 h-2 rounded-full mt-2 ${badgeColor}`} />
-														<div className="flex-1">
-															<div className="flex items-start justify-between">
-																<div className="flex-1">
+													<div key={notification.id} className={`flex items-start gap-3 p-3 rounded-lg border ${bgColor}`}>
+														<div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${badgeColor}`} />
+														<div className="flex-1 min-w-0">
+															<div className="flex items-start justify-between gap-2">
+																<div className="flex-1 min-w-0">
 																	<p className="font-medium text-gray-800 text-sm">
 																		{notification.message}
 																	</p>
-																	<p className="text-xs text-gray-600 mt-1">
-																		{notification.notes}
-																	</p>
-																	<div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-																		<span>Order: {notification.order?.customerName}</span>
-																		<span className={`px-2 py-1 rounded-full text-xs font-medium ${
+																	{notification.notes && (
+																		<p className="text-xs text-gray-600 mt-1">
+																			{notification.notes}
+																		</p>
+																	)}
+																	<div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
+																		{notification.order?.customerName && (
+																			<span className="truncate">
+																				Order: {notification.order.customerName}
+																			</span>
+																		)}
+																		<span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
 																			notification.slaIndicator === 'GREEN' ? 'bg-green-100 text-green-700' :
 																			notification.slaIndicator === 'YELLOW' ? 'bg-yellow-100 text-yellow-700' :
 																			'bg-red-100 text-red-700'
 																		}`}>
 																			{notification.slaIndicator}
 																		</span>
-																		<span>
-																			{notification.timeRemaining ? `${notification.timeRemaining.toFixed(1)}h remaining` : 'Time elapsed'}
+																		<span className="whitespace-nowrap">
+																			{notification.timeRemaining 
+																				? `${notification.timeRemaining.toFixed(1)}h remaining` 
+																				: 'Time elapsed'}
 																		</span>
 																	</div>
 																</div>
-																<div className="flex flex-col items-end ml-2 gap-2">
-																	<span className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleDateString()}</span>
-																	<button
-																		className={`px-3 py-1 rounded text-xs font-medium border ${ack.acknowledged ? 'bg-green-100 text-green-700 border-green-300 cursor-default' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} disabled:opacity-60`}
-																		disabled={ack.loading || ack.acknowledged}
-																		onClick={async () => {
-																			setAckState((prev) => ({ ...prev, [notification.id]: { ...ack, loading: true } }));
-																			try {
-																				await api.patch(`/api/seller/notifications/${notification.id}/acknowledge`);
-																				toast.success("Notification acknowledged");
-																				setAckState((prev) => ({ ...prev, [notification.id]: { loading: false, acknowledged: true } }));
-																			} catch {
-																				toast.error("Failed to acknowledge notification");
-																				setAckState((prev) => ({ ...prev, [notification.id]: { ...ack, loading: false } }));
-																			}
-																		}}
-																	>
-																		{ack.loading ? 'Acknowledging...' : ack.acknowledged ? 'Acknowledged' : 'Acknowledge'}
-																	</button>
+																<div className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
+																	{new Date(notification.createdAt).toLocaleDateString()}
 																</div>
 															</div>
 														</div>
@@ -579,7 +788,8 @@ export default function DashboardPage() {
 											})
 										) : (
 											<div className="text-center py-8 text-gray-500">
-												<p>No notifications found</p>
+												<Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+												<p>No notifications found for this seller</p>
 											</div>
 										)}
 									</div>
@@ -589,48 +799,9 @@ export default function DashboardPage() {
 					</CardContent>
 				</Card>
 
-				{/* Quick Actions Card */}
-				<Card>
-					<CardHeader>
-						<CardTitle className="text-xl font-semibold">
-							Quick Actions
-						</CardTitle>
-						<p className="text-muted-foreground">Commonly used features</p>
-					</CardHeader>
-					<CardContent className="space-y-4">
-						<div className="grid grid-cols-2 gap-4">
-							<button
-								type="button"
-								className="flex flex-col items-center justify-center gap-2 p-6 rounded-lg border hover:bg-muted transition-colors"
-							>
-								<Users className="h-6 w-6" />
-								<span className="text-sm font-medium">Add User</span>
-							</button>
-							<button
-								type="button"
-								className="flex flex-col items-center justify-center gap-2 p-6 rounded-lg border hover:bg-muted transition-colors"
-							>
-								<CreditCard className="h-6 w-6" />
-								<span className="text-sm font-medium">New Sale</span>
-							</button>
-							<button
-								type="button"
-								className="flex flex-col items-center justify-center gap-2 p-6 rounded-lg border hover:bg-muted transition-colors"
-							>
-								<Activity className="h-6 w-6" />
-								<span className="text-sm font-medium">Reports</span>
-							</button>
-							<button
-								type="button"
-								className="flex flex-col items-center justify-center gap-2 p-6 rounded-lg border hover:bg-muted transition-colors"
-							>
-								<DollarSign className="h-6 w-6" />
-								<span className="text-sm font-medium">Analytics</span>
-							</button>
-						</div>
-					</CardContent>
-				</Card>
+				   {/* User List Card */}
+				   <UserListCard />
 			</div>
-		</div>	
+		</div>
 	);
 }
