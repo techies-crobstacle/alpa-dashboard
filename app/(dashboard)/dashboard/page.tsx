@@ -388,7 +388,11 @@ export default function DashboardPage() {
 					const fetchSlaData = async () => {
 						setLoadingSla(true);
 						try {
-							const response = await api.get("/api/seller/notifications");
+							const response = await api.get("/api/seller/notifications", {
+								headers: {
+									Authorization: ""
+								}
+							});
 							setSlaData(response);
 							// Initialize ackState for notifications
 							if (response.notifications) {

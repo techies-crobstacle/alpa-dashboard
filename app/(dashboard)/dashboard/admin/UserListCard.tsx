@@ -15,10 +15,11 @@ export default function UserListCard() {
       setLoading(true);
       try {
         const token = typeof window !== "undefined" ? (localStorage.getItem("alpa_token") || localStorage.getItem("auth_token")) : null;
-        const res = await api.get("/api/users/all", {
+        const res = await fetch("/api/users/all", {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        setUsers(Array.isArray(res) ? res : res.users || []);
+        const data = await res.json();
+        setUsers(Array.isArray(data) ? data : data.users || []);
       } catch (e) {
         toast.error("Failed to load users");
       } finally {
@@ -65,10 +66,9 @@ export default function UserListCard() {
                             src={user.profileImage}
                             alt={user.name || user.email}
                             className="h-10 w-10 rounded-full object-cover"
-                            referrerPolicy="no-referrer"
                           />
                         ) : (
-                          <span className="font-bold text-lg flex items-center justify-center h-full w-full">
+                          <span className="font-bold text-lg">
                             {user.name ? user.name[0] : user.email[0]}
                           </span>
                         )}
@@ -83,7 +83,7 @@ export default function UserListCard() {
                     </td>
                     <td className="px-4 py-2">
                       {user.isVerified ? (
-                        <Badge variant="success">Verified</Badge>
+                        <Badge variant="default">Verified</Badge>
                       ) : (
                         <Badge variant="outline">Unverified</Badge>
                       )}

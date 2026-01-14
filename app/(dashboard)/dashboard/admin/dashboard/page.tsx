@@ -453,7 +453,11 @@ export default function DashboardPage() {
 	const fetchSellers = async () => {
 		setLoadingSellers(true);
 		try {
-			const res = await api.get("/api/users/all");
+			const res = await api.get("/api/users/all", {
+                headers: {
+                    Authorization: ""
+                }
+            });
 			console.log("API Response:", res);
 			
 			// Handle different response structures
@@ -500,7 +504,10 @@ export default function DashboardPage() {
 		setLoadingSla(true);
 		try {
 			console.log(`Fetching SLA data for seller: ${sellerId}`);
-			const response = await api.get(`/api/seller/notifications?sellerId=${sellerId}`);
+			const response = await api.get(
+				`/api/seller/notifications?sellerId=${sellerId}`,
+				{ headers: { Authorization: "" } }
+			);
 			console.log("SLA Response:", response);
 			
 			setSlaData(response);

@@ -60,7 +60,7 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
 
 // Convenience methods
 export const api = {
-  get: (endpoint: string) => apiClient(endpoint, { method: "GET" }),
+  get: (endpoint: string, options?: { headers?: Record<string, string> }) => apiClient(endpoint, { method: "GET", ...options }),
   post: <T = unknown>(endpoint: string, data?: T) => 
     apiClient(endpoint, {
       method: "POST",

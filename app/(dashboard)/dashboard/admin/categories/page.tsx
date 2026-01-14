@@ -45,7 +45,11 @@ export default function CategoriesPage() {
 			setLoading(true);
 			console.log("Fetching categories...");
 			
-			const response: CategoriesApiResponse = await api.get('/api/admin/categories');
+			const response: CategoriesApiResponse = await api.get('/api/admin/categories', {
+				headers: {
+					Authorization: ""
+				}
+			});
 			console.log('Categories API Response:', response);
 
 			if (response.success) {

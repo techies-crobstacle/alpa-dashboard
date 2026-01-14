@@ -107,7 +107,11 @@ export default function AdminProductsPage() {
   const fetchSellers = async () => {
     setLoadingSellers(true);
     try {
-      const res = await api.get("/api/users/all");
+      const res = await api.get("/api/users/all", {
+        headers: {
+          Authorization: ""
+        }
+      });
       const sellersOnly = Array.isArray(res)
         ? res.filter((u: { role: string }) => u.role === "SELLER")
         : (res.users || []).filter((u: { role: string }) => u.role === "SELLER");
@@ -123,7 +127,11 @@ export default function AdminProductsPage() {
   const fetchProducts = async (sellerId: string) => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/admin/sellers/${sellerId}/products`);
+      const res = await api.get(`/api/admin/sellers/${sellerId}/products`, {
+        headers: {
+          Authorization: ""
+        }
+      });
       setProducts(Array.isArray(res) ? res : res.products || []);
     } catch {
       toast.error("Failed to load products");

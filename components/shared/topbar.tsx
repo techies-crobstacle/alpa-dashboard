@@ -59,7 +59,11 @@ const getNotificationIcon = (type: string) => {
 		const fetchNotifications = async () => {
 			try {
 				setNotificationsLoading(true);
-				const response = await api.get('/api/notifications?limit=4');
+				const response = await api.get('/api/notifications?limit=4', {
+					headers: {
+						Authorization: ""
+					}
+				});
 				setNotifications(response.notifications || []);
 				setUnreadCount(response.unreadCount || 0);
 			} catch (error) {
@@ -76,7 +80,11 @@ const getNotificationIcon = (type: string) => {
 		const fetchProfileData = async () => {
 			try {
 				setIsLoading(true);
-				const data = await api.get('/api/profile');
+				const data = await api.get('/api/profile', {
+					headers: {
+						Authorization: ""
+					}
+				});
 				console.log('Profile API Response:', data); // Debug log
 				
 				const profile = data.profile || data;

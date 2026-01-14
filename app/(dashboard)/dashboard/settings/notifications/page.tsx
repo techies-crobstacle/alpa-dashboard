@@ -83,7 +83,11 @@ export default function SettingsNotificationsPage() {
 	const fetchNotifications = async () => {
 		setLoading(true);
 		try {
-			const response: NotificationsResponse = await api.get("/api/notifications");
+			const response: NotificationsResponse = await api.get("/api/notifications", {
+				headers: {
+					Authorization: ""
+				}
+			});
 			setNotifications(response.notifications || []);
 			setUnreadCount(response.unreadCount || 0);
 			setPagination(response.pagination || { page: 1, limit: 20, total: 0 });

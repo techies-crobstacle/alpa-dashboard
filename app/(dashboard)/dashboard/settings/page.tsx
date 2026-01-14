@@ -73,7 +73,11 @@ export default function SettingsPage() {
 	const fetchProfileData = async () => {
 		setIsLoading(true);
 		try {
-			const data = await api.get('/api/profile');
+			const data = await api.get('/api/profile', {
+				headers: {
+					Authorization: ""
+				}
+			});
 			console.log('Profile API Response:', data); // Debug log
 			const p = data.profile || data;
 			console.log('Profile data:', p); // Debug log

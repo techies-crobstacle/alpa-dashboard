@@ -64,7 +64,11 @@ export default function AdminOrdersPage() {
   const fetchSellers = async () => {
     setLoadingSellers(true);
     try {
-      const res = await api.get("/api/users/all");
+      const res = await api.get("/api/users/all", {
+        headers: {
+          Authorization: ""
+        }
+      });
       const sellersOnly = Array.isArray(res)
         ? res.filter((u: { role: string }) => u.role === "SELLER")
         : (res.users || []).filter((u: { role: string }) => u.role === "SELLER");
@@ -80,7 +84,11 @@ export default function AdminOrdersPage() {
   const fetchOrders = async (sellerId: string) => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/admin/orders/by-seller/${sellerId}`);
+      const res = await api.get(`/api/admin/orders/by-seller/${sellerId}`, {
+        headers: {
+          Authorization: ""
+        }
+      });
       setOrders(Array.isArray(res) ? res : res.orders || []);
     } catch {
       toast.error("Failed to load orders");
