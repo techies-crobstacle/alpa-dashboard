@@ -439,6 +439,13 @@ const stats = [
 	},
 ];
 
+// Utility to get token from cookie if not in localStorage
+function getTokenFromCookie() {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(/(?:^|; )alpa_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 export default function DashboardPage() {
 	const router = useRouter();
 	const [checking, setChecking] = useState(true);

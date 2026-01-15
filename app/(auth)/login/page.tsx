@@ -1,5 +1,232 @@
 
 
+// "use client";
+
+// import { zodResolver } from "@hookform/resolvers/zod";
+// import { useForm } from "react-hook-form";
+// import { z } from "zod";
+// import { toast } from "sonner";
+// import { useState } from "react";
+// import { useRouter } from "next/navigation";
+
+// import { Button } from "@/components/ui/button";
+// import {
+// 	Form,
+// 	FormControl,
+// 	FormField,
+// 	FormItem,
+// 	FormLabel,
+// 	FormMessage,
+// } from "@/components/ui/form";
+// import { Input } from "@/components/ui/input";
+// import {
+// 	Card,
+// 	CardContent,
+// 	CardDescription,
+// 	CardFooter,
+// 	CardHeader,
+// 	CardTitle,
+// } from "@/components/ui/card";
+// import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
+// import Link from "next/link";
+
+// const formSchema = z.object({
+// 	email: z.string().email({
+// 		message: "Please enter a valid email address.",
+// 	}),
+// 	password: z.string().min(6, {
+// 		message: "Password must be at least 6 characters.",
+// 	}),
+// });
+
+// // API Configuration - Use consistent URL
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+
+// // Login API function
+// async function loginUser(email: string, password: string) {
+// 	const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+// 		method: "POST",
+// 		headers: {
+// 			"Content-Type": "application/json",
+// 		},
+// 		credentials: "include", // IMPORTANT: Add this for CORS
+// 		body: JSON.stringify({
+// 			email,
+// 			password,
+// 		}),
+// 	});
+
+// 	if (!response.ok) {
+// 		const error = await response.json().catch(() => ({
+// 			message: "Login failed. Please try again.",
+// 		}));
+// 		throw new Error(error.message || "Invalid credentials");
+// 	}
+
+// 	return response.json();
+// }
+
+// export default function LoginPage() {
+// 	const [isLoading, setIsLoading] = useState(false);
+// 	const router = useRouter();
+
+// 	const form = useForm<z.infer<typeof formSchema>>({
+// 		resolver: zodResolver(formSchema),
+// 		defaultValues: {
+// 			email: "",
+// 			password: "",
+// 		},
+// 	});
+
+// 	async function onSubmit(values: z.infer<typeof formSchema>) {
+// 		setIsLoading(true);
+
+// 		try {
+// 			// Call the login API
+// 			const response = await loginUser(values.email, values.password);
+
+
+// 			// Store token in localStorage
+// 			if (response.token) {
+// 				localStorage.setItem("alpa_token", response.token);
+// 				// Also set token as cookie for middleware
+// 				document.cookie = `alpa_token=${response.token}; path=/; secure; samesite=strict;`;
+// 			} else {
+// 				throw new Error("No token received from server");
+// 			}
+// 			// Remove any other user data
+// 			localStorage.removeItem("user_data");
+
+// 			// Show success message
+// 			toast.success("Login successful!", {
+// 				description: "Welcome back! You have been logged in successfully.",
+// 			});
+
+// 			// Decode role from JWT
+// 			let role = null;
+// 			try {
+// 				const { decodeJWT } = await import("@/lib/jwt");
+// 				const decoded = decodeJWT(response.token);
+// 				role = decoded?.role || null;
+// 			} catch {}
+
+// 			// Redirect to dashboard based on user role
+// 			setTimeout(() => {
+// 				if (role === "admin") {
+// 					router.push("/dashboard/admin/dashboard");
+// 				} else if (role === "seller") {
+// 					router.push("/dashboard");
+// 				} else {
+// 					router.push("/dashboard/customer/profile");
+// 				}
+// 			}, 1000);
+
+// 		} catch (error) {
+// 			const err = error as Error;
+// 			console.error("❌ Login error:", err);
+// 			// Clear any existing tokens on login failure
+// 			localStorage.removeItem("auth_token");
+// 			localStorage.removeItem("user_data");
+// 			// Show error message
+// 			toast.error("Login failed", {
+// 				description: err.message || "Invalid email or password. Please try again.",
+// 			});
+// 		} finally {
+// 			setIsLoading(false);
+// 		}
+// 	}
+
+// 	return (
+// 		<Card className="w-full max-w-md">
+// 			<CardHeader className="text-center">
+// 				<LogIn className="mx-auto h-12 w-12 text-gray-400" />
+// 				<CardTitle className="mt-4 text-2xl">Welcome back</CardTitle>
+// 				<CardDescription>
+// 					Enter your credentials to access your account
+// 				</CardDescription>
+// 			</CardHeader>
+// 			<CardContent>
+// 				<Form {...form}>
+// 					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+// 						<FormField
+// 							control={form.control}
+// 							name="email"
+// 							render={({ field }) => (
+// 								<FormItem>
+// 									<FormLabel>Email</FormLabel>
+// 									<FormControl>
+// 										<div className="relative">
+// 											<Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+// 											<Input
+// 												placeholder="Enter your email"
+// 												className="pl-10"
+// 												disabled={isLoading}
+// 												{...field}
+// 											/>
+// 										</div>
+// 									</FormControl>
+// 									<FormMessage />
+// 								</FormItem>
+// 							)}
+// 						/>
+// 						<FormField
+// 							control={form.control}
+// 							name="password"
+// 							render={({ field }) => (
+// 								<FormItem>
+// 									<FormLabel>Password</FormLabel>
+// 									<FormControl>
+// 										<div className="relative">
+// 											<Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+// 											<Input
+// 												type="password"
+// 												placeholder="Enter your password"
+// 												className="pl-10"
+// 												disabled={isLoading}
+// 												{...field}
+// 											/>
+// 										</div>
+// 									</FormControl>
+// 									<FormMessage />
+// 								</FormItem>
+// 							)}
+// 						/>
+// 						<Button type="submit" className="w-full" disabled={isLoading}>
+// 							{isLoading ? (
+// 								<>
+// 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+// 									Signing in...
+// 								</>
+// 							) : (
+// 								"Sign In"
+// 							)}
+// 						</Button>
+// 					</form>
+// 				</Form>
+// 			</CardContent>
+// 			<CardFooter className="flex flex-col gap-4">
+// 				<div className="text-center text-sm">
+// 					<Link
+// 						href="/forgot-password"
+// 						className="text-blue-600 hover:text-blue-800 underline"
+// 					>
+// 						Forgot your password?
+// 					</Link>
+// 				</div>
+// 				<div className="text-center text-sm">
+// 					Don&apos;t have an account?{" "}
+// 					<Link
+// 						href="/register"
+// 						className="text-blue-600 hover:text-blue-800 underline"
+// 					>
+// 						Sign up
+// 					</Link>
+// 				</div>
+// 			</CardFooter>
+// 		</Card>
+// 	);
+// }
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,14 +269,14 @@ const formSchema = z.object({
 // API Configuration - Use consistent URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
 
-// Login API function
+// Login API function - Backend will set the session cookie via Set-Cookie header
 async function loginUser(email: string, password: string) {
 	const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
 		},
-		credentials: "include", // IMPORTANT: Add this for CORS
+		credentials: "include", // CRITICAL: This allows cookies to be set/sent
 		body: JSON.stringify({
 			email,
 			password,
@@ -82,18 +309,21 @@ export default function LoginPage() {
 		setIsLoading(true);
 
 		try {
-			// Call the login API
+			// Call the login API - backend will set session cookie automatically
 			const response = await loginUser(values.email, values.password);
 
-
-			// Store token in localStorage
-			if (response.token) {
-				localStorage.setItem("alpa_token", response.token);
-				// Also set token as cookie for middleware
-				document.cookie = `alpa_token=${response.token}; path=/; secure; samesite=strict;`;
-			} else {
+			// Validate token exists
+			if (!response.token) {
 				throw new Error("No token received from server");
 			}
+
+			// Store token in localStorage (keep existing functionality)
+			localStorage.setItem("alpa_token", response.token);
+
+			// Also set token as a cookie for middleware (expires in 7 days, path=/)
+			// This allows server-side middleware to access the token
+			document.cookie = `alpa_token=${response.token}; path=/; max-age=${60 * 60 * 24 * 7}`;
+
 			// Remove any other user data
 			localStorage.removeItem("user_data");
 
@@ -125,6 +355,7 @@ export default function LoginPage() {
 			const err = error as Error;
 			console.error("❌ Login error:", err);
 			// Clear any existing tokens on login failure
+			localStorage.removeItem("alpa_token");
 			localStorage.removeItem("auth_token");
 			localStorage.removeItem("user_data");
 			// Show error message
