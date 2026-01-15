@@ -378,14 +378,19 @@ export default function DashboardPage() {
 	const [ackState, setAckState] = useState<Record<string, { loading: boolean; acknowledged: boolean }>>({});
 
 	useEffect(() => {
-		if (typeof window !== "undefined") {
+		const checkAuth = async () => {
+			if (typeof window === "undefined") {
+				setChecking(false);
+				return;
+			}
+			
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
 			
 			if (!token) {
 				console.log("No token found, redirecting to login");
 				toast.error("Please login to continue");
-				setTimeout(() => router.push("/login"), 500);
 				setChecking(false);
+				setTimeout(() => router.push("/login"), 300);
 				return;
 			}
 			
@@ -405,8 +410,8 @@ export default function DashboardPage() {
 					localStorage.removeItem("alpa_token");
 					localStorage.removeItem("auth_token");
 					toast.error("Session expired. Please login again.");
-					setTimeout(() => router.push("/login"), 500);
 					setChecking(false);
+					setTimeout(() => router.push("/login"), 300);
 					return;
 				}
 				
@@ -423,53 +428,53 @@ export default function DashboardPage() {
 				if (isSeller || isAdmin) {
 					console.log(`User is ${isAdmin ? 'admin' : 'seller'}, loading dashboard`);
 					// Fetch notifications data
-					const fetchSlaData = async () => {
-						setLoadingSla(true);
-						try {
-							const response = await api.get("/api/seller/notifications");
-							setSlaData(response);
-							// Initialize ackState for notifications
-							if (response.notifications) {
-								const ackInit: Record<string, { loading: boolean; acknowledged: boolean }> = {};
-								response.notifications.forEach((n: any) => {
-									ackInit[n.id] = { loading: false, acknowledged: !!n.acknowledged };
-								});
-								setAckState(ackInit);
-							}
-						} catch (error: any) {
-							console.error("Error loading notifications:", error);
-							setSlaData({
-								success: false,
-								notifications: [],
-								summary: {
-									total: 0,
-									pending: 0,
-									overdue: 0,
-									critical: 0
-								}
+					setLoadingSla(true);
+					try {
+						const response = await api.get("/api/seller/notifications");
+						setSlaData(response);
+						// Initialize ackState for notifications
+						if (response.notifications) {
+							const ackInit: Record<string, { loading: boolean; acknowledged: boolean }> = {};
+							response.notifications.forEach((n: any) => {
+								ackInit[n.id] = { loading: false, acknowledged: !!n.acknowledged };
 							});
-						} finally {
-							setLoadingSla(false);
+							setAckState(ackInit);
 						}
-					};
-					Promise.resolve().then(() => fetchSlaData());
+					} catch (error: any) {
+						console.error("Error loading notifications:", error);
+						setSlaData({
+							success: false,
+							notifications: [],
+							summary: {
+								total: 0,
+								pending: 0,
+								overdue: 0,
+								critical: 0
+							}
+						});
+					} finally {
+						setLoadingSla(false);
+					}
 				} else {
 					console.error(`Access denied: user role is "${userRole}"`);
 					toast.error(`Unauthorized - Your role is: ${payload.role}. Seller or admin access required.`);
-					setTimeout(() => router.push("/dashboard/customer/profile"), 1000);
+					setChecking(false);
+					setTimeout(() => router.push("/dashboard/customer/profile"), 300);
+					return;
 				}
+				
 				setChecking(false);
 			} catch (e) {
 				console.error("Token validation error:", e);
 				localStorage.removeItem("alpa_token");
 				localStorage.removeItem("auth_token");
 				toast.error("Invalid session. Please login again.");
-				setTimeout(() => router.push("/login"), 500);
 				setChecking(false);
+				setTimeout(() => router.push("/login"), 300);
 			}
-		} else {
-			setChecking(false);
-		}
+		};
+		
+		checkAuth();
 	}, [router]);
 
 	if (checking) {

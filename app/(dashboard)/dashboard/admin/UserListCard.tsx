@@ -15,12 +15,34 @@ export default function UserListCard() {
       setLoading(true);
       try {
         const token = typeof window !== "undefined" ? (localStorage.getItem("alpa_token") || localStorage.getItem("auth_token")) : null;
-        const res = await fetch("/api/users/all", {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/users/all`;
+        
+        console.log("📍 UserListCard fetching from:", apiUrl);
+        console.log("🔍 Token exists:", !!token);
+        
+        const res = await fetch(apiUrl, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          credentials: "include",
         });
+        
+        console.log("📊 UserListCard Response Status:", res.status);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("❌ UserListCard API Error:", errorText);
+          throw new Error(`Failed to fetch users: ${res.status}`);
+        }
+        
         const data = await res.json();
+        console.log("✅ UserListCard Data:", data);
+        
         setUsers(Array.isArray(data) ? data : data.users || []);
-      } catch (e) {
+      } catch (e: any) {
+        console.error("❌ UserListCard Error:", e.message);
         toast.error("Failed to load users");
       } finally {
         setLoading(false);

@@ -449,70 +449,86 @@ export default function DashboardPage() {
 	const [selectedSeller, setSelectedSeller] = useState<string>("");
 	const [loadingSellers, setLoadingSellers] = useState(false);
 
-	// Function to fetch sellers list
+	// Function to fetch sellers list for SLA Dashboard
 	const fetchSellers = async () => {
 		setLoadingSellers(true);
 		try {
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
 			
+			console.log("🔍 Fetching sellers with token:", token ? `${token.slice(0, 20)}...` : "NO TOKEN");
+			
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/users/all`;
+			console.log("📍 API URL:", url);
+			
 			// Use fetch directly with better error handling
-			const response = await fetch(
-				`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/users/all`,
-				{
-					method: "GET",
-					headers: {
-						"Content-Type": "application/json",
-						...(token && { "Authorization": `Bearer ${token}` }),
-					},
-					credentials: "include",
-				}
-			);
+			const response = await fetch(url, {
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json",
+					...(token && { "Authorization": `Bearer ${token}` }),
+				},
+				credentials: "include",
+			});
+			
+			console.log("📊 Response Status:", response.status, response.statusText);
+			console.log("📊 Response Headers:", {
+				contentType: response.headers.get("content-type"),
+			});
 			
 			if (!response.ok) {
-				throw new Error(`Failed to fetch users: ${response.status} ${response.statusText}`);
+				const errorText = await response.text();
+				console.error("❌ API Error Response:", errorText);
+				throw new Error(`Failed to fetch users: ${response.status} ${response.statusText} - ${errorText}`);
 			}
 			
 			const data = await response.json();
-			console.log("API /api/users/all response:", data);
+			console.log("✅ API /api/users/all Response:", data);
+			console.log("✅ Response type:", typeof data, "Is Array:", Array.isArray(data));
 			
 			// Handle different response structures
 			let allUsers = [];
 			
 			if (Array.isArray(data)) {
 				// Response is directly an array
+				console.log("📦 Response is a direct array");
 				allUsers = data;
 			} else if (data.users && Array.isArray(data.users)) {
 				// Response has a 'users' property
+				console.log("📦 Response has .users property");
 				allUsers = data.users;
 			} else if (data.data && Array.isArray(data.data)) {
 				// Response has a 'data' property
+				console.log("📦 Response has .data property");
 				allUsers = data.data;
 			} else if (data.result && Array.isArray(data.result)) {
 				// Response has a 'result' property
+				console.log("📦 Response has .result property");
 				allUsers = data.result;
 			} else {
-				console.warn("Unexpected API response structure:", data);
+				console.warn("⚠️ Unexpected API response structure:", data);
 				allUsers = [];
 			}
 			
-			// Filter for sellers
+			// Filter for sellers only
 			const sellersOnly = allUsers.filter((u: any) => 
 				u.role === "SELLER" || u.role === "seller" || u.userRole === "SELLER" || u.userRole === "seller"
 			);
 			
-			console.log(`Total users: ${allUsers.length}, Sellers: ${sellersOnly.length}`, sellersOnly);
+			console.log(`✅ Total users: ${allUsers.length}, Sellers: ${sellersOnly.length}`, sellersOnly);
 			setSellers(sellersOnly);
 			
 			// Auto-select first seller if available
 			if (sellersOnly.length > 0) {
 				setSelectedSeller(sellersOnly[0].id);
-				toast.success(`Loaded ${sellersOnly.length} sellers`);
+				toast.success(`Loaded ${sellersOnly.length} seller(s)`);
 			} else {
 				setSelectedSeller("");
 				toast.info("No sellers found in the system");
 			}
 		} catch (err: any) {
-			console.error("Error fetching sellers:", err);
+			console.error("❌ Error fetching sellers:", err);
+			console.error("❌ Error message:", err?.message);
+			console.error("❌ Error stack:", err?.stack);
 			toast.error(err?.message || "Failed to load sellers");
 			setSellers([]);
 			setSelectedSeller("");
@@ -579,14 +595,19 @@ export default function DashboardPage() {
 
 	// Initial auth check
 	useEffect(() => {
-		if (typeof window !== "undefined") {
+		const checkAuth = async () => {
+			if (typeof window === "undefined") {
+				setChecking(false);
+				return;
+			}
+			
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
 			
 			if (!token) {
 				console.log("No token found, redirecting to login");
 				toast.error("Please login to continue");
-				setTimeout(() => router.push("/login"), 500);
 				setChecking(false);
+				setTimeout(() => router.push("/login"), 300);
 				return;
 			}
 			
@@ -606,8 +627,8 @@ export default function DashboardPage() {
 					localStorage.removeItem("alpa_token");
 					localStorage.removeItem("auth_token");
 					toast.error("Session expired. Please login again.");
-					setTimeout(() => router.push("/login"), 500);
 					setChecking(false);
+					setTimeout(() => router.push("/login"), 300);
 					return;
 				}
 				
@@ -617,30 +638,32 @@ export default function DashboardPage() {
 				
 				setUserRole(payload.role);
 				
-				// Allow both exact role and partial matches
+				// Only allow admin access
 				const isAdmin = userRole?.includes("admin");
 				
-				if (isAdmin) {
-					console.log("User is admin, fetching sellers");
-					// Use Promise to ensure state updates happen
-					Promise.resolve().then(() => fetchSellers());
-				} else {
+				if (!isAdmin) {
 					console.error(`Access denied: user role is "${userRole}", admin required`);
-					toast.error(`Unauthorized - Your role is: ${payload.role}. Admin access required.`);
-					setTimeout(() => router.push("/dashboard"), 1000);
+					toast.error(`Unauthorized - Admin access required. Your role: ${payload.role}`);
+					setChecking(false);
+					setTimeout(() => router.push("/dashboard"), 300);
+					return;
 				}
+				
+				console.log("User is admin, fetching sellers");
+				// Fetch sellers directly
+				await fetchSellers();
 				setChecking(false);
 			} catch (e) {
 				console.error("Token validation error:", e);
 				localStorage.removeItem("alpa_token");
 				localStorage.removeItem("auth_token");
 				toast.error("Invalid session. Please login again.");
-				setTimeout(() => router.push("/login"), 500);
 				setChecking(false);
+				setTimeout(() => router.push("/login"), 300);
 			}
-		} else {
-			setChecking(false);
-		}
+		};
+		
+		checkAuth();
 	}, [router]);
 
 	// Fetch SLA data when seller is selected
