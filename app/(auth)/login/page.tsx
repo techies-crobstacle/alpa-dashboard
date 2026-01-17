@@ -1,3 +1,225 @@
+// "use client";
+
+// import { zodResolver } from "@hookform/resolvers/zod";
+// import { useForm } from "react-hook-form";
+// import { z } from "zod";
+// import { toast } from "sonner";
+// import { useState } from "react";
+// import { useRouter } from "next/navigation";
+
+// import { Button } from "@/components/ui/button";
+// import {
+// 	Form,
+// 	FormControl,
+// 	FormField,
+// 	FormItem,
+// 	FormLabel,
+// 	FormMessage,
+// } from "@/components/ui/form";
+// import { Input } from "@/components/ui/input";
+// import {
+// 	Card,
+// 	CardContent,
+// 	CardDescription,
+// 	CardFooter,
+// 	CardHeader,
+// 	CardTitle,
+// } from "@/components/ui/card";
+// import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
+// import Link from "next/link";
+
+// const formSchema = z.object({
+// 	email: z.string().email({
+// 		message: "Please enter a valid email address.",
+// 	}),
+// 	password: z.string().min(6, {
+// 		message: "Password must be at least 6 characters.",
+// 	}),
+// });
+
+// // API Configuration - Use consistent URL
+// const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+
+// // Login API function - Backend will set the session cookie via Set-Cookie header
+// async function loginUser(email: string, password: string) {
+// 	const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+// 		method: "POST",
+// 		headers: {
+// 			"Content-Type": "application/json",
+// 		},
+// 		credentials: "include", // CRITICAL: This allows cookies to be set/sent
+// 		body: JSON.stringify({
+// 			email,
+// 			password,
+// 		}),
+// 	});
+
+// 	if (!response.ok) {
+// 		const error = await response.json().catch(() => ({
+// 			message: "Login failed. Please try again.",
+// 		}));
+// 		throw new Error(error.message || "Invalid credentials");
+// 	}
+
+// 	return response.json();
+// }
+
+// export default function LoginPage() {
+// 	const [isLoading, setIsLoading] = useState(false);
+// 	const router = useRouter();
+
+// 	const form = useForm<z.infer<typeof formSchema>>({
+// 		resolver: zodResolver(formSchema),
+// 		defaultValues: {
+// 			email: "",
+// 			password: "",
+// 		},
+// 	});
+
+// 	async function onSubmit(values: z.infer<typeof formSchema>) {
+// 		setIsLoading(true);
+
+// 		try {
+// 			// Call the login API
+// 			const response = await loginUser(values.email, values.password);
+
+// 			// If token received, login directly
+// 			if (response.success && response.token) {
+// 				// Store token in localStorage
+// 				localStorage.setItem("alpa_token", response.token);
+
+// 				// Also set token as a cookie for middleware (expires in 7 days, path=/)
+// 				document.cookie = `alpa_token=${response.token}; path=/; max-age=${60 * 60 * 24 * 7}`;
+
+// 				// Remove any other user data
+// 				localStorage.removeItem("user_data");
+
+// 				// Show success message
+// 				toast.success("Login successful!", {
+// 					description: "Welcome back! You have been logged in successfully.",
+// 				});
+
+// 				// Get role from response
+// 				const role = response.role || response.user?.role;
+
+// 				// Redirect to dashboard based on user role
+// 				setTimeout(() => {
+// 					if (role === "ADMIN" || role === "admin") {
+// 						router.push("/dashboard/admin/dashboard");
+// 					} else if (role === "SELLER" || role === "seller") {
+// 						router.push("/dashboard");
+// 					} else {
+// 						router.push("/dashboard/customer/profile");
+// 					   }
+// 				   }, 1000);
+// 			   }
+// 		   } catch (error) {
+// 			const err = error as Error;
+// 			console.error("❌ Login error:", err);
+// 			// Clear any existing tokens on login failure
+// 			localStorage.removeItem("alpa_token");
+// 			localStorage.removeItem("auth_token");
+// 			localStorage.removeItem("user_data");
+// 			// Show error message
+// 			toast.error("Login failed", {
+// 				description: err.message || "Invalid email or password. Please try again.",
+// 			});
+// 		} finally {
+// 			setIsLoading(false);
+// 		}
+// 	}
+
+// 	return (
+// 		<Card className="w-full max-w-md">
+// 			<CardHeader className="text-center">
+// 				<LogIn className="mx-auto h-12 w-12 text-gray-400" />
+// 				<CardTitle className="mt-4 text-2xl">Welcome back</CardTitle>
+// 				<CardDescription>
+// 					Enter your credentials to access your account
+// 				</CardDescription>
+// 			</CardHeader>
+// 			<CardContent>
+// 				<Form {...form}>
+// 					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+// 						<FormField
+// 							control={form.control}
+// 							name="email"
+// 							render={({ field }) => (
+// 								<FormItem>
+// 									<FormLabel>Email</FormLabel>
+// 									<FormControl>
+// 										<div className="relative">
+// 											<Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+// 											<Input
+// 												placeholder="Enter your email"
+// 												className="pl-10"
+// 												disabled={isLoading}
+// 												{...field}
+// 											/>
+// 										</div>
+// 									</FormControl>
+// 									<FormMessage />
+// 								</FormItem>
+// 							)}
+// 						/>
+// 						<FormField
+// 							control={form.control}
+// 							name="password"
+// 							render={({ field }) => (
+// 								<FormItem>
+// 									<FormLabel>Password</FormLabel>
+// 									<FormControl>
+// 										<div className="relative">
+// 											<Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+// 											<Input
+// 												type="password"
+// 												placeholder="Enter your password"
+// 												className="pl-10"
+// 												disabled={isLoading}
+// 												{...field}
+// 											/>
+// 										</div>
+// 									</FormControl>
+// 									<FormMessage />
+// 								</FormItem>
+// 							)}
+// 						/>
+// 						<Button type="submit" className="w-full" disabled={isLoading}>
+// 							{isLoading ? (
+// 								<>
+// 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+// 									Signing in...
+// 								</>
+// 							) : (
+// 								"Sign In"
+// 							)}
+// 						</Button>
+// 					</form>
+// 				</Form>
+// 			</CardContent>
+// 			<CardFooter className="flex flex-col gap-4">
+// 				<div className="text-center text-sm">
+// 					<Link
+// 						href="/forgot-password"
+// 						className="text-blue-600 hover:text-blue-800 underline"
+// 					>
+// 						Forgot your password?
+// 					</Link>
+// 				</div>
+// 				<div className="text-center text-sm">
+// 					Don&apos;t have an account?{" "}
+// 					<Link
+// 						href="/register"
+// 						className="text-blue-600 hover:text-blue-800 underline"
+// 					>
+// 						Sign up
+// 					</Link>
+// 				</div>
+// 			</CardFooter>
+// 		</Card>
+// 	);
+// }
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,214 +231,424 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 const formSchema = z.object({
-	email: z.string().email({
-		message: "Please enter a valid email address.",
-	}),
-	password: z.string().min(6, {
-		message: "Password must be at least 6 characters.",
-	}),
+  email: z.string().email({
+    message: "Please enter a valid email address.",
+  }),
+  password: z.string().min(6, {
+    message: "Password must be at least 6 characters.",
+  }),
 });
 
-// API Configuration - Use consistent URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
 
-// Login API function - Backend will set the session cookie via Set-Cookie header
+// Login API function
 async function loginUser(email: string, password: string) {
-	const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-		},
-		credentials: "include", // CRITICAL: This allows cookies to be set/sent
-		body: JSON.stringify({
-			email,
-			password,
-		}),
-	});
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ email, password }),
+  });
+  
+  const data = await response.json();
+  
+  return {
+    ok: response.ok,
+    status: response.status,
+    data: data
+  };
+}
 
-	if (!response.ok) {
-		const error = await response.json().catch(() => ({
-			message: "Login failed. Please try again.",
-		}));
-		throw new Error(error.message || "Invalid credentials");
-	}
+// Verify login OTP
+async function verifyLoginOTP(email: string, otp: string) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify-login-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, otp }),
+  });
+  
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.message || "OTP verification failed");
+  }
+  
+  return data;
+}
 
-	return response.json();
+// Resend login OTP - NEW ENDPOINT
+async function resendLoginOTP(email: string) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/resend-login-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({ email }),
+  });
+  
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.message || "Failed to resend OTP");
+  }
+  
+  return data;
 }
 
 export default function LoginPage() {
-	const [isLoading, setIsLoading] = useState(false);
-	const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
+  const [otp, setOTP] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [isOTPLoading, setIsOTPLoading] = useState(false);
+  const router = useRouter();
 
-	const form = useForm<z.infer<typeof formSchema>>({
-		resolver: zodResolver(formSchema),
-		defaultValues: {
-			email: "",
-			password: "",
-		},
-	});
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
-	async function onSubmit(values: z.infer<typeof formSchema>) {
-		setIsLoading(true);
+  // Helper function to handle successful login
+  function handleSuccessfulLogin(token: string, role?: string) {
+    localStorage.setItem("alpa_token", token);
+    document.cookie = `alpa_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}`;
+    localStorage.removeItem("user_data");
+    
+    toast.success("Login successful!", {
+      description: "Welcome back! You have been logged in successfully.",
+    });
 
-		try {
-			// Call the login API
-			const response = await loginUser(values.email, values.password);
+    setTimeout(() => {
+      if (role === "ADMIN" || role === "admin") {
+        router.push("/dashboard/admin/dashboard");
+      } else if (role === "SELLER" || role === "seller") {
+        router.push("/dashboard");
+      } else {
+        router.push("/dashboard/customer/profile");
+      }
+    }, 1000);
+  }
 
-			// If token received, login directly
-			if (response.success && response.token) {
-				// Store token in localStorage
-				localStorage.setItem("alpa_token", response.token);
+  // Handles login form submit
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    try {
+      console.log("🔐 Attempting login for:", values.email);
+      
+      const response = await loginUser(values.email, values.password);
 
-				// Also set token as a cookie for middleware (expires in 7 days, path=/)
-				document.cookie = `alpa_token=${response.token}; path=/; max-age=${60 * 60 * 24 * 7}`;
+      console.log("📥 Login Response:", response);
 
-				// Remove any other user data
-				localStorage.removeItem("user_data");
+      // Check if login failed
+      if (!response.ok) {
+        throw new Error(response.data.message || "Invalid email or password");
+      }
 
-				// Show success message
-				toast.success("Login successful!", {
-					description: "Welcome back! You have been logged in successfully.",
-				});
+      // Case 1: Direct login (device verified, within 7 days)
+      if (response.data.success && response.data.token && !response.data.requiresVerification) {
+        console.log("✅ Direct login - device verified");
+        handleSuccessfulLogin(response.data.token, response.data.role);
+        return;
+      }
 
-				// Get role from response
-				const role = response.role || response.user?.role;
+      // Case 2: Verification required (first time or after 7 days)
+      if (response.data.success && response.data.requiresVerification) {
+        console.log("📧 Verification required - OTP sent");
+        setLoginEmail(values.email);
+        setLoginPassword(values.password);
+        setShowOTP(true);
+        toast.info(response.data.message || "Please enter the OTP sent to your email.");
+        return;
+      }
 
-				// Redirect to dashboard based on user role
-				setTimeout(() => {
-					if (role === "ADMIN" || role === "admin") {
-						router.push("/dashboard/admin/dashboard");
-					} else if (role === "SELLER" || role === "seller") {
-						router.push("/dashboard");
-					} else {
-						router.push("/dashboard/customer/profile");
-					   }
-				   }, 1000);
-			   }
-		   } catch (error) {
-			const err = error as Error;
-			console.error("❌ Login error:", err);
-			// Clear any existing tokens on login failure
-			localStorage.removeItem("alpa_token");
-			localStorage.removeItem("auth_token");
-			localStorage.removeItem("user_data");
-			// Show error message
-			toast.error("Login failed", {
-				description: err.message || "Invalid email or password. Please try again.",
-			});
-		} finally {
-			setIsLoading(false);
-		}
-	}
+      // Unexpected response
+      throw new Error("Unexpected response from server");
+      
+    } catch (error) {
+      const err = error as Error;
+      console.error("❌ Login error:", err);
+      toast.error("Login failed", {
+        description: err.message || "Invalid email or password. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-	return (
-		<Card className="w-full max-w-md">
-			<CardHeader className="text-center">
-				<LogIn className="mx-auto h-12 w-12 text-gray-400" />
-				<CardTitle className="mt-4 text-2xl">Welcome back</CardTitle>
-				<CardDescription>
-					Enter your credentials to access your account
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
-				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-						<FormField
-							control={form.control}
-							name="email"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Email</FormLabel>
-									<FormControl>
-										<div className="relative">
-											<Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-											<Input
-												placeholder="Enter your email"
-												className="pl-10"
-												disabled={isLoading}
-												{...field}
-											/>
-										</div>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="password"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Password</FormLabel>
-									<FormControl>
-										<div className="relative">
-											<Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-											<Input
-												type="password"
-												placeholder="Enter your password"
-												className="pl-10"
-												disabled={isLoading}
-												{...field}
-											/>
-										</div>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<Button type="submit" className="w-full" disabled={isLoading}>
-							{isLoading ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Signing in...
-								</>
-							) : (
-								"Sign In"
-							)}
-						</Button>
-					</form>
-				</Form>
-			</CardContent>
-			<CardFooter className="flex flex-col gap-4">
-				<div className="text-center text-sm">
-					<Link
-						href="/forgot-password"
-						className="text-blue-600 hover:text-blue-800 underline"
-					>
-						Forgot your password?
-					</Link>
-				</div>
-				<div className="text-center text-sm">
-					Don&apos;t have an account?{" "}
-					<Link
-						href="/register"
-						className="text-blue-600 hover:text-blue-800 underline"
-					>
-						Sign up
-					</Link>
-				</div>
-			</CardFooter>
-		</Card>
-	);
+  // Handles verifying OTP
+  async function handleVerifyOTP(e: React.FormEvent) {
+    e.preventDefault();
+    
+    if (!loginEmail || !otp) {
+      toast.error("Please enter the OTP");
+      return;
+    }
+    
+    if (otp.length !== 6) {
+      toast.error("Please enter a valid 6-digit OTP");
+      return;
+    }
+    
+    setIsOTPLoading(true);
+    
+    try {
+      console.log("🔐 Verifying OTP for:", loginEmail);
+      
+      const response = await verifyLoginOTP(loginEmail, otp);
+      
+      console.log("📥 OTP Verification Response:", response);
+      
+      // Check for token in response
+      if (response.success && response.token) {
+        console.log("✅ OTP verified - device session created for 7 days");
+        handleSuccessfulLogin(response.token, response.role || response.user?.role);
+        return;
+      }
+      
+      throw new Error(response.message || "OTP verification failed");
+      
+    } catch (error) {
+      const err = error as Error;
+      console.error("❌ OTP verification error:", err);
+      
+      toast.error("OTP verification failed", { 
+        description: err.message || "Invalid OTP. Please try again."
+      });
+      
+      setOTP("");
+    } finally {
+      setIsOTPLoading(false);
+    }
+  }
+
+  // Handles resending OTP
+  async function handleResendOTP() {
+    if (!loginEmail) {
+      toast.error("Session expired. Please login again.");
+      handleBackToLogin();
+      return;
+    }
+    
+    setIsOTPLoading(true);
+    try {
+      console.log("📤 Resending OTP to:", loginEmail);
+      const response = await resendLoginOTP(loginEmail);
+      
+      if (response.success) {
+        toast.success("OTP resent successfully", {
+          description: "Please check your email for the new OTP."
+        });
+        setOTP("");
+      } else {
+        throw new Error(response.message || "Failed to resend OTP");
+      }
+    } catch (error) {
+      const err = error as Error;
+      console.error("❌ Resend OTP error:", err);
+      toast.error("Failed to resend OTP", {
+        description: err.message
+      });
+    } finally {
+      setIsOTPLoading(false);
+    }
+  }
+
+  // Handles going back to login form
+  function handleBackToLogin() {
+    setShowOTP(false);
+    setOTP("");
+    setLoginEmail("");
+    setLoginPassword("");
+    form.reset();
+  }
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader className="text-center">
+        <LogIn className="mx-auto h-12 w-12 text-gray-400" />
+        <CardTitle className="mt-4 text-2xl">
+          {showOTP ? "Verify Your Email" : "Welcome back"}
+        </CardTitle>
+        <CardDescription>
+          {showOTP 
+            ? "Enter the OTP sent to your email address"
+            : "Enter your credentials to access your account"}
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent>
+        {!showOTP ? (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Enter your email"
+                          disabled={isLoading}
+                          className="pl-10"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Input
+                          type="password"
+                          placeholder="Enter your password"
+                          disabled={isLoading}
+                          className="pl-10"
+                          {...field}
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </form>
+          </Form>
+        ) : (
+          <form onSubmit={handleVerifyOTP} className="space-y-4">
+            <div>
+              <label className="block mb-2 text-sm font-medium">
+                Enter OTP
+              </label>
+              <Input
+                type="text"
+                placeholder="Enter 6-digit OTP"
+                value={otp}
+                onChange={(e) => setOTP(e.target.value.replace(/\D/g, ""))}
+                disabled={isOTPLoading}
+                maxLength={6}
+                autoFocus
+                className="text-center text-lg tracking-widest"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                OTP sent to {loginEmail}
+              </p>
+            </div>
+            
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isOTPLoading || otp.length !== 6}
+            >
+              {isOTPLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                "Verify OTP & Login"
+              )}
+            </Button>
+            
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={handleBackToLogin}
+                disabled={isOTPLoading}
+              >
+                Back to Login
+              </Button>
+              
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={handleResendOTP}
+                disabled={isOTPLoading}
+              >
+                Resend OTP
+              </Button>
+            </div>
+          </form>
+        )}
+      </CardContent>
+      
+      <CardFooter className="flex flex-col gap-4">
+        {!showOTP && (
+          <>
+            <div className="text-center text-sm">
+              <Link
+                href="/forgot-password"
+                className="text-blue-600 hover:text-blue-800 underline"
+              >
+                Forgot your password?
+              </Link>
+            </div>
+            <div className="text-center text-sm">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/register"
+                className="text-blue-600 hover:text-blue-800 underline"
+              >
+                Sign up
+              </Link>
+            </div>
+          </>
+        )}
+      </CardFooter>
+    </Card>
+  );
 }
-
