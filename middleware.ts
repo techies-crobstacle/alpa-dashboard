@@ -24,33 +24,13 @@ export function middleware(request: NextRequest) {
   const publicRoutes = ["/login", "/register", "/forgot-password", "/verify-email", "/setup-2fa"];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
-  // Define role-based dashboard routes
-  const dashboardRoutes = {
-    admin: "/dashboard/admin/dashboard",
-    seller: "/dashboard",
-    customer: "/dashboard/customer/profile",
-  };
-
   // If user is authenticated (has token and role)
   if (token && userRole) {
     // If trying to access public routes (login, register, etc.), redirect to dashboard
     if (isPublicRoute) {
-      const roleKey = userRole.toLowerCase() as keyof typeof dashboardRoutes;
-      const redirectUrl = dashboardRoutes[roleKey] || "/dashboard";
-      return NextResponse.redirect(new URL(redirectUrl, request.url));
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
-
-    // If accessing dashboard root, redirect based on role
-    if (pathname === "/dashboard") {
-      if (userRole.toLowerCase().includes("admin")) {
-        return NextResponse.redirect(new URL(dashboardRoutes.admin, request.url));
-      } else if (userRole.toLowerCase().includes("customer")) {
-        return NextResponse.redirect(new URL(dashboardRoutes.customer, request.url));
-      }
-      // Seller stays at /dashboard
-    }
-
-    // Allow access to role-specific routes
+    // Allow access to all other routes when authenticated
     return NextResponse.next();
   }
 
@@ -61,7 +41,7 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Redirect to login if trying to access protected routes
+    // Redirect to login for dashboard routes only
     if (pathname.startsWith("/dashboard")) {
       return NextResponse.redirect(new URL("/login", request.url));
     }

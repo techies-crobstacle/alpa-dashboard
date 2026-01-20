@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
 			if (!token) {
+				// Use router for navigation
 				router.replace("/login");
 				return;
 			}

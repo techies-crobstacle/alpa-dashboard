@@ -134,9 +134,19 @@ const getNotificationIcon = (type: string) => {
 
 		const handleLogout = () => {
 			if (typeof window !== "undefined") {
+				// Clear localStorage
 				localStorage.removeItem("alpa_token");
-				// Remove the cookie by setting it expired
+				localStorage.removeItem("auth_token");
+				localStorage.removeItem("user_data");
+				
+				// Remove the correct cookies that middleware checks
+				document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
+				document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
+				
+				// Also remove any legacy cookies
 				document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+				
+				// Use router for navigation instead of window.location
 				router.push("/login");
 			}
 		};
