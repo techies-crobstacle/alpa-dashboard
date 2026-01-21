@@ -14,7 +14,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 	useEffect(() => {
 		// Only run on client to verify token exists
 		if (typeof window !== "undefined") {
-			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
+			const token = localStorage.getItem("alpa_token");
 			if (!token) {
 				// Use router for navigation
 				router.replace("/login");
