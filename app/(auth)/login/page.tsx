@@ -427,35 +427,36 @@
 //       console.log("📥 OTP Verification Response:", response);
       
 //       // Check for token in response
-//       if (response.success && response.token) {
-//         console.log("✅ OTP verified - device session created for 7 days");
-//         handleSuccessfulLogin(response.token, response.role || response.user?.role);
-//         return;
-//       }
-      
-//       throw new Error(response.message || "OTP verification failed");
-      
-//     } catch (error) {
-//       const err = error as Error;
-//       console.error("❌ OTP verification error:", err);
-      
-//       toast.error("OTP verification failed", { 
-//         description: err.message || "Invalid OTP. Please try again."
-//       });
-      
-//       setOTP("");
-//     } finally {
-//       setIsOTPLoading(false);
-//     }
-//   }
+      // if (response.success && response.token) {
+      //   // Store token in localStorage
+      //   localStorage.setItem("alpa_token", response.token);
 
-//   // Handles resending OTP
-//   async function handleResendOTP() {
-//     if (!loginEmail) {
-//       toast.error("Session expired. Please login again.");
-//       handleBackToLogin();
-//       return;
-//     }
+      //   // Get role from response
+      //   const role = response.role || response.user?.role || "";
+
+      //   // Set both token and userRole as cookies for middleware (expires in 7 days, path=/)
+      //   document.cookie = `token=${response.token}; path=/; max-age=${60 * 60 * 24 * 7}`;
+      //   document.cookie = `userRole=${role}; path=/; max-age=${60 * 60 * 24 * 7}`;
+
+      //   // Remove any other user data
+      //   localStorage.removeItem("user_data");
+
+      //   // Show success message
+      //   toast.success("Login successful!", {
+      //     description: "Welcome back! You have been logged in successfully.",
+      //   });
+
+      //   // Redirect to dashboard based on user role
+      //   setTimeout(() => {
+      //     if (role === "ADMIN" || role === "admin") {
+      //       router.push("/dashboard/admin/dashboard");
+      //     } else if (role === "SELLER" || role === "seller") {
+      //       router.push("/dashboard");
+      //     } else {
+      //       router.push("/dashboard/customer/profile");
+      //     }
+      //   }, 1000);
+      // }
     
 //     setIsOTPLoading(true);
 //     try {
