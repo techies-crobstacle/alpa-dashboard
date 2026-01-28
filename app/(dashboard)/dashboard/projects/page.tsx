@@ -85,16 +85,45 @@ const addProduct = async (productData: {
 const deleteProduct = async (productId: string) => {
   const token = getAuthToken();
   if (!token) throw new Error("No authentication token found. Please log in.");
-  const response = await fetch(`${BASE_URL}/api/products/${productId}`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-  });
-  if (!response.ok) throw new Error("Failed to delete product");
-  return response.json();
+  
+  console.log('Attempting to delete product:', { productId, token: !!token });
+  
+  try {
+    const response = await fetch(`${BASE_URL}/api/products/${productId}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+    
+    console.log('Delete response:', { status: response.status, statusText: response.statusText });
+    
+    if (!response.ok) {
+      // Get detailed error information
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+      }
+      console.error('Delete failed with error:', errorData);
+      throw new Error(errorData.message || errorData.error || `Failed to delete product (${response.status})`);
+    }
+    
+    // Handle successful deletion (some APIs return 204 No Content)
+    if (response.status === 204) {
+      console.log('Product deletion successful (No Content)');
+      return null;
+    }
+    
+    console.log('Product deletion successful');
+    return response.json();
+  } catch (error) {
+    console.error('Network error during deletion:', error);
+    throw error;
+  }
 };
+
 
 function ProjectsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -178,13 +207,31 @@ function ProjectsPage() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Are you sure you want to delete this product? This action cannot be undone.")) return;
+    
     try {
+      console.log('Starting product deletion for ID:', productId);
       await deleteProduct(productId);
-      toast.success("Product deleted!");
+      toast.success("Product deleted successfully!");
       loadProducts();
-    } catch {
-      toast.error("Delete failed");
+    } catch (error) {
+      console.error('Product deletion failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      // Check for specific database constraint errors
+      if (errorMessage.includes('Foreign key constraint') || errorMessage.includes('order_items_productId_fkey')) {
+        toast.error('Cannot delete product: It has associated orders', {
+          description: 'Products with existing orders cannot be deleted to maintain data integrity.'
+        });
+      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        toast.error('Authentication error. Please log out and log back in.');
+      } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+        toast.error('You do not have permission to delete this product.');
+      } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        toast.error('Product not found. It may have already been deleted.');
+      } else {
+        toast.error(`Delete failed: ${errorMessage}`);
+      }
     }
   };
 

@@ -179,10 +179,11 @@ interface WishlistResponse {
 }
 
 // Card View Component
-function WishlistCard({ item, onRemove, onAddToCart, actionLoading }: { 
+function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading }: { 
   item: WishlistItem; 
   onRemove: (itemId: string) => void;
   onAddToCart: (productId: string) => void;
+  onMoveToCart: (productId: string, itemId: string) => void;
   actionLoading: { [key: string]: boolean };
 }) {
   const { product } = item;
@@ -191,7 +192,8 @@ function WishlistCard({ item, onRemove, onAddToCart, actionLoading }: {
     : "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80";
   
   const isRemoving = actionLoading[`remove-${item.id}`];
-  const isAddingToCart = actionLoading[`cart-${product.id}`];
+  const isAddingToCart = actionLoading[`add-cart-${product.id}`];
+  const isMovingToCart = actionLoading[`cart-${product.id}`];
   
   return (
     <Card className="overflow-hidden">
@@ -204,7 +206,7 @@ function WishlistCard({ item, onRemove, onAddToCart, actionLoading }: {
         <Button
           size="icon"
           variant="ghost"
-          className="absolute top-2 right-2 bg-white hover:bg-gray-100"
+          className="absolute top-2 right-2 bg-background/90 hover:bg-muted"
           onClick={() => onRemove(item.id)}
           disabled={isRemoving}
         >
@@ -218,31 +220,50 @@ function WishlistCard({ item, onRemove, onAddToCart, actionLoading }: {
       <CardContent className="p-4">
         <CardTitle className="text-sm line-clamp-2 mb-2">{product.title}</CardTitle>
         <CardDescription className="text-xs mb-2">{product.seller.name}</CardDescription>
-        <CardDescription className="text-xs mb-2 text-gray-600">{product.category}</CardDescription>
-        <div className="text-lg font-bold text-red-600 mb-2">${product.price} AUD</div>
-        <div className="text-xs text-gray-500 mb-2">Stock: {product.stock}</div>
-        <Button 
-          className="w-full" 
-          disabled={product.stock === 0 || isAddingToCart}
-          onClick={() => onAddToCart(product.id)}
-        >
-          {isAddingToCart ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <ShoppingCart className="h-4 w-4 mr-2" />
-          )}
-          {product.stock > 0 ? "Add to Cart" : "Out of Stock"}
-        </Button>
+        <CardDescription className="text-xs mb-2 text-muted-foreground">{product.category}</CardDescription>
+        <div className="text-lg font-bold text-primary mb-2">${product.price} AUD</div>
+        <div className="text-xs text-muted-foreground mb-4">Stock: {product.stock}</div>
+        
+        {/* Action buttons */}
+        <div className="space-y-2">
+          <Button 
+            className="w-full" 
+            disabled={product.stock === 0 || isMovingToCart}
+            onClick={() => onMoveToCart(product.id, item.id)}
+          >
+            {isMovingToCart ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ShoppingCart className="h-4 w-4 mr-2" />
+            )}
+            {product.stock > 0 ? "Move to Cart" : "Out of Stock"}
+          </Button>
+          
+          <Button 
+            variant="outline"
+            className="w-full" 
+            disabled={product.stock === 0 || isAddingToCart}
+            onClick={() => onAddToCart(product.id)}
+          >
+            {isAddingToCart ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <ShoppingCart className="h-4 w-4 mr-2" />
+            )}
+            {product.stock > 0 ? "Add to Cart" : "Out of Stock"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
 // Table View Component
-function WishlistTable({ items, onRemove, onAddToCart, actionLoading }: { 
+function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoading }: { 
   items: WishlistItem[];
   onRemove: (itemId: string) => void;
   onAddToCart: (productId: string) => void;
+  onMoveToCart: (productId: string, itemId: string) => void;
   actionLoading: { [key: string]: boolean };
 }) {
   return (
@@ -264,7 +285,8 @@ function WishlistTable({ items, onRemove, onAddToCart, actionLoading }: {
             : "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80";
           
           const isRemoving = actionLoading[`remove-${item.id}`];
-          const isAddingToCart = actionLoading[`cart-${product.id}`];
+          const isAddingToCart = actionLoading[`add-cart-${product.id}`];
+          const isMovingToCart = actionLoading[`cart-${product.id}`];
           
           return (
             <TableRow key={item.id}>
@@ -277,8 +299,8 @@ function WishlistTable({ items, onRemove, onAddToCart, actionLoading }: {
                   />
                   <div className="flex flex-col gap-1">
                     <div className="font-medium line-clamp-2">{product.title}</div>
-                    <div className="text-sm text-gray-600">by {product.seller.name}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-sm text-muted-foreground">by {product.seller.name}</div>
+                    <div className="text-xs text-muted-foreground">
                       Item added {new Date(item.addedAt).toLocaleDateString('en-AU', { 
                         day: 'numeric', 
                         month: 'long', 
@@ -292,30 +314,48 @@ function WishlistTable({ items, onRemove, onAddToCart, actionLoading }: {
                 <div className="text-sm">{product.category}</div>
               </TableCell>
               <TableCell>
-                <div className="font-bold text-red-600">${product.price} AUD</div>
-                <div className="text-xs text-gray-500 mt-1">FREE Delivery on orders over $50 AUD</div>
+                <div className="font-bold text-primary">${product.price} AUD</div>
+                <div className="text-xs text-muted-foreground mt-1">FREE Delivery on orders over $50 AUD</div>
               </TableCell>
               <TableCell>
                 <div className="text-sm">{product.stock} available</div>
               </TableCell>
               <TableCell>
                 <div className="flex flex-col gap-2">
+                  {/* Move to Cart - Primary action */}
                   <Button 
                     size="sm" 
-                    disabled={product.stock === 0 || isAddingToCart}
-                    onClick={() => onAddToCart(product.id)}
+                    disabled={product.stock === 0 || isMovingToCart}
+                    onClick={() => onMoveToCart(product.id, item.id)}
                   >
-                    {isAddingToCart ? (
+                    {isMovingToCart ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
                       <ShoppingCart className="h-4 w-4 mr-2" />
                     )}
-                    {product.stock > 0 ? "Add to Cart" : "Out of Stock"}
+                    {product.stock > 0 ? "Move to Cart" : "Out of Stock"}
                   </Button>
+                  
+                  {/* Secondary actions row */}
                   <div className="flex gap-1">
+                    {/* Add to Cart - Secondary action */}
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      disabled={product.stock === 0 || isAddingToCart}
+                      onClick={() => onAddToCart(product.id)}
+                    >
+                      {isAddingToCart ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShoppingCart className="h-4 w-4" />
+                      )}
+                    </Button>
+                    
                     <Button size="sm" variant="outline">
                       <StickyNote className="h-4 w-4" />
                     </Button>
+                    
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -339,6 +379,28 @@ function WishlistTable({ items, onRemove, onAddToCart, actionLoading }: {
   );
 }
 
+// Utility function to check wishlist status - can be used in other components
+export const checkWishlistStatus = async (productId: string): Promise<boolean> => {
+  try {
+    const response = await api.get(`/api/wishlist/check/${productId}`);
+    return response.inWishlist || false;
+  } catch (err) {
+    console.error('Error checking wishlist status:', err);
+    return false;
+  }
+};
+
+// Utility function to add item to wishlist - can be used in other components
+export const addToWishlist = async (productId: string): Promise<boolean> => {
+  try {
+    await api.post('/api/wishlist/add', { productId });
+    return true;
+  } catch (err) {
+    console.error('Error adding to wishlist:', err);
+    return false;
+  }
+};
+
 // Main Wishlist Page Component
 export default function WishlistPage() {
   const [view, setView] = useState<'card' | 'table'>('table');
@@ -346,12 +408,32 @@ export default function WishlistPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+  const [wishlistStatus, setWishlistStatus] = useState<{ [productId: string]: boolean }>({});
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
     total: 0,
     pages: 0
   });
+
+  // Check if product is in wishlist using the new API
+  const checkProductInWishlist = async (productId: string): Promise<boolean> => {
+    try {
+      const response = await api.get(`/api/wishlist/check/${productId}`);
+      return response.inWishlist || false;
+    } catch (err) {
+      console.error('Error checking wishlist status:', err);
+      return false;
+    }
+  };
+
+  // Update wishlist status for a specific product
+  const updateWishlistStatus = (productId: string, inWishlist: boolean) => {
+    setWishlistStatus(prev => ({
+      ...prev,
+      [productId]: inWishlist
+    }));
+  };
 
   // Fetch wishlist data when component mounts
   useEffect(() => {
@@ -370,6 +452,13 @@ export default function WishlistPage() {
       if (data.success) {
         setWishlistItems(data.wishlist);
         setPagination(data.pagination);
+        
+        // Update wishlist status for all fetched items
+        const statusUpdates: { [productId: string]: boolean } = {};
+        data.wishlist.forEach(item => {
+          statusUpdates[item.product.id] = true;
+        });
+        setWishlistStatus(prev => ({ ...prev, ...statusUpdates }));
       } else {
         setError('Failed to fetch wishlist');
       }
@@ -381,11 +470,23 @@ export default function WishlistPage() {
     }
   };
 
-  // Remove item from wishlist
+  // Remove item from wishlist using productId instead of itemId
   const removeFromWishlist = async (itemId: string) => {
     try {
       setActionLoading(prev => ({ ...prev, [`remove-${itemId}`]: true }));
-      await api.delete(`/api/wishlist/${itemId}`);
+      
+      // Find the product ID for this wishlist item
+      const wishlistItem = wishlistItems.find(item => item.id === itemId);
+      if (!wishlistItem) {
+        throw new Error('Item not found in wishlist');
+      }
+      
+      // Use the productId as per the API endpoint requirement: /api/wishlist/:productId
+      await api.delete(`/api/wishlist/${wishlistItem.product.id}`);
+      
+      // Update wishlist status
+      updateWishlistStatus(wishlistItem.product.id, false);
+      
       toast.success("Item removed from wishlist", {
         description: "The item has been successfully removed from your wishlist.",
       });
@@ -403,16 +504,42 @@ export default function WishlistPage() {
     }
   };
 
-  // Add to cart
-  const addToCart = async (productId: string) => {
+  // Move to cart - using the new API endpoint
+  const moveToCart = async (productId: string, itemId: string) => {
     try {
       setActionLoading(prev => ({ ...prev, [`cart-${productId}`]: true }));
+      
+      // Call the move-to-cart API endpoint
+      await api.post(`/move-to-cart/${productId}`, { quantity: 1 });
+      
+      // Update wishlist status (item removed from wishlist after moving to cart)
+      updateWishlistStatus(productId, false);
+      
+      toast.success("Item moved to cart", {
+        description: "The item has been successfully moved from wishlist to cart.",
+      });
+      // Refresh wishlist after moving to cart (item should be removed from wishlist)
+      fetchWishlist();
+    } catch (err) {
+      console.error('Error moving to cart:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to move item to cart';
+      setError(errorMessage);
+      toast.error("Failed to move to cart", {
+        description: errorMessage,
+      });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [`cart-${productId}`]: false }));
+    }
+  };
+
+  // Add to cart (keep original functionality for separate add to cart without removing from wishlist)
+  const addToCart = async (productId: string) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [`add-cart-${productId}`]: true }));
       await api.post('/api/cart/add', { productId, quantity: 1 });
       toast.success("Item added to cart", {
         description: "The item has been successfully added to your cart.",
       });
-      // Optionally remove from wishlist after adding to cart
-      // removeFromWishlist(itemId);
     } catch (err) {
       console.error('Error adding to cart:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to add item to cart';
@@ -421,20 +548,16 @@ export default function WishlistPage() {
         description: errorMessage,
       });
     } finally {
-      setActionLoading(prev => ({ ...prev, [`cart-${productId}`]: false }));
+      setActionLoading(prev => ({ ...prev, [`add-cart-${productId}`]: false }));
     }
   };
 
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen p-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-600" />
-            <span className="ml-2 text-gray-600">Loading wishlist...</span>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading wishlist...</span>
       </div>
     );
   }
@@ -442,86 +565,84 @@ export default function WishlistPage() {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen p-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <h3 className="text-red-800 font-semibold mb-2">Error loading wishlist</h3>
-            <p className="text-red-600">{error}</p>
-            <Button onClick={fetchWishlist} className="mt-4">
-              Try Again
-            </Button>
-          </div>
-        </div>
+      <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+        <h3 className="text-destructive font-semibold mb-2">Error loading wishlist</h3>
+        <p className="text-destructive">{error}</p>
+        <Button onClick={fetchWishlist} className="mt-4">
+          Try Again
+        </Button>
       </div>
     );
   }
 
   // Main render
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">My Wishlist</h1>
-            <p className="text-gray-600">
-              {pagination.total} {pagination.total === 1 ? 'item' : 'items'} in your wishlist
-            </p>
-          </div>
-          {/* View Toggle Buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant={view === 'card' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setView('card')}
-              aria-label="Card view"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={view === 'table' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setView('table')}
-              aria-label="Table view"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">My Wishlist</h1>
+          <p className="text-muted-foreground">
+            {pagination.total} {pagination.total === 1 ? 'item' : 'items'} in your wishlist
+          </p>
         </div>
+        {/* View Toggle Buttons */}
+        <div className="flex gap-2">
+          <Button
+            variant={view === 'card' ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => setView('card')}
+            aria-label="Card view"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={view === 'table' ? 'default' : 'outline'}
+            size="icon"
+            onClick={() => setView('table')}
+            aria-label="Table view"
+          >
+            <List className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
 
-        {/* Empty state */}
-        {wishlistItems.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <Heart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-700 mb-2">Your wishlist is empty</h2>
-            <p className="text-gray-500">Start adding items you love to your wishlist!</p>
-          </div>
-        ) : (
-          /* Wishlist Content */
-          <>
-            {view === 'card' ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {wishlistItems.map((item) => (
-                  <WishlistCard 
-                    key={item.id} 
-                    item={item} 
-                    onRemove={removeFromWishlist}
-                    onAddToCart={addToCart}
-                    actionLoading={actionLoading}
-                  />
-                ))}
-              </div>
-            ) : (
+      {/* Empty state */}
+      {wishlistItems.length === 0 ? (
+        <Card className="p-12 text-center">
+          <Heart className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold mb-2">Your wishlist is empty</h2>
+          <p className="text-muted-foreground">Start adding items you love to your wishlist!</p>
+        </Card>
+      ) : (
+        /* Wishlist Content */
+        <>
+          {view === 'card' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {wishlistItems.map((item) => (
+                <WishlistCard 
+                  key={item.id}
+                  item={item}
+                  onRemove={removeFromWishlist}
+                  onAddToCart={addToCart}
+                  onMoveToCart={moveToCart}
+                  actionLoading={actionLoading}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
               <WishlistTable 
                 items={wishlistItems} 
                 onRemove={removeFromWishlist}
                 onAddToCart={addToCart}
+                onMoveToCart={moveToCart}
                 actionLoading={actionLoading}
               />
-            )}
-          </>
-        )}
-      </div>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 }
