@@ -156,12 +156,12 @@ const baseSidebarGroups = [
 		title: "Others",
 		items: [
 			
-			{
-				title: "Return Policy",
-				href: "/dashboard/customer/returnPolicy",
-				icon: AlertCircle,
-				badge: null,
-			}
+			// {
+			// 	title: "Return Policy",
+			// 	href: "/dashboard/customer/returnPolicy",
+			// 	icon: AlertCircle,
+			// 	badge: null,
+			// }
 			
 			// {
 			// 	title: "Messages",
@@ -244,7 +244,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 				return role === "SELLER";
 			}
 			// Customer-only pages
-			if (["/dashboard/customer/orders", "/dashboard/customer/returnPolicy", "/dashboard/customer/wishList"].includes(item.href)) {
+			if (["/dashboard/customer/orders", "/dashboard/customer/wishList"].includes(item.href)) {
 				return role === "CUSTOMER";
 			}
 			// Role page: visible to all roles

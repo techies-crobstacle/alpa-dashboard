@@ -97,7 +97,7 @@ export default function SettingsAppearancePage() {
 												<Label className={`cursor-pointer text-sm font-medium ${isSelected ? "text-primary" : ""}`}>
 													{themeOption.name}
 												</Label>
-												<p className="text-xs text-muted-foreground">
+												<p className="text-xs text-left text-muted-foreground">
 													{themeOption.description}
 												</p>
 											</div>

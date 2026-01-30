@@ -134,50 +134,6 @@ export default function AnalyticsPage() {
       setExportLoading(false);
     }
   };
-
-  // CSV Download Helper
-  // function downloadCSV() {
-  //   if (!exportData.length) return;
-  //   const headers = [
-  //     "Order ID",
-  //     "Order Date",
-  //     "Product Title",
-  //     "Product ID",
-  //     "Quantity Sold",
-  //     "Unit Price",
-  //     "Total Amount",
-  //     "Order Status",
-  //     "Payment Method",
-  //     "Customer Name",
-  //     "Customer Phone",
-  //     "Customer Email",
-  //     "Shipping Address",
-  //     "Shipping City",
-  //     "Shipping State",
-  //     "Shipping Pincode",
-  //     "Tracking Number",
-  //     "Estimated Delivery",
-  //   ];
-  //   const csvRows = [
-  //     headers.join(","),
-  //     ...exportData.map((row) =>
-  //       headers
-  //         .map((h) => `"${(row[h] ?? "").toString().replace(/"/g, '""')}"`)
-  //         .join(",")
-  //     ),
-  //   ];
-  //   const csvContent = csvRows.join("\n");
-  //   const blob = new Blob([csvContent], { type: "text/csv" });
-  //   const url = URL.createObjectURL(blob);
-  //   const a = document.createElement("a");
-  //   a.href = url;
-  //   a.download = `sales_export_${Date.now()}.csv`;
-  //   document.body.appendChild(a);
-  //   a.click();
-  //   document.body.removeChild(a);
-  //   URL.revokeObjectURL(url);
-  // }
-
   if (loading)
     return (
       <div className="flex h-screen items-center justify-center">

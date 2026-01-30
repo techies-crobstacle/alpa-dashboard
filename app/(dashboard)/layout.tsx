@@ -1,15 +1,21 @@
 "use client";
-import { Sidebar } from "@/components/shared/sidebar";
-import Topbar from "@/components/shared/topbar";
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Sidebar } from "@/components/shared/sidebar";
+import Topbar from "@/components/shared/topbar";
+
+
+const LoadingDashboard = dynamic(() => import("@/components/shared/loading-dashboard").then(m => m.LoadingDashboard), { ssr: false });
+
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const [checking, setChecking] = useState(true);
+	const [globalLoading, setGlobalLoading] = useState(false);
 
 	useEffect(() => {
 		// Only run on client to verify token exists
@@ -23,6 +29,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 		}
 		setChecking(false);
 	}, [router]);
+
+	// Listen for route changes to show skeleton loader
+	useEffect(() => {
+		const handleStart = () => setGlobalLoading(true);
+		const handleStop = () => setGlobalLoading(false);
+
+		// next/navigation does not provide router events, so fallback to window events
+		window.addEventListener("dashboard-loading-start", handleStart);
+		window.addEventListener("dashboard-loading-stop", handleStop);
+		return () => {
+			window.removeEventListener("dashboard-loading-start", handleStart);
+			window.removeEventListener("dashboard-loading-stop", handleStop);
+		};
+	}, []);
 
 	if (checking) {
 		return (
@@ -38,10 +58,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 			<Sidebar />
 
 			{/* Main Content */}
-			<div className="flex-1 overflow-auto">
+			<div className="flex-1 overflow-auto relative">
 				<Topbar />
 				<main className="p-8 max-w-[calc(100vw-18rem)] mx-auto">
-					<div className="min-h-[calc(100vh-8rem)]">{children}</div>
+					{globalLoading ? (
+						<LoadingDashboard />
+					) : (
+						<div className="min-h-[calc(100vh-8rem)]">{children}</div>
+					)}
 				</main>
 			</div>
 		</div>
