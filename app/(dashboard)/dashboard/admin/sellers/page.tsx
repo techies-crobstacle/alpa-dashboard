@@ -577,8 +577,14 @@ export default function SellersPage() {
       await api.post(`/api/admin/sellers/activate/${sellerId}`, {});
       toast.success("Seller activated");
       fetchSellers();
-    } catch {
-      toast.error("Failed to activate seller");
+    } catch (err: any) {
+      // Check for specific error message from API
+      const message = err?.response?.data?.message || err?.message || "Failed to activate seller";
+      if (typeof message === "string" && message.includes("Seller must upload at least 1-2 products before going live")) {
+        toast.error("Seller must upload at least 1-2 products before going live. 5+ products recommended.");
+      } else {
+        toast.error("Failed to activate seller");
+      }
     }
   }
 
@@ -791,9 +797,9 @@ export default function SellersPage() {
                                     <div>
                                       <Calendar className={iconClass} /> <span className="font-semibold">Updated At:</span> {new Date(seller.updatedAt).toLocaleString()}
                                     </div>
-                                    <div className="col-span-2">
-                                      <MapPin className={iconClass} /> <span className="font-semibold">Address:</span> {seller.address}
-                                    </div>
+                                     <div className="col-span-2">
+                                       <MapPin className={iconClass} /> <span className="font-semibold">Address:</span> {seller.address}
+                                     </div>
                                     {seller.bankDetails && (
                                       <div className="col-span-2">
                                         <Banknote className={iconClass} /> <span className="font-semibold">Bank Details:</span> Bank: {seller.bankDetails.bankName}, Account Name: {seller.bankDetails.accountName}, Account Number: {seller.bankDetails.accountNumber}, BSB: {seller.bankDetails.bsb}

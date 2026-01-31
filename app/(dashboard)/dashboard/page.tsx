@@ -356,6 +356,23 @@ export default function DashboardPage() {
     }
   };
 
+  // Helper: persist acknowledged notifications in localStorage
+  const ACK_KEY = "alpa_acknowledged_notifications";
+  function getPersistedAcks() {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem(ACK_KEY) || "{}") || {};
+    } catch {
+      return {};
+    }
+  }
+  function persistAck(id: string) {
+    if (typeof window === "undefined") return;
+    const prev = getPersistedAcks();
+    prev[id] = true;
+    localStorage.setItem(ACK_KEY, JSON.stringify(prev));
+  }
+
   useEffect(() => {
     const checkAuth = async () => {
       if (typeof window === "undefined") {
@@ -414,14 +431,12 @@ export default function DashboardPage() {
             setSlaData(response);
             // Initialize ackState for notifications
             if (response.notifications) {
-              const ackInit: Record<
-                string,
-                { loading: boolean; acknowledged: boolean }
-              > = {};
+              const persisted = getPersistedAcks();
+              const ackInit: Record<string, { loading: boolean; acknowledged: boolean }> = {};
               response.notifications.forEach((n: any) => {
                 ackInit[n.id] = {
                   loading: false,
-                  acknowledged: !!n.acknowledged,
+                  acknowledged: !!n.acknowledged || !!persisted[n.id],
                 };
               });
               setAckState(ackInit);
@@ -817,6 +832,7 @@ export default function DashboardPage() {
                                         acknowledged: true,
                                       },
                                     }));
+                                    persistAck(notification.id);
                                   } catch {
                                     toast.error(
                                       "Failed to acknowledge notification",

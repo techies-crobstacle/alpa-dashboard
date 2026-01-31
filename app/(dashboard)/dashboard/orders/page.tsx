@@ -530,6 +530,20 @@ export default function OrdersPage() {
 
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
+  // Helper to render shipping address safely
+  function renderShippingAddress(address: any) {
+    if (!address) return "N/A";
+    if (typeof address === "string") return address;
+    if (typeof address === "object") {
+      // Show only present fields
+      const { street, suburb, postcode, fullAddress } = address;
+      const parts = [fullAddress, street, suburb, postcode].filter(Boolean);
+      if (parts.length > 0) return parts.join(", ");
+      // fallback: show JSON
+      return JSON.stringify(address);
+    }
+    return String(address);
+  }
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -642,7 +656,7 @@ export default function OrdersPage() {
                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><strong>Created At:</strong> {new Date(order.createdAt).toLocaleString()}</div>
                     <div className="flex items-center gap-2"><DollarSign className="h-4 w-4" /><strong>Total Amount:</strong> ${order.totalAmount}</div>
                     <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><strong>Payment Method:</strong> {order.paymentMethod}</div>
-                    <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><strong>Shipping Address:</strong> {order.shippingAddress}</div>
+                    <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><strong>Shipping Address:</strong> {renderShippingAddress(order.shippingAddress)}</div>
                     <div className="flex items-center gap-2"><Truck className="h-4 w-4" /><strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}</div>
                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</div>
                     <div className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /><strong>Items:</strong></div>
@@ -739,7 +753,7 @@ export default function OrdersPage() {
                             <strong>Payment Method:</strong> {order.paymentMethod}
                           </div>
                           <div>
-                            <strong>Shipping Address:</strong> {order.shippingAddress}
+                            <strong>Shipping Address:</strong> {renderShippingAddress(order.shippingAddress)}
                           </div>
                           <div>
                             <strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}
