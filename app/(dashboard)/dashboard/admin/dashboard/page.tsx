@@ -77,7 +77,7 @@ export default function DashboardPage() {
 			
 			console.log("🔍 Fetching sellers with token:", token ? `${token.slice(0, 20)}...` : "NO TOKEN");
 			
-			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/users/all`;
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/users/all`;
 			console.log("📍 API URL:", url);
 			
 			// Use fetch directly with better error handling
@@ -169,7 +169,7 @@ export default function DashboardPage() {
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
 			
 			const response = await fetch(
-				`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/seller/notifications?sellerId=${sellerId}`,
+				`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/seller/notifications?sellerId=${sellerId}`,
 				{
 					method: "GET",
 					headers: {

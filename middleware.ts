@@ -11,6 +11,8 @@
 //   matcher: ["/login", "/register", "/forgot-password", "/verify-email", "/setup-2fa"],
 // };
 
+
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -28,7 +30,7 @@ export function middleware(request: NextRequest) {
   if (token && userRole) {
     // If trying to access public routes (login, register, etc.), redirect to dashboard
     if (isPublicRoute) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(new URL(`/dashboard/role`, request.url));
     }
     // Allow access to all other routes when authenticated
     return NextResponse.next();
@@ -60,3 +62,5 @@ export const config = {
     "/dashboard/:path*",
   ],
 };
+
+

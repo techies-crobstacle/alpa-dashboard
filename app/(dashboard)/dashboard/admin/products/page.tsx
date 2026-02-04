@@ -37,6 +37,8 @@ type Product = {
   description?: string;
   category?: string;
   stock?: number;
+  featured?: boolean;
+  tags?: string[] | string;
 };
 
 
@@ -101,24 +103,35 @@ export default function AdminProductsPage() {
       fetchProducts(selectedSeller);
     } else {
       setProducts([]);
+      setLoading(false); // Ensure loading state is cleared
     }
   }, [selectedSeller]);
 
   const fetchSellers = async () => {
     setLoadingSellers(true);
     try {
-      const res = await api.get("/api/users/all", {
-        headers: {
-          Authorization: ""
-        }
-      });
+      console.log("Fetching sellers...");
+      const res = await api.get("/api/users/all");
+      console.log("Sellers API Response:", res);
+      
       const sellersOnly = Array.isArray(res)
         ? res.filter((u: { role: string }) => u.role === "SELLER")
         : (res.users || []).filter((u: { role: string }) => u.role === "SELLER");
+      
+      console.log("Filtered sellers:", sellersOnly);
       setSellers(sellersOnly);
-      if (sellersOnly.length > 0) setSelectedSeller(sellersOnly[0].id);
-    } catch {
-      toast.error("Failed to load sellers");
+      if (sellersOnly.length > 0) {
+        console.log("Setting first seller as selected:", sellersOnly[0].id);
+        setSelectedSeller(sellersOnly[0].id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch sellers:", error);
+      let message = 'Unknown error';
+      if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') {
+        message = (error as any).message;
+      }
+      toast.error(`Failed to load sellers: ${message}`);
+      setSellers([]);
     } finally {
       setLoadingSellers(false);
     }
@@ -127,14 +140,29 @@ export default function AdminProductsPage() {
   const fetchProducts = async (sellerId: string) => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/admin/sellers/${sellerId}/products`, {
-        headers: {
-          Authorization: ""
-        }
-      });
-      setProducts(Array.isArray(res) ? res : res.products || []);
-    } catch {
-      toast.error("Failed to load products");
+      console.log(`Fetching products for seller: ${sellerId}`);
+      const res = await api.get(`/api/admin/sellers/${sellerId}/products`);
+      console.log("API Response:", res);
+      
+      // Handle the specific response structure: { success: true, products: [...] }
+      let productsData = [];
+      if (res && res.success && res.products) {
+        productsData = res.products;
+      } else if (Array.isArray(res)) {
+        productsData = res;
+      } else if (res && res.data) {
+        productsData = res.data;
+      }
+      
+      console.log("Products data to set:", productsData);
+      setProducts(productsData);
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+      let message = 'Unknown error';
+      if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') {
+        message = (error as any).message;
+      }
+      toast.error(`Failed to load products: ${message}`);
       setProducts([]);
     } finally {
       setLoading(false);
@@ -302,28 +330,50 @@ export default function AdminProductsPage() {
                             <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
                             <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
                             <div className="mb-2"><strong>Status:</strong> {product.status || 'Active'}</div>
+                            <div className="mb-2"><strong>Featured:</strong> {product.featured ? 'Yes' : 'No'}</div>
+                            <div className="mb-2">
+                              <strong>Tags:</strong> 
+                              {product.tags && product.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {Array.isArray(product.tags) ? (
+                                    product.tags.map((tag, idx) => (
+                                      <Badge key={idx} variant="secondary" className="text-xs">{tag}</Badge>
+                                    ))
+                                  ) : (
+                                    product.tags.split(',').map((tag, idx) => (
+                                      <Badge key={idx} variant="secondary" className="text-xs">{tag.trim()}</Badge>
+                                    ))
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground ml-2">No tags</span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex gap-2 flex-wrap">
                             {product.images && product.images.length > 0 ? (
                               product.images.map((img, idx) => (
-                                <Image
-                                  key={img + idx}
-                                  src={img}
-                                  alt={product.title || "Product image"}
-                                  width={120}
-                                  height={120}
-                                  className="rounded object-cover border"
-                                  unoptimized
-                                />
+                                <div key={img + idx} className="w-32 h-32 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                  <Image
+                                    src={img}
+                                    alt={product.title || "Product image"}
+                                    width={120}
+                                    height={120}
+                                    className="max-w-full max-h-full object-contain"
+                                    unoptimized
+                                  />
+                                </div>
                               ))
                             ) : (
-                              <Image
-                                src="/placeholder.svg"
-                                alt="No image"
-                                width={120}
-                                height={120}
-                                className="rounded object-cover border"
-                              />
+                              <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center">
+                                <Image
+                                  src="/placeholder.svg"
+                                  alt="No image"
+                                  width={48}
+                                  height={48}
+                                  className="opacity-50"
+                                />
+                              </div>
                             )}
                           </div>
                         </div>

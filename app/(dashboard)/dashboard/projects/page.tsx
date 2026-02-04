@@ -8,12 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 
 // --- CONFIGURATION ---
-const BASE_URL = "https://alpa-be-1.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 // --- HELPER: Get Auth Token ---
 const getAuthToken = () => {
@@ -50,9 +51,13 @@ type Product = {
   images: string[];
   status?: string;
   sales?: number;
+  featured?: boolean;
+  tags?: string[] | string;
 };
 
 const addProduct = async (productData: {
+  tags: string;
+  featured: boolean;
   title: string;
   description: string;
   price: string;
@@ -71,6 +76,8 @@ const addProduct = async (productData: {
   for (let i = 0; i < productData.images.length; i++) {
     form.append("images", productData.images[i]);
   }
+  form.append("featured", String(productData.featured));
+  form.append("tags", productData.tags);
   const response = await fetch(`${BASE_URL}/api/products/add`, {
     method: "POST",
     headers: {
@@ -140,6 +147,8 @@ function ProjectsPage() {
     stock: "",
     category: "",
     images: [] as File[],
+    featured: false,
+    tags: "",
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -152,6 +161,8 @@ function ProjectsPage() {
     category: "",
     images: [] as File[],
     oldImages: [] as string[],
+    featured: false,
+    tags: "",
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
@@ -193,11 +204,13 @@ function ProjectsPage() {
         stock: formData.stock,
         category: formData.category,
         images: formData.images,
+        featured: formData.featured,
+        tags: formData.tags,
       };
       await addProduct(productData);
       toast.success("Product added successfully!");
       setShowAddModal(false);
-      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [] });
+      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featured: false, tags: "" });
       loadProducts();
     } catch {
       toast.error("Failed to add product");
@@ -270,6 +283,8 @@ function ProjectsPage() {
         category: prod.category || "",
         images: [],
         oldImages: prod.images || [],
+        featured: prod.featured ?? false,
+        tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
       });
       setShowEditModal(true);
     } catch (err) {
@@ -298,6 +313,9 @@ function ProjectsPage() {
           form.append("images", editFormData.images[i]);
         }
       }
+      // Add featured and tags fields
+      form.append("featured", String(editFormData.featured));
+      form.append("tags", editFormData.tags);
       // Debug: Log what we're sending
       console.log("Sending edit request for product:", editProductId);
       console.log("FormData contents:");
@@ -514,28 +532,50 @@ function ProjectsPage() {
                           <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
                           <div className="mb-2"><strong>Status:</strong> {product.status || 'Active'}</div>
                           <div className="mb-2"><strong>Sales:</strong> {product.sales ?? 0}</div>
+                          <div className="mb-2"><strong>Featured:</strong> {product.featured ? 'Yes' : 'No'}</div>
+                          <div className="mb-2">
+                            <strong>Tags:</strong> 
+                            {product.tags ? (
+                              Array.isArray(product.tags) ? (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {product.tags.map((tag, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded">{tag}</span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {product.tags.split(',').map((tag, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded">{tag.trim()}</span>
+                                  ))}
+                                </div>
+                              )
+                            ) : 'None'}
+                          </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
                           {product.images && product.images.length > 0 ? (
                             product.images.map((img, idx) => (
-                              <Image
-                                key={idx}
-                                src={img}
-                                alt={product.title}
-                                width={120}
-                                height={120}
-                                className="rounded object-cover border"
-                                unoptimized
-                              />
+                              <div key={idx} className="w-80 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                <Image
+                                  src={img}
+                                  alt={product.title}
+                                  width={120}
+                                  height={120}
+                                  className="w-full object-cover"
+                                  unoptimized
+                                />
+                              </div>
                             ))
                           ) : (
-                            <Image
-                              src="/placeholder.svg"
-                              alt="No image"
-                              width={120}
-                              height={120}
-                              className="rounded object-cover border"
-                            />
+                            <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center">
+                              <Image
+                                src="/placeholder.svg"
+                                alt="No image"
+                                width={48}
+                                height={48}
+                                className="opacity-50"
+                              />
+                            </div>
                           )}
                         </div>
                       </div>
@@ -635,28 +675,50 @@ function ProjectsPage() {
                           <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
                           <div className="mb-2"><strong>Status:</strong> {product.status || 'Active'}</div>
                           <div className="mb-2"><strong>Sales:</strong> {product.sales ?? 0}</div>
+                          <div className="mb-2"><strong>Featured:</strong> {product.featured ? 'Yes' : 'No'}</div>
+                          <div className="mb-2">
+                            <strong>Tags:</strong> 
+                            {product.tags ? (
+                              Array.isArray(product.tags) ? (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {product.tags.map((tag, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded">{tag}</span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {product.tags.split(',').map((tag, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-primary/10 text-primary text-xs rounded">{tag.trim()}</span>
+                                  ))}
+                                </div>
+                              )
+                            ) : 'None'}
+                          </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
                           {product.images && product.images.length > 0 ? (
                             product.images.map((img, idx) => (
-                              <Image
-                                key={idx}
-                                src={img}
-                                alt={product.title}
-                                width={120}
-                                height={120}
-                                className="rounded object-cover border"
-                                unoptimized
-                              />
+                              <div key={idx} className="w-32 h-32 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                <Image
+                                  src={img}
+                                  alt={product.title}
+                                  width={120}
+                                  height={120}
+                                  className="max-w-full max-h-full object-contain"
+                                  unoptimized
+                                />
+                              </div>
                             ))
                           ) : (
-                            <Image
-                              src="/placeholder.svg"
-                              alt="No image"
-                              width={120}
-                              height={120}
-                              className="rounded object-cover border"
-                            />
+                            <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center">
+                              <Image
+                                src="/placeholder.svg"
+                                alt="No image"
+                                width={48}
+                                height={48}
+                                className="opacity-50"
+                              />
+                            </div>
                           )}
                         </div>
                       </div>
@@ -700,6 +762,45 @@ function ProjectsPage() {
                     <div className="space-y-2">
                       <Label htmlFor="edit-category">Category</Label>
                       <Input id="edit-category" placeholder="E.g. Furniture" value={editFormData.category} onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="edit-featured">Featured Product</Label>
+                      <Switch
+                        id="edit-featured"
+                        checked={editFormData.featured}
+                        onCheckedChange={(checked) => setEditFormData({ ...editFormData, featured: checked })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tags</Label>
+                      <div className="flex flex-wrap gap-3 pt-1">
+                        {["New Arrival", "Sale", "Best Seller", "Limited Edition"].map(tag => {
+                          const currentTags = editFormData.tags ? editFormData.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
+                          const isChecked = currentTags.includes(tag);
+                          return (
+                            <label key={tag} className="flex items-center gap-2 px-3 py-1 rounded bg-muted hover:bg-primary/10 cursor-pointer transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={e => {
+                                  let newTags;
+                                  if (e.target.checked) {
+                                    newTags = currentTags.includes(tag) ? currentTags : [...currentTags, tag];
+                                  } else {
+                                    newTags = currentTags.filter(t => t !== tag);
+                                  }
+                                  setEditFormData({
+                                    ...editFormData,
+                                    tags: newTags.filter(t => t.length > 0).join(", ")
+                                  });
+                                }}
+                                className="accent-primary h-4 w-4 rounded border border-primary focus:ring-2 focus:ring-primary"
+                              />
+                              <span className="text-sm font-medium text-foreground">{tag}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
                     {/* --- IMAGE UPLOAD --- */}
                     <div className="space-y-2">
@@ -776,6 +877,45 @@ function ProjectsPage() {
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Input id="category" placeholder="E.g. Furniture" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="featured">Featured Product</Label>
+                <Switch
+                  id="featured"
+                  checked={formData.featured}
+                  onCheckedChange={(checked) => setFormData({ ...formData, featured: checked })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tags</Label>
+                <div className="flex flex-wrap gap-3 pt-1">
+                  {["New Arrival", "Sale", "Best Seller", "Limited Edition"].map(tag => {
+                    const currentTags = formData.tags ? formData.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
+                    const isChecked = currentTags.includes(tag);
+                    return (
+                      <label key={tag} className="flex items-center gap-2 px-3 py-1 rounded bg-muted hover:bg-primary/10 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={e => {
+                            let newTags;
+                            if (e.target.checked) {
+                              newTags = currentTags.includes(tag) ? currentTags : [...currentTags, tag];
+                            } else {
+                              newTags = currentTags.filter(t => t !== tag);
+                            }
+                            setFormData({
+                              ...formData,
+                              tags: newTags.filter(t => t.length > 0).join(", ")
+                            });
+                          }}
+                          className="accent-primary h-4 w-4 rounded border border-primary focus:ring-2 focus:ring-primary"
+                        />
+                        <span className="text-sm font-medium text-foreground">{tag}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
               
               {/* --- IMAGE UPLOAD --- */}
