@@ -52,6 +52,12 @@ const baseSidebarGroups = [
 				badge: "New",
 			},
 			{
+				title: "Analytics",
+				href: "/dashboard/admin/analytics",
+				icon: BarChart3,
+				badge: "New",
+			},
+			{
 				title: "Settings",
 				href: "/dashboard/settings",
 				icon: Settings,
@@ -232,7 +238,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/users", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard",].includes(item.href)) {
+			if (["/dashboard/users", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard",].includes(item.href)) {
 				return role === "ADMIN";
 			}
 			// Seller and customer can see /dashboard/orders
@@ -240,7 +246,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 			// 	return role === "SELLER" || role === "CUSTOMER";
 			// }
 			// Seller-only pages
-			if (["/dashboard/projects", "/dashboard/orders", "/dashboard"].includes(item.href)) {
+			if (["/dashboard/projects", "/dashboard/orders", "/dashboard", "/dashboard/analytics",].includes(item.href)) {
 				return role === "SELLER";
 			}
 			// Customer-only pages
@@ -252,7 +258,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 				return true;
 			}
 			// Users, Analytics, Settings, Dashboard: visible to admin and seller
-			if ([ "/dashboard/analytics", "/dashboard/invoice","/dashboard/report"].includes(item.href)) {
+			if ([  "/dashboard/invoice","/dashboard/report"].includes(item.href)) {
 				return role === "ADMIN" || role === "SELLER";
 			}
 			// Default: visible to all

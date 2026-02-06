@@ -54,8 +54,8 @@ export default function UserListCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl font-semibold">All Users</CardTitle>
-        <p className="text-muted-foreground">List of all users in the system</p>
+        <CardTitle className="text-xl font-semibold">Recent Users</CardTitle>
+        <p className="text-muted-foreground">Latest 7 users in the system</p>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -79,7 +79,7 @@ export default function UserListCard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
-                {users.map((user) => (
+                {users.slice(-7).reverse().map((user) => (
                   <tr key={user.id} className="hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-2">
                       <Avatar className="h-10 w-10 border">

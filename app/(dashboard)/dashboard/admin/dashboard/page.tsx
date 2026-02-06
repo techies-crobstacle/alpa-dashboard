@@ -13,42 +13,43 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import UserListCard from "../UserListCard";
 
-const stats = [
+// Default stats configuration - will be replaced with real analytics data
+const defaultStats = [
 	{
 		title: "Total Revenue",
-		value: "$45,231.89",
+		value: "$0.00",
 		icon: DollarSign,
-		description: "+20.1% from last month",
+		description: "Total revenue from all orders",
 		trend: "up",
 		color: "text-emerald-600",
 		bgColor: "bg-emerald-50",
 	},
-	// {
-	// 	title: "Subscriptions",
-	// 	value: "+2,350",
-	// 	icon: Users,
-	// 	description: "+180.1% from last month",
-	// 	trend: "up",
-	// 	color: "text-blue-600",
-	// 	bgColor: "bg-blue-50",
-	// },
 	{
-		title: "Sales",
-		value: "+12,234",
+		title: "Total Orders",
+		value: "0",
 		icon: CreditCard,
-		description: "+19% from last month",
+		description: "Total number of orders",
 		trend: "up",
 		color: "text-purple-600",
 		bgColor: "bg-purple-50",
 	},
 	{
-		title: "Active Now",
-		value: "+573",
+		title: "Items Sold",
+		value: "0",
 		icon: Activity,
-		description: "+201 since last hour",
+		description: "Total items sold",
 		trend: "up",
 		color: "text-orange-600",
 		bgColor: "bg-orange-50",
+	},
+	{
+		title: "Avg Order Value",
+		value: "$0.00",
+		icon: DollarSign,
+		description: "Average order value",
+		trend: "up",
+		color: "text-blue-600",
+		bgColor: "bg-blue-50",
 	},
 ];
 
@@ -68,6 +69,9 @@ export default function DashboardPage() {
 	const [sellers, setSellers] = useState<any[]>([]);
 	const [selectedSeller, setSelectedSeller] = useState<string>("");
 	const [loadingSellers, setLoadingSellers] = useState(false);
+	const [analytics, setAnalytics] = useState<any>(null);
+	const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+	const [stats, setStats] = useState(defaultStats);
 
 	// Function to fetch sellers list for SLA Dashboard
 	const fetchSellers = async () => {
@@ -213,6 +217,83 @@ export default function DashboardPage() {
 		}
 	};
 
+	// Function to fetch analytics data
+	const fetchAnalytics = async () => {
+		setLoadingAnalytics(true);
+		try {
+			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
+			
+			if (!token) {
+				throw new Error("No authentication token found");
+			}
+			
+			console.log("🔍 Fetching analytics with token:", token ? `${token.slice(0, 20)}...` : "NO TOKEN");
+			
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/admin/sales/analytics`;
+			console.log("📍 Analytics API URL:", url);
+			
+			const response = await fetch(url, {
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json",
+					...(token && { "Authorization": `Bearer ${token}` }),
+				},
+				credentials: "include",
+			});
+			
+			console.log("📊 Analytics Response Status:", response.status, response.statusText);
+			
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error("❌ Analytics API Error:", errorText);
+				throw new Error(`Failed to fetch analytics: ${response.status} ${response.statusText}`);
+			}
+			
+			const data = await response.json();
+			console.log("✅ Analytics Data:", data);
+			
+			if (data.success && data.analytics) {
+				const analyticsData = data.analytics;
+				
+				// Update stats with real analytics data
+				const updatedStats = [
+					{
+						...defaultStats[0],
+						value: `$${parseFloat(analyticsData.totalRevenue).toFixed(2)}`,
+						description: "Total revenue from all orders",
+					},
+					{
+						...defaultStats[1],
+						value: analyticsData.totalOrders.toString(),
+						description: "Total number of orders",
+					},
+					{
+						...defaultStats[2],
+						value: analyticsData.totalItemsSold.toString(),
+						description: "Total items sold",
+					},
+					{
+						...defaultStats[3],
+						value: `$${parseFloat(analyticsData.averageOrderValue).toFixed(2)}`,
+						description: "Average order value",
+					},
+				];
+				
+				setStats(updatedStats);
+				setAnalytics(analyticsData);
+				toast.success("Analytics data loaded successfully");
+			} else {
+				throw new Error("Invalid analytics response structure");
+			}
+		} catch (error: any) {
+			console.error("❌ Error fetching analytics:", error);
+			toast.error(error?.message || "Failed to fetch analytics");
+			setAnalytics(null);
+		} finally {
+			setLoadingAnalytics(false);
+		}
+	};
+
 	// Initial auth check
 	useEffect(() => {
 		const checkAuth = async () => {
@@ -270,8 +351,9 @@ export default function DashboardPage() {
 				}
 				
 				console.log("User is admin, fetching sellers");
-				// Fetch sellers directly
+				// Fetch sellers and analytics
 				await fetchSellers();
+				await fetchAnalytics();
 				setChecking(false);
 			} catch (e) {
 				console.error("Token validation error:", e);
@@ -375,7 +457,7 @@ export default function DashboardPage() {
 		);
 	}
 
-	if (checking || loadingSellers || loadingSla) {
+	if (checking || loadingSellers || loadingSla || loadingAnalytics) {
 		return renderSkeletonPage();
 	}
 
@@ -418,6 +500,88 @@ export default function DashboardPage() {
 				})}
 			</div>
 
+			{/* Order Status Breakdown and Top Products */}
+			{/* <div className="grid gap-6 lg:grid-cols-2">
+				
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-xl font-semibold">
+							Order Status Breakdown
+						</CardTitle>
+						<p className="text-muted-foreground text-sm mt-1">
+							Distribution of orders by status
+						</p>
+					</CardHeader>
+					<CardContent>
+						{analytics?.statusBreakdown ? (
+							<div className="space-y-3">
+								{Object.entries(analytics.statusBreakdown).map(([status, count]: [string, any]) => (
+									<div key={status} className="flex items-center justify-between">
+										<span className="text-sm font-medium text-gray-700">{status}</span>
+										<div className="flex items-center gap-3">
+											<div className="w-32 bg-gray-200 rounded-full h-2">
+												<div 
+													className="bg-blue-600 h-2 rounded-full" 
+													style={{
+														width: `${analytics.totalOrders > 0 ? (count / analytics.totalOrders) * 100 : 0}%`
+													}}
+												/>
+											</div>
+											<span className="text-sm font-bold text-gray-800 w-12 text-right">{count}</span>
+										</div>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-center py-8 text-gray-500">
+								<p>No order data available</p>
+							</div>
+						)}
+					</CardContent>
+				</Card>
+
+				
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-xl font-semibold">
+							Top Products
+						</CardTitle>
+						<p className="text-muted-foreground text-sm mt-1">
+							Best performing products by revenue
+						</p>
+					</CardHeader>
+					<CardContent>
+						{analytics?.topProducts && analytics.topProducts.length > 0 ? (
+							<div className="space-y-3">
+								{analytics.topProducts.slice(0, 5).map((product: any, index: number) => (
+									<div key={product.productId} className="flex items-start gap-3 pb-3 border-b last:border-b-0">
+										<div className="text-lg font-bold text-gray-400 w-6 flex-shrink-0">
+											{index + 1}
+										</div>
+										<div className="flex-1 min-w-0">
+											<p className="font-medium text-gray-800 text-sm truncate">
+												{product.title}
+											</p>
+											<div className="flex items-center gap-3 mt-1 text-xs text-gray-600">
+												<span>Qty: {product.quantity}</span>
+												<span>•</span>
+												<span className="text-green-600 font-semibold">
+													${parseFloat(product.revenue).toFixed(2)}
+												</span>
+											</div>
+										</div>
+									</div>
+								))}
+							</div>
+						) : (
+							<div className="text-center py-8 text-gray-500">
+								<p>No product data available</p>
+							</div>
+						)}
+					</CardContent>
+				</Card>
+			</div> */}
+
 			{/* Additional Content Sections */}
 			<div className="grid gap-6 lg:grid-cols-2">
 				{/* SLA Dashboard Card */}
@@ -436,6 +600,7 @@ export default function DashboardPage() {
 							<div className="flex items-center gap-2 ml-4">
 								<span className="text-sm text-muted-foreground whitespace-nowrap">
 									Select Seller:
+
 								</span>
 								<div className="relative">
 									<select

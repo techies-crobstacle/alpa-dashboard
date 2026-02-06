@@ -159,6 +159,7 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp, Package, CheckCircle2, XCircle } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -260,6 +261,46 @@ const OrderProgressTracker = ({ status }: { status: string }) => {
   );
 };
 
+const OrdersLoadingSkeleton = () => {
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header Skeleton */}
+      <div className="space-y-2">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-5 w-96" />
+      </div>
+
+      {/* Table Skeleton */}
+      <div className="overflow-x-auto rounded-lg border bg-background">
+        <table className="w-full">
+          <thead className="border-b">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium">Order #</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Date</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Total</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Tracking</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">View</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <tr key={idx} className="border-b">
+                <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-8 w-24 rounded-md" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
 const CustomerOrdersPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -309,7 +350,7 @@ const CustomerOrdersPage = () => {
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (loading) return <OrdersLoadingSkeleton />;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
