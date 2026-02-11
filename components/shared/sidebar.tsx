@@ -89,7 +89,7 @@ const baseSidebarGroups = [
 			},
 			{
 				title: "Products",
-				href: "/dashboard/projects",
+				href: "/dashboard/products",
 				icon: FolderKanban,
 				badge: null,
 			},
@@ -106,12 +106,31 @@ const baseSidebarGroups = [
 				badge: null,
 			},
 			{
+				title: "Categories",
+				href: "/dashboard/categories",
+				icon: FolderKanban,
+				badge: null,
+			},
+
+			
+			{
 				title: "Coupons",
 				href: "/dashboard/admin/coupon",
 				icon: FolderKanban,
 				badge: null,
 			},
-			
+			{
+				title: "Shipping",
+				href: "/dashboard/admin/shipping",
+				icon: ListOrdered,
+				badge: null,
+			},
+			{
+				title: "GST",
+				href: "/dashboard/admin/gst",
+				icon: ListOrdered,
+				badge: null,
+			},
 			{
 				title: "Orders",
 				href: "/dashboard/orders",
@@ -238,7 +257,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/users", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard",].includes(item.href)) {
+			if (["/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard",].includes(item.href)) {
 				return role === "ADMIN";
 			}
 			// Seller and customer can see /dashboard/orders
@@ -246,7 +265,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 			// 	return role === "SELLER" || role === "CUSTOMER";
 			// }
 			// Seller-only pages
-			if (["/dashboard/projects", "/dashboard/orders", "/dashboard", "/dashboard/analytics",].includes(item.href)) {
+			if (["/dashboard/products","/dashboard/categories", "/dashboard/orders", "/dashboard", "/dashboard/analytics",].includes(item.href)) {
 				return role === "SELLER";
 			}
 			// Customer-only pages

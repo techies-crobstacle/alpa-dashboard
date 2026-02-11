@@ -507,7 +507,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics ? `₹${analytics.totalRevenue}` : <span className="text-xs text-muted-foreground">-</span>}
+              {analytics ? `$${analytics.totalRevenue}` : <span className="text-xs text-muted-foreground">-</span>}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               +20.1% from last month
@@ -546,7 +546,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics ? `₹${analytics.averageOrderValue}` : <span className="text-xs text-muted-foreground">-</span>}
+              {analytics ? `$${analytics.averageOrderValue}` : <span className="text-xs text-muted-foreground">-</span>}
             </div>
           </CardContent>
         </Card>

@@ -303,7 +303,7 @@ export default function AnalyticsPage() {
             <CardTitle>Total Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{analytics.totalRevenue}</div>
+            <div className="text-2xl font-bold">${analytics.totalRevenue}</div>
             <div className="text-xs text-muted-foreground mt-1">+20.1% from last month</div>
           </CardContent>
         </Card>
@@ -330,7 +330,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ₹{analytics.averageOrderValue}
+              ${analytics.averageOrderValue}
             </div>
           </CardContent>
         </Card>
@@ -354,7 +354,7 @@ export default function AnalyticsPage() {
                     style={{ height: `${barHeight}px`, width: "24px" }}
                   ></div>
                   <span className="text-xs mt-2 text-muted-foreground">{monthLabels[idx]}</span>
-                  <span className="text-xs text-muted-foreground">₹{sales}</span>
+                  <span className="text-xs text-muted-foreground">${sales}</span>
                 </div>
               );
             })}
@@ -573,7 +573,7 @@ export default function AnalyticsPage() {
                   <tr key={product.productId} className="border-b">
                     <td className="py-2 px-4">{product.title}</td>
                     <td className="py-2 px-4">{product.quantitySold}</td>
-                    <td className="py-2 px-4">₹{product.revenue}</td>
+                    <td className="py-2 px-4">${product.revenue}</td>
                   </tr>
                 ))}
               </tbody>
