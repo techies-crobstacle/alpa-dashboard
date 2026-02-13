@@ -55,6 +55,7 @@ type Product = {
   sales?: number;
   featured?: boolean;
   tags?: string[] | string;
+  artistName?: string;
 };
 
 const addProduct = async (productData: {
@@ -66,6 +67,7 @@ const addProduct = async (productData: {
   stock: string;
   category: string;
   images: File[];
+  artistName?: string;
 }) => {
   const token = getAuthToken();
   if (!token) throw new Error("No authentication token found. Please log in.");
@@ -80,6 +82,9 @@ const addProduct = async (productData: {
   }
   form.append("featured", String(productData.featured));
   form.append("tags", productData.tags);
+  if (productData.artistName) {
+    form.append("artistName", productData.artistName);
+  }
   const response = await fetch(`${BASE_URL}/api/products/add`, {
     method: "POST",
     headers: {
@@ -176,6 +181,7 @@ function ProjectsPage() {
     images: [] as File[],
     featured: false,
     tags: "",
+    artistName: "",
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -190,6 +196,7 @@ function ProjectsPage() {
     oldImages: [] as string[],
     featured: false,
     tags: "",
+    artistName: "",
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("");
 
@@ -245,11 +252,12 @@ function ProjectsPage() {
         images: formData.images,
         featured: formData.featured,
         tags: formData.tags,
+        artistName: formData.artistName,
       };
       await addProduct(productData);
       toast.success("Product added successfully!");
       setShowAddModal(false);
-      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featured: false, tags: "" });
+      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featured: false, tags: "", artistName: "" });
       loadProducts();
     } catch {
       toast.error("Failed to add product");
@@ -324,6 +332,7 @@ function ProjectsPage() {
         oldImages: prod.images || [],
         featured: prod.featured ?? false,
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
+        artistName: prod.artistName || "",
       });
       setShowEditModal(true);
     } catch (err) {
@@ -355,6 +364,9 @@ function ProjectsPage() {
       // Add featured and tags fields
       form.append("featured", String(editFormData.featured));
       form.append("tags", editFormData.tags);
+      if (editFormData.artistName) {
+        form.append("artistName", editFormData.artistName.trim());
+      }
       // Debug: Log what we're sending
       console.log("Sending edit request for product:", editProductId);
       console.log("FormData contents:");
@@ -566,6 +578,7 @@ function ProjectsPage() {
                         <div>
                           <h3 className="font-bold text-lg mb-2">{product.title}</h3>
                           <p className="mb-2 text-muted-foreground">{product.description}</p>
+                          {product.artistName && <div className="mb-2"><strong>Artist:</strong> {product.artistName}</div>}
                           <div className="mb-2"><strong>Category:</strong> {product.category}</div>
                           <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
                           <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
@@ -709,6 +722,7 @@ function ProjectsPage() {
                         <div>
                           <h3 className="font-bold text-lg mb-2">{product.title}</h3>
                           <p className="mb-2 text-muted-foreground">{product.description}</p>
+                          {product.artistName && <div className="mb-2"><strong>Artist:</strong> {product.artistName}</div>}
                           <div className="mb-2"><strong>Category:</strong> {product.category}</div>
                           <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
                           <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
@@ -789,6 +803,11 @@ function ProjectsPage() {
                       <div className="space-y-2 col-span-1 md:col-span-2">
                         <Label htmlFor="edit-description" className="text-sm font-semibold">Detailed Description</Label>
                         <Textarea id="edit-description" placeholder="Product details..." value={editFormData.description} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })} rows={4} className="resize-none focus:ring-primary py-2" />
+                      </div>
+
+                      <div className="space-y-2 col-span-1 md:col-span-2">
+                        <Label htmlFor="edit-artistName" className="text-sm font-semibold">Artist Name (Optional)</Label>
+                        <Input id="edit-artistName" placeholder="Enter artist name" value={editFormData.artistName} onChange={(e) => setEditFormData({ ...editFormData, artistName: e.target.value })} className="focus:ring-primary h-10" />
                       </div>
 
                       <div className="space-y-2">
@@ -995,6 +1014,11 @@ function ProjectsPage() {
                 <div className="space-y-2 col-span-1 md:col-span-2">
                   <Label htmlFor="description" className="text-sm font-semibold">Detailed Description</Label>
                   <Textarea id="description" placeholder="Describe the features, materials, and benefits..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={4} className="resize-none focus:ring-primary py-2" />
+                </div>
+
+                <div className="space-y-2 col-span-1 md:col-span-2">
+                  <Label htmlFor="artistName" className="text-sm font-semibold">Artist Name (Optional)</Label>
+                  <Input id="artistName" placeholder="Enter artist name" value={formData.artistName} onChange={(e) => setFormData({ ...formData, artistName: e.target.value })} className="focus:ring-primary h-10" />
                 </div>
 
                 <div className="space-y-2">
