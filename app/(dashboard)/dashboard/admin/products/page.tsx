@@ -3,12 +3,14 @@
 
 import React from "react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 // import { Input } from "@/components/ui/input";
-// import { Label } from "@/components/ui/label";
-// import { Textarea } from "@/components/ui/textarea";
-import { Package, DollarSign, Pencil } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Package, DollarSign, Edit, Trash2, X, Search, Check, ChevronDown, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 // --- CONFIGURATION ---
 
@@ -59,40 +61,126 @@ export default function AdminProductsPage() {
   // Accordion state for expanded product details
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
 
-  // Edit price modal state
-  const [editPriceProductId, setEditPriceProductId] = useState<string | null>(null);
-  const [editPriceValue, setEditPriceValue] = useState<string>("");
-  const [editPriceLoading, setEditPriceLoading] = useState(false);
+  // Edit Product Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    description: "",
+    price: "",
+    stock: "",
+    category: "",
+    images: [] as File[],
+    oldImages: [] as string[],
+    featured: false,
+    tags: "",
+    artistName: "",
+  });
+  
+  // Category Search State for Modal
+  const editCatDropdownRef = useRef<HTMLDivElement>(null);
+  const [editCatSearch, setEditCatSearch] = useState("");
+  const [isEditCatOpen, setIsEditCatOpen] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<any[]>([]);
 
-  const openEditPrice = (product: Product) => {
-    setEditPriceProductId(product.id);
-    setEditPriceValue(product.price.toString());
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (editCatDropdownRef.current && !editCatDropdownRef.current.contains(event.target as Node)) {
+        setIsEditCatOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const response = await api.get("/api/categories/");
+      if (response && response.success && response.data) {
+        setAvailableCategories(response.data.approvedCategories || []);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
   };
 
-  const closeEditPrice = () => {
-    setEditPriceProductId(null);
-    setEditPriceValue("");
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setEditFormData({ ...editFormData, images: Array.from(e.target.files) });
+    }
   };
 
-  const handleEditPrice = async () => {
-    if (!editPriceProductId) return;
-    const newPrice = parseFloat(editPriceValue);
-    if (isNaN(newPrice) || newPrice < 0) {
-      toast.error("Please enter a valid price.");
+  const openEditModal = async (productId: string) => {
+    setEditProductId(productId);
+    setEditSubmitting(false);
+    try {
+      const response = await api.get(`/api/products/${productId}`);
+      
+      const prod = response.product || response;
+      setEditFormData({
+        title: prod.title || "",
+        description: prod.description || "",
+        price: prod.price?.toString() || "",
+        stock: prod.stock?.toString() || "",
+        category: prod.category || "",
+        images: [],
+        oldImages: prod.images || [],
+        featured: prod.featured ?? false,
+        tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
+        artistName: prod.artistName || "",
+      });
+      setShowEditModal(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load product");
+    }
+  };
+
+  const handleEditProduct = async () => {
+    if (!editProductId) return;
+    if (!editFormData.title || !editFormData.price || !editFormData.stock) {
+      toast.error("Please fill in all required fields");
       return;
     }
-    setEditPriceLoading(true);
     try {
-      await api.put(`/api/admin/products/${editPriceProductId}/price`, { price: newPrice });
-      toast.success("Price updated successfully");
-      closeEditPrice();
+      setEditSubmitting(true);
+      const form = new FormData();
+      form.append("title", editFormData.title.trim());
+      form.append("description", editFormData.description.trim());
+      form.append("price", String(editFormData.price));
+      form.append("stock", String(editFormData.stock));
+      form.append("category", editFormData.category.trim());
+      // Only append images if new images are selected
+      if (editFormData.images && editFormData.images.length > 0) {
+        for (let i = 0; i < editFormData.images.length; i++) {
+          form.append("images", editFormData.images[i]);
+        }
+      }
+      // Add featured and tags fields
+      form.append("featured", String(editFormData.featured));
+      form.append("tags", editFormData.tags);
+      if (editFormData.artistName) {
+        form.append("artistName", editFormData.artistName.trim());
+      }
+      
+      await api.put(`/api/products/${editProductId}`, form);
+
+      toast.success("Product updated successfully!");
+      setShowEditModal(false);
+      setEditProductId(null);
       fetchProducts(selectedSeller);
-    } catch {
-      toast.error("Failed to update price");
+    } catch (err: any) {
+      console.error("Edit product error:", err);
+      toast.error(err.message || "Failed to update product");
     } finally {
-      setEditPriceLoading(false);
+      setEditSubmitting(false);
     }
   };
+
 
   useEffect(() => {
     fetchSellers();
@@ -178,6 +266,10 @@ export default function AdminProductsPage() {
       toast.error("Failed to inactivate product");
     }
   };
+
+  function openEditPrice(product: Product): void {
+    throw new Error("Function not implemented.");
+  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -279,26 +371,20 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="px-4 py-2 font-semibold">{product.title}</td>
                     <td className="px-4 py-2">{product.category}</td>
-                    <td className="px-4 py-2 flex items-center gap-1">
+                    <td className="px-4 py-2 text-primary font-bold">
                       ${product.price}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 p-0 ml-1"
-                        aria-label="Edit Price"
-                        onClick={() => openEditPrice(product)}
-                      >
-                        <Pencil className="h-4 w-4 text-muted-foreground" />
-                      </Button>
                     </td>
                     <td className="px-4 py-2">{product.stock}</td>
                     <td className="px-4 py-2">
                       <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
                     </td>
-                    <td className="px-4 py-2 flex gap-1">
+                    <td className="px-4 py-2 flex gap-1 items-center">
+                        <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id)}>
+                          <Edit className="h-3 w-3" /> Edit
+                        </Button>
                         {product.status !== 'INACTIVE' && (
-                          <Button variant="outline" size="sm" className="gap-1" onClick={() => handleInactivate(product.id)}>
-                            Mark Inactive
+                          <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700" onClick={() => handleInactivate(product.id)}>
+                            <Trash2 className="h-3 w-3" /> Inactive
                           </Button>
                         )}
                         <Button
@@ -309,11 +395,11 @@ export default function AdminProductsPage() {
                         >
                           {expandedProductId === product.id ? (
                             <>
-                              <span>&#x2715;</span> Hide
+                              <X className="h-3 w-3" /> Hide
                             </>
                           ) : (
                             <>
-                              <span>&#128065;</span> View
+                              <Eye className="h-3 w-3" /> View
                             </>
                           )}
                         </Button>
@@ -427,25 +513,18 @@ export default function AdminProductsPage() {
                   <span className="font-semibold">{product.stock} units</span>
                 </div>
                 <div className="flex gap-2 pt-2">
+                    <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}>
+                      <Edit className="h-3 w-3" /> Edit
+                    </Button>
                     {product.status !== "INACTIVE" && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 gap-1"
-                          onClick={() => handleInactivate(product.id)}
-                        >
-                          Mark Inactive
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1 gap-1"
-                          onClick={() => openEditPrice(product)}
-                        >
-                          Edit Price
-                        </Button>
-                      </>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 gap-1 text-red-500 hover:text-red-700"
+                        onClick={() => handleInactivate(product.id)}
+                      >
+                        <Trash2 className="h-3 w-3" /> Inactive
+                      </Button>
                     )}
                 </div>
               </CardContent>
@@ -453,27 +532,186 @@ export default function AdminProductsPage() {
           ))}
         </div>
       )}
-    {/* Edit Price Modal */}
-    {editPriceProductId && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="bg-white dark:bg-zinc-900 rounded-lg shadow-lg p-6 w-full max-w-xs space-y-4">
-          <h2 className="text-lg font-bold mb-2">Edit Product Price</h2>
-          <Input
-            type="number"
-            min="0"
-            step="0.01"
-            value={editPriceValue}
-            onChange={e => setEditPriceValue(e.target.value)}
-            className="w-full"
-            disabled={editPriceLoading}
-          />
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={closeEditPrice} disabled={editPriceLoading}>Cancel</Button>
-            <Button onClick={handleEditPrice} disabled={editPriceLoading}>
-              {editPriceLoading ? 'Saving...' : 'Save'}
+    {/* Edit Product Modal */}
+    {showEditModal && (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
+          <CardHeader className="border-b sticky top-0 bg-background z-10">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-bold">Edit Product</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowEditModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6 p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label htmlFor="edit-title" className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
+                <Input id="edit-title" placeholder="Give your product a clear name" value={editFormData.title} onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })} className="focus:ring-primary h-10" />
+              </div>
+              
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label htmlFor="edit-description" className="text-sm font-semibold">Detailed Description</Label>
+                <Textarea id="edit-description" placeholder="Product details..." value={editFormData.description} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })} rows={4} className="resize-none focus:ring-primary py-2" />
+              </div>
+
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label htmlFor="edit-artistName" className="text-sm font-semibold">Artist Name (Optional)</Label>
+                <Input id="edit-artistName" placeholder="Enter artist name" value={editFormData.artistName} onChange={(e) => setEditFormData({ ...editFormData, artistName: e.target.value })} className="focus:ring-primary h-10" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-price" className="text-sm font-semibold">Price ($) <span className="text-red-500">*</span></Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input id="edit-price" type="number" placeholder="0.00" value={editFormData.price} onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })} className="pl-9 focus:ring-primary h-10" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-stock" className="text-sm font-semibold">Stock Quantity <span className="text-red-500">*</span></Label>
+                <Input id="edit-stock" type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="focus:ring-primary h-10" />
+              </div>
+
+              <div className="space-y-2 relative" ref={editCatDropdownRef}>
+                <Label htmlFor="edit-category" className="text-sm font-semibold">Category <span className="text-red-500">*</span></Label>
+                <div 
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-all hover:border-primary/50 cursor-pointer"
+                  onClick={() => setIsEditCatOpen(!isEditCatOpen)}
+                >
+                  <span className={editFormData.category ? "text-foreground font-medium" : "text-muted-foreground"}>
+                    {editFormData.category || "Select a category"}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", isEditCatOpen && "rotate-180")} />
+                </div>
+                
+                {isEditCatOpen && (
+                  <div className="absolute z-[60] w-full mt-1 bg-background text-popover-foreground rounded-lg border shadow-xl p-1 animate-in fade-in zoom-in-95 slide-in-from-bottom-2">
+                    <div className="flex items-center border-b px-3 pb-2 pt-1">
+                      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                      <input
+                        className="flex h-9 w-full rounded-md bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+                        placeholder="Search categories..."
+                        value={editCatSearch}
+                        onChange={(e) => setEditCatSearch(e.target.value)}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-[220px] overflow-y-auto mt-1 custom-scrollbar">
+                      {availableCategories.length === 0 ? (
+                        <div className="py-4 text-center">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-xs text-primary underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              loadCategories();
+                            }}
+                          >
+                            Refresh Categories
+                          </Button>
+                        </div>
+                      ) : availableCategories
+                        .filter(cat => cat.categoryName.toLowerCase().includes(editCatSearch.toLowerCase()))
+                        .map((cat) => (
+                          <div
+                            key={cat.categoryName}
+                            className={cn(
+                              "group relative flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
+                              editFormData.category === cat.categoryName && "bg-primary/5 text-primary font-medium"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditFormData({ ...editFormData, category: cat.categoryName });
+                              setIsEditCatOpen(false);
+                              setEditCatSearch("");
+                            }}
+                          >
+                            <div className={cn(
+                              "mr-2 flex h-4 w-4 items-center justify-center rounded border border-primary transition-all",
+                              editFormData.category === cat.categoryName ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50"
+                            )}>
+                              {editFormData.category === cat.categoryName && <Check className="h-3 w-3" />}
+                            </div>
+                            {cat.categoryName}
+                          </div>
+                        ))}
+                      {availableCategories.length > 0 && availableCategories.filter(cat => cat.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).length === 0 && (
+                        <div className="py-6 text-center text-sm text-muted-foreground">No category found.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors">
+                <div className="space-y-0.5">
+                  <Label className="text-base font-semibold">Featured Product</Label>
+                  <p className="text-xs text-muted-foreground">Show this product on the home page</p>
+                </div>
+                <Switch 
+                  checked={editFormData.featured} 
+                  onCheckedChange={(checked) => setEditFormData({ ...editFormData, featured: checked })} 
+                />
+              </div>
+
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label htmlFor="edit-tags" className="text-sm font-semibold">Tags (comma separated)</Label>
+                <Input id="edit-tags" placeholder="e.g. handmade, vintage, summer" value={editFormData.tags} onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })} className="focus:ring-primary h-10" />
+              </div>
+
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label className="text-sm font-semibold">Product Images ({editFormData.images.length + editFormData.oldImages.length}/5)</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                  {editFormData.oldImages.map((img, idx) => (
+                    <div key={`old-${idx}`} className="relative group aspect-square rounded-lg overflow-hidden border bg-muted">
+                      <Image src={img} alt={`Product ${idx}`} fill className="object-cover transition-transform group-hover:scale-105" />
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData(prev => ({ ...prev, oldImages: prev.oldImages.filter((_, i) => i !== idx) }))}
+                        className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {editFormData.images.map((file, idx) => (
+                    <div key={`new-${idx}`} className="relative group aspect-square rounded-lg overflow-hidden border bg-muted">
+                      <Image src={URL.createObjectURL(file)} alt={`New ${idx}`} fill className="object-cover transition-transform group-hover:scale-105" onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)} />
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }))}
+                        className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {(editFormData.images.length + editFormData.oldImages.length) < 5 && (
+                    <label className="border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all aspect-square">
+                      <Package className="h-6 w-6 text-muted-foreground mb-2" />
+                      <span className="text-xs text-muted-foreground font-medium">Add Image</span>
+                      <input type="file" multiple accept="image/*" onChange={handleEditImageChange} className="hidden" />
+                    </label>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <div className="p-6 border-t bg-muted/10 sticky bottom-0 z-10 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowEditModal(false)} disabled={editSubmitting} className="h-10 px-4">Cancel</Button>
+            <Button onClick={handleEditProduct} disabled={editSubmitting} className="h-10 px-6 font-semibold shadow-md">
+              {editSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                </>
+              ) : "Save Changes"}
             </Button>
           </div>
-        </div>
+        </Card>
       </div>
     )}
   </div>  

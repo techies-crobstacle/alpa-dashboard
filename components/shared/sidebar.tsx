@@ -143,18 +143,18 @@ const baseSidebarGroups = [
 				icon: ListOrdered,
 				badge: "3",
 			},
-			{
-				title: "Invoices",
-				href: "/dashboard/invoice",
-				icon: ListOrdered,
-				badge: "4",
-			},
-			{
-				title: "Auth Pages",
-				href: "/dashboard/auth",
-				icon: LogIn,
-				badge: null,
-			},
+			// {
+			// 	title: "Invoices",
+			// 	href: "/dashboard/invoice",
+			// 	icon: ListOrdered,
+			// 	badge: "4",
+			// },
+			// {
+			// 	title: "Auth Pages",
+			// 	href: "/dashboard/auth",
+			// 	icon: LogIn,
+			// 	badge: null,
+			// },
 			
 			{
 				title: "My Orders",

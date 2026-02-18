@@ -270,7 +270,7 @@ export default function CouponPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      <span className="font-semibold">{coupon.discount}%</span>
+                      <span className="font-semibold">{coupon.discount}</span>
                       <Percent className="w-3 h-3 text-muted-foreground" />
                     </div>
                   </TableCell>

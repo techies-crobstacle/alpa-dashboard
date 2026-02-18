@@ -427,7 +427,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
 import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
  
@@ -475,6 +475,7 @@ export default function OrdersPage() {
   const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
   const [layout, setLayout] = useState<'table' | 'card'>("card");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   useEffect(() => {
     fetchOrders();
   }, []);
@@ -525,6 +526,49 @@ export default function OrdersPage() {
       fetchOrders();
     } catch {
       toast.error("Failed to update tracking");
+    }
+  };
+
+  // 4. Download Invoice
+  const handleDownloadInvoice = async (orderId: string) => {
+    setDownloadingInvoiceId(orderId);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const response = await fetch(`${BASE_URL}/api/orders/invoice/${orderId}`, {
+        method: "GET",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to download invoice");
+      }
+
+      // Get the blob from response
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary link element and trigger download
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL
+      window.URL.revokeObjectURL(url);
+      
+      toast.success("Invoice downloaded successfully.");
+    } catch (err: any) {
+      console.error('Download invoice error:', err);
+      toast.error(err.message || "Failed to download invoice.");
+    } finally {
+      setDownloadingInvoiceId(null);
     }
   };
 
@@ -659,6 +703,32 @@ export default function OrdersPage() {
                     <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><strong>Shipping Address:</strong> {renderShippingAddress(order.shippingAddress)}</div>
                     <div className="flex items-center gap-2"><Truck className="h-4 w-4" /><strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}</div>
                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</div>
+                    
+                    {/* Download Invoice Button */}
+                    {order.status.toLowerCase() !== 'pending' && (
+                      <div className="mt-4 pt-2 border-t">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          disabled={downloadingInvoiceId === order.id}
+                          onClick={() => handleDownloadInvoice(order.id)}
+                          className="gap-2"
+                        >
+                          {downloadingInvoiceId === order.id ? (
+                            <>
+                              <Loader2 className="animate-spin h-4 w-4" />
+                              Downloading...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4" />
+                              Download Invoice
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /><strong>Items:</strong></div>
                     <ul className="list-disc ml-8">
                       {order.items?.map((item, i) => (
@@ -761,6 +831,32 @@ export default function OrdersPage() {
                           <div>
                             <strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}
                           </div>
+                          
+                          {/* Download Invoice Button */}
+                          {order.status.toLowerCase() !== 'pending' && (
+                            <div className="mt-4 pt-2 border-t">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                disabled={downloadingInvoiceId === order.id}
+                                onClick={() => handleDownloadInvoice(order.id)}
+                                className="gap-2"
+                              >
+                                {downloadingInvoiceId === order.id ? (
+                                  <>
+                                    <Loader2 className="animate-spin h-4 w-4" />
+                                    Downloading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="h-4 w-4" />
+                                    Download Invoice
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                          
                           <div>
                             <strong>Items:</strong>
                             <ul className="list-disc ml-6">
