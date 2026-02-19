@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Package, DollarSign, Edit, Trash2, X, Search, Check, ChevronDown, Eye, CheckCircle, XCircle } from "lucide-react";
+import { Package, DollarSign, Edit, PowerOff, X, Search, Check, ChevronDown, Eye, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -282,10 +282,15 @@ export default function AdminProductsPage() {
     finally { setEditSubmitting(false); }
   };
 
-  // ── approve / reject / inactivate ─────────────────────────────────────────
+  // ── approve / reject / inactivate / activate ────────────────────────────────
   const handleInactivate = async (productId: string) => {
-    try { await api.put(`/api/admin/products/${productId}/inactive`); toast.success("Product marked as inactive"); fetchProducts(selectedSeller); }
+    try { await api.put(`/api/admin/products/deactivate/${productId}`); toast.success("Product marked as inactive"); fetchProducts(selectedSeller); }
     catch { toast.error("Failed to inactivate product"); }
+  };
+
+  const handleActivate = async (productId: string) => {
+    try { await api.put(`/api/admin/products/activate/${productId}`); toast.success("Product activated successfully!"); fetchProducts(selectedSeller); }
+    catch { toast.error("Failed to activate product"); }
   };
 
   const handleApproveProduct = async (productId: string) => {
@@ -397,7 +402,7 @@ export default function AdminProductsPage() {
           Approved Products ({products.length})
         </Button>
         <Button variant={activeView === "pending" ? "default" : "ghost"} onClick={() => setActiveView("pending")} className="rounded-b-none">
-          Pending Products ({pendingProducts.length})
+          Pending Products ({sellers.find(s => s.id === selectedSeller)?.pendingCount ?? pendingProducts.length})
         </Button>
       </div>
 
@@ -463,8 +468,10 @@ export default function AdminProductsPage() {
                         {activeView==="approved"?(
                           <>
                             <Button variant="outline" size="sm" className="gap-1" onClick={()=>openEditModal(product.id)}><Edit className="h-3 w-3"/>Edit</Button>
-                            {product.status!=="INACTIVE"&&(
-                              <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700" onClick={()=>handleInactivate(product.id)}><Trash2 className="h-3 w-3"/>Inactive</Button>
+                            {product.status==="INACTIVE" ? (
+                              <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={()=>handleActivate(product.id)}><CheckCircle className="h-3 w-3"/>Activate</Button>
+                            ) : (
+                              <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700" onClick={()=>handleInactivate(product.id)}><PowerOff className="h-3 w-3"/>Inactive</Button>
                             )}
                           </>
                         ):(
@@ -557,8 +564,10 @@ export default function AdminProductsPage() {
                   {activeView==="approved"?(
                     <>
                       <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={()=>openEditModal(product.id)}><Edit className="h-3 w-3"/>Edit</Button>
-                      {product.status!=="INACTIVE"&&(
-                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700" onClick={()=>handleInactivate(product.id)}><Trash2 className="h-3 w-3"/>Inactive</Button>
+                      {product.status==="INACTIVE" ? (
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={()=>handleActivate(product.id)}><CheckCircle className="h-3 w-3"/>Activate</Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700" onClick={()=>handleInactivate(product.id)}><PowerOff className="h-3 w-3"/>Inactive</Button>
                       )}
                     </>
                   ):(
