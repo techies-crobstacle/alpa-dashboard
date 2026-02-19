@@ -70,11 +70,17 @@ const baseSidebarGroups = [
 		title: "Pages",
 		items: [
 			{
-				title: "Report",
-				href: "/dashboard/report",
-				icon: Users,
-				badge: "12",
+				title: "Orders",
+				href: "/dashboard/admin/orders",
+				icon: ListOrdered,
+				badge: "3",
 			},
+			// {
+			// 	title: "Report",
+			// 	href: "/dashboard/report",
+			// 	icon: Users,
+			// 	badge: "12",
+			// },
 			{
 				title: "Users",
 				href: "/dashboard/users",
@@ -137,12 +143,7 @@ const baseSidebarGroups = [
 				icon: ListOrdered,
 				badge: "3",
 			},
-			{
-				title: "Orders",
-				href: "/dashboard/admin/orders",
-				icon: ListOrdered,
-				badge: "3",
-			},
+			
 			// {
 			// 	title: "Invoices",
 			// 	href: "/dashboard/invoice",

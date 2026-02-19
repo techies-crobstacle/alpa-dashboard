@@ -6,18 +6,27 @@ const page = () => {
   const [role, setRole] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    // Try to get userRole from cookies (client-side)
     if (typeof document !== 'undefined') {
-      const match = document.cookie.match(/(?:^|; )userRole=([^;]*)/);
-      if (match) {
-        setRole(decodeURIComponent(match[1]));
+      const tokenMatch = document.cookie.match(/(?:^|; )token=([^;]*)/);
+      const roleMatch = document.cookie.match(/(?:^|; )userRole=([^;]*)/);
+      if (roleMatch) {
+        setRole(decodeURIComponent(roleMatch[1]));
+      } else {
+        // No role, redirect to login
+        window.location.href = '/auth/login';
+        return;
+      }
+      if (!tokenMatch) {
+        // No token, redirect to login
+        window.location.href = '/auth/login';
+        return;
       }
     }
   }, []);
 
   return (
     <div className='font-bold text-xl'>
-     Welcome {role ? `Role: ${role}` : 'Role Page Dev Branch'}
+      Welcome {role ? `Role: ${role}` : 'Redirecting to login...'}
     </div>
   );
 }

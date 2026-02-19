@@ -168,7 +168,7 @@ const getNotificationIcon = (type: string) => {
 				{/* Right Section */}
 				<div className="flex items-center gap-3">
 					{/* App Switcher */}
-					<AppSwitcher />
+					{/* <AppSwitcher /> */}
 
 					{/* Theme Toggle */}
 					<ThemeToggle />
