@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React from "react";
@@ -22,7 +20,7 @@ type Seller = {
   id: string;
   name: string;
   email: string;
-  pendingCount: number; // always a number, never undefined
+  pendingCount: number;
 };
 
 type Product = {
@@ -31,6 +29,8 @@ type Product = {
   price: number;
   status: string;
   images?: string[];
+  featuredImage?: string | null;
+  galleryImages?: string[];
   description?: string;
   category?: string;
   stock?: number;
@@ -69,65 +69,80 @@ function PendingPill({ count }: { count: number }) {
 }
 
 export default function AdminProductsPage() {
-    // Redirect to login if not authenticated
-    React.useEffect(() => {
-      if (typeof document !== 'undefined') {
-        const tokenMatch = document.cookie.match(/(?:^|; )token=([^;]*)/);
-        const roleMatch = document.cookie.match(/(?:^|; )userRole=([^;]*)/);
-        if (!tokenMatch || !roleMatch) {
-          window.location.href = '/auth/login';
-        }
+  // Redirect to login if not authenticated
+  React.useEffect(() => {
+    if (typeof document !== "undefined") {
+      const tokenMatch = document.cookie.match(/(?:^|; )token=([^;]*)/);
+      const roleMatch = document.cookie.match(/(?:^|; )userRole=([^;]*)/);
+      if (!tokenMatch || !roleMatch) {
+        window.location.href = "/auth/login";
       }
-    }, []);
-  const [sellers, setSellers]               = useState<Seller[]>([]);
+    }
+  }, []);
+
+  const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<string>("");
-  const [products, setProducts]             = useState<Product[]>([]);
-  const [loading, setLoading]               = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(false);
   const [loadingSellers, setLoadingSellers] = useState(true);
-  const [layout, setLayout]                 = useState<"table" | "card">("table");
+  const [layout, setLayout] = useState<"table" | "card">("table");
 
-  const [activeView, setActiveView]           = useState<"approved" | "pending">("approved");
+  const [activeView, setActiveView] = useState<"approved" | "pending">("approved");
   const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
-  const [loadingPending, setLoadingPending]   = useState(false);
+  const [loadingPending, setLoadingPending] = useState(false);
 
-  // THE FIX: keep allPendingProducts in a ref so every function always reads
-  // the freshest data — no stale-closure or setState-timing issues.
   const allPendingRef = useRef<Product[]>([]);
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
-  const [showEditModal,  setShowEditModal]  = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
-  const [editProductId,  setEditProductId]  = useState<string | null>(null);
-  const [editFormData,   setEditFormData]   = useState({
-    title: "", description: "", price: "", stock: "", category: "",
-    images: [] as File[], oldImages: [] as string[],
-    featured: false, tags: "", artistName: "",
+  const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    description: "",
+    price: "",
+    stock: "",
+    category: "",
+    images: [] as File[],
+    oldImages: [] as string[],
+    featuredImage: null as File | null,
+    oldFeaturedImage: null as string | null,
+    galleryImages: [] as File[],
+    oldGalleryImages: [] as string[],
+    featured: false,
+    tags: "",
+    artistName: "",
   });
 
   const [isSellerDropdownOpen, setIsSellerDropdownOpen] = useState(false);
   const sellerDropdownRef = useRef<HTMLDivElement>(null);
-  const [isEditCatOpen, setIsEditCatOpen]   = useState(false);
-  const [editCatSearch, setEditCatSearch]   = useState("");
+  const [isEditCatOpen, setIsEditCatOpen] = useState(false);
+  const [editCatSearch, setEditCatSearch] = useState("");
   const editCatDropdownRef = useRef<HTMLDivElement>(null);
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
 
-  // refs to avoid stale closures in the interval
+  const editFeaturedImageRef = useRef<HTMLInputElement>(null);
+  const editGalleryImagesRef = useRef<HTMLInputElement>(null);
+
+  // Mutable accumulator ref for gallery files — always current, no stale closure
+  const editGalleryAccumRef = useRef<File[]>([]);
+
   const selectedSellerRef = useRef(selectedSeller);
-  const activeViewRef     = useRef(activeView);
-  const sellersRef        = useRef<Seller[]>([]);
+  const activeViewRef = useRef(activeView);
+  const sellersRef = useRef<Seller[]>([]);
   useEffect(() => { selectedSellerRef.current = selectedSeller; }, [selectedSeller]);
-  useEffect(() => { activeViewRef.current = activeView; },        [activeView]);
-  useEffect(() => { sellersRef.current = sellers; },              [sellers]);
+  useEffect(() => { activeViewRef.current = activeView; }, [activeView]);
+  useEffect(() => { sellersRef.current = sellers; }, [sellers]);
 
   const totalProducts = products.length;
-  const totalStock    = products.reduce((s, p) => s + (Number(p.stock) || 0), 0);
-  const totalRevenue  = products.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0);
+  const totalStock = products.reduce((s, p) => s + (Number(p.stock) || 0), 0);
+  const totalRevenue = products.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0);
 
   // ── click-outside ──────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (editCatDropdownRef.current && !editCatDropdownRef.current.contains(e.target as Node)) setIsEditCatOpen(false);
-      if (sellerDropdownRef.current  && !sellerDropdownRef.current.contains(e.target as Node))  setIsSellerDropdownOpen(false);
+      if (sellerDropdownRef.current && !sellerDropdownRef.current.contains(e.target as Node)) setIsSellerDropdownOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -138,32 +153,24 @@ export default function AdminProductsPage() {
     try {
       const res = await api.get("/api/categories/");
       if (res?.success && res?.data) setAvailableCategories(res.data.approvedCategories || []);
-    } catch (e) { console.error("Error fetching categories:", e); }
+    } catch (e) {
+      console.error("Error fetching categories:", e);
+    }
   };
   useEffect(() => { loadCategories(); }, []);
 
-  // ── CORE: fetch all pending products and update seller counts ──────────────
-  //
-  // Accepts the current sellers list, fetches fresh pending data, writes to
-  // the ref AND updates sellers state — all in one shot so counts are always
-  // consistent with the data that was just fetched.
-  //
+  // ── refresh pending products ───────────────────────────────────────────────
   const refreshPending = async (currentSellers: Seller[]): Promise<Product[]> => {
     try {
       const res = await api.get("/api/admin/products/pending");
       const allPending = parsePendingResponse(res);
-
-      // Write to ref immediately (synchronous — no re-render lag)
       allPendingRef.current = allPending;
-
-      // Recompute counts and push to state in one setState call
       setSellers(
-        currentSellers.map(s => ({
+        currentSellers.map((s) => ({
           ...s,
-          pendingCount: allPending.filter(p => productBelongsTo(p, s.id)).length,
+          pendingCount: allPending.filter((p) => productBelongsTo(p, s.id)).length,
         }))
       );
-
       return allPending;
     } catch (err) {
       console.error("Failed to fetch pending products:", err);
@@ -171,20 +178,16 @@ export default function AdminProductsPage() {
     }
   };
 
-  // ── fetch sellers then immediately fill pending counts ─────────────────────
+  // ── fetch sellers ──────────────────────────────────────────────────────────
   const fetchSellers = async () => {
     setLoadingSellers(true);
     try {
       const res = await api.get("/api/users/all");
       const rawSellers: Seller[] = (Array.isArray(res) ? res : res.users || [])
         .filter((u: any) => u.role === "SELLER")
-        .map((u: any) => ({ ...u, pendingCount: 0 })); // 0 while loading
-
-      // Render the dropdown right away (counts show as 0 for a moment — fine)
+        .map((u: any) => ({ ...u, pendingCount: 0 }));
       setSellers(rawSellers);
       if (rawSellers.length > 0 && !selectedSeller) setSelectedSeller(rawSellers[0].id);
-
-      // Now fetch pending products and update the counts for real
       await refreshPending(rawSellers);
     } catch (err: any) {
       toast.error(`Failed to load sellers: ${err?.message || "Unknown error"}`);
@@ -194,7 +197,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  // ── fetch approved products for a seller ───────────────────────────────────
+  // ── fetch approved products ────────────────────────────────────────────────
   const fetchProducts = async (sellerId: string) => {
     setLoading(true);
     try {
@@ -207,33 +210,19 @@ export default function AdminProductsPage() {
     } catch (err: any) {
       toast.error(`Failed to load products: ${err?.message || "Unknown error"}`);
       setProducts([]);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ── filter pending for selected seller from ref (no API call needed) ────────
   const applyPendingFilter = (sellerId: string) => {
     setLoadingPending(true);
-    setPendingProducts(allPendingRef.current.filter(p => productBelongsTo(p, sellerId)));
+    setPendingProducts(allPendingRef.current.filter((p) => productBelongsTo(p, sellerId)));
     setLoadingPending(false);
   };
 
-  // ── mount ──────────────────────────────────────────────────────────────────
   useEffect(() => { fetchSellers(); }, []); // eslint-disable-line
 
-  // ── auto-refresh every 30s ─────────────────────────────────────────────────
-  // Commented out to prevent constant refreshing
-  // useEffect(() => {
-  //   const interval = setInterval(async () => {
-  //     const fresh = await refreshPending(sellersRef.current);
-  //     if (selectedSellerRef.current) {
-  //       if (activeViewRef.current === "approved") fetchProducts(selectedSellerRef.current);
-  //       else setPendingProducts(fresh.filter(p => productBelongsTo(p, selectedSellerRef.current)));
-  //     }
-  //   }, 30_000);
-  //   return () => clearInterval(interval);
-  // }, []); // eslint-disable-line
-
-  // ── react to seller / view change ──────────────────────────────────────────
   useEffect(() => {
     if (!selectedSeller) { setProducts([]); setPendingProducts([]); return; }
     if (activeView === "approved") fetchProducts(selectedSeller);
@@ -243,54 +232,143 @@ export default function AdminProductsPage() {
   // ── edit modal ─────────────────────────────────────────────────────────────
   const openEditModal = async (productId: string) => {
     if (activeView !== "approved") { toast.error("Approve the product first before editing."); return; }
-    setEditProductId(productId); setEditSubmitting(false);
+    setEditProductId(productId);
+    setEditSubmitting(false);
+    editGalleryAccumRef.current = [];
+
     try {
-      const res  = await api.get(`/api/products/${productId}`);
+      const res = await api.get(`/api/products/${productId}`);
       const prod = res.product || res;
+
+      // Log the raw product to diagnose key names
+      console.log("[openEditModal] raw product keys:", Object.keys(prod));
+      console.log("[openEditModal] raw product:", JSON.stringify(prod, null, 2));
+
+      // ── FIX: resolve gallery images from ALL possible keys ──────────────
+      // APIs sometimes return gallery as "galleryImages", "images", or both.
+      // We merge them, deduplicate, and exclude the featured image.
+      const featuredImg: string | null = prod.featuredImage || null;
+
+      const rawGallery: string[] = [
+        ...(Array.isArray(prod.galleryImages) ? prod.galleryImages : []),
+        ...(Array.isArray(prod.images) ? prod.images : []),
+      ];
+
+      // Deduplicate and remove featured image from gallery list
+      const resolvedGallery: string[] = [...new Set(rawGallery)].filter(
+        (img) => img !== featuredImg
+      );
+
+      console.log("[openEditModal] featuredImage:", featuredImg);
+      console.log("[openEditModal] resolvedGallery:", resolvedGallery);
+
       setEditFormData({
-        title: prod.title || "", description: prod.description || "",
-        price: prod.price?.toString() || "", stock: prod.stock?.toString() || "",
-        category: prod.category || "", images: [], oldImages: prod.images || [],
+        title: prod.title || "",
+        description: prod.description || "",
+        price: prod.price?.toString() || "",
+        stock: prod.stock?.toString() || "",
+        category: prod.category || "",
+        images: [],
+        oldImages: prod.images || [],
+        featuredImage: null,
+        oldFeaturedImage: featuredImg,
+        galleryImages: [],
+        oldGalleryImages: resolvedGallery, // ← correctly populated now
         featured: prod.featured ?? false,
-        tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
+        tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : prod.tags || "",
         artistName: prod.artistName || "",
       });
+
       setShowEditModal(true);
-    } catch (err: any) { toast.error(err.message || "Failed to load product"); }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load product");
+    }
   };
 
   const handleEditProduct = async () => {
     if (!editProductId) return;
-    if (!editFormData.title || !editFormData.price || !editFormData.stock) { toast.error("Please fill in all required fields"); return; }
+    if (!editFormData.title || !editFormData.price || !editFormData.stock) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
     try {
       setEditSubmitting(true);
       const form = new FormData();
-      form.append("title",       editFormData.title.trim());
+      form.append("title", editFormData.title.trim());
       form.append("description", editFormData.description.trim());
-      form.append("price",       String(editFormData.price));
-      form.append("stock",       String(editFormData.stock));
-      form.append("category",    editFormData.category.trim());
-      form.append("featured",    String(editFormData.featured));
-      form.append("tags",        editFormData.tags);
+      form.append("price", String(editFormData.price));
+      form.append("stock", String(editFormData.stock));
+      form.append("category", editFormData.category.trim());
+      form.append("featured", String(editFormData.featured));
+      form.append("tags", editFormData.tags);
       if (editFormData.artistName) form.append("artistName", editFormData.artistName.trim());
-      editFormData.images.forEach(img => form.append("images", img));
+
+      // Featured image: prefer new file from ref, fall back to old URL
+      const featuredFile = editFeaturedImageRef.current?.files?.[0] ?? null;
+      if (featuredFile) {
+        form.append("featuredImage", featuredFile);
+      } else if (editFormData.oldFeaturedImage) {
+        // Tell backend to keep the existing featured image
+        form.append("oldFeaturedImage", editFormData.oldFeaturedImage);
+      }
+
+      // ── Gallery images ────────────────────────────────────────────────────
+      // Use the same key "galleryImages" for BOTH existing URLs and new Files.
+      // This matches the Postman tests and ensures the backend doesn't wipe old ones.
+      
+      // 1. Append existing URLs to keep them
+      if (editFormData.oldGalleryImages?.length > 0) {
+        editFormData.oldGalleryImages.forEach((url) => {
+          form.append("galleryImages", url);
+        });
+      }
+
+      // 2. Append new File objects
+      const galleryFiles = [...editGalleryAccumRef.current];
+      if (galleryFiles.length > 0) {
+        galleryFiles.forEach((f) => {
+          form.append("galleryImages", f);
+        });
+      }
+
+      // Debug — verify in browser console before sending
+      console.log("[handleEditProduct] galleryImages contents (total):", editFormData.oldGalleryImages.length + galleryFiles.length);
+      console.log("[handleEditProduct] existing URLs:", editFormData.oldGalleryImages);
+      console.log("[handleEditProduct] new files:", galleryFiles.map((f) => f.name));
+
       await api.put(`/api/products/${editProductId}`, form);
       toast.success("Product updated successfully!");
-      setShowEditModal(false); setEditProductId(null);
+      setShowEditModal(false);
+      setEditProductId(null);
+      editGalleryAccumRef.current = [];
       fetchProducts(selectedSeller);
-    } catch (err: any) { toast.error(err.message || "Failed to update product"); }
-    finally { setEditSubmitting(false); }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update product");
+    } finally {
+      setEditSubmitting(false);
+    }
   };
 
-  // ── approve / reject / inactivate / activate ────────────────────────────────
+  // ── approve / reject / inactivate / activate ──────────────────────────────
   const handleInactivate = async (productId: string) => {
-    try { await api.put(`/api/admin/products/deactivate/${productId}`); toast.success("Product marked as inactive"); fetchProducts(selectedSeller); }
-    catch { toast.error("Failed to inactivate product"); }
+    try {
+      await api.put(`/api/admin/products/deactivate/${productId}`);
+      toast.success("Product marked as inactive");
+      fetchProducts(selectedSeller);
+    } catch {
+      toast.error("Failed to inactivate product");
+    }
   };
 
   const handleActivate = async (productId: string) => {
-    try { await api.put(`/api/admin/products/activate/${productId}`); toast.success("Product activated successfully!"); fetchProducts(selectedSeller); }
-    catch { toast.error("Failed to activate product"); }
+    try {
+      await api.put(`/api/admin/products/activate/${productId}`);
+      toast.success("Product activated successfully!");
+      fetchProducts(selectedSeller);
+    } catch {
+      toast.error("Failed to activate product");
+    }
   };
 
   const handleApproveProduct = async (productId: string) => {
@@ -298,8 +376,10 @@ export default function AdminProductsPage() {
       await api.post(`/api/admin/products/approve/${productId}`);
       toast.success("Product approved successfully!");
       const fresh = await refreshPending(sellersRef.current);
-      setPendingProducts(fresh.filter(p => productBelongsTo(p, selectedSeller)));
-    } catch (err: any) { toast.error(err.message || "Failed to approve product"); }
+      setPendingProducts(fresh.filter((p) => productBelongsTo(p, selectedSeller)));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to approve product");
+    }
   };
 
   const handleRejectProduct = async (productId: string) => {
@@ -307,8 +387,10 @@ export default function AdminProductsPage() {
       await api.put(`/api/admin/products/${productId}/reject`);
       toast.success("Product rejected successfully!");
       const fresh = await refreshPending(sellersRef.current);
-      setPendingProducts(fresh.filter(p => productBelongsTo(p, selectedSeller)));
-    } catch (err: any) { toast.error(err.message || "Failed to reject product"); }
+      setPendingProducts(fresh.filter((p) => productBelongsTo(p, selectedSeller)));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reject product");
+    }
   };
 
   const currentProducts = activeView === "approved" ? products : pendingProducts;
@@ -326,18 +408,16 @@ export default function AdminProductsPage() {
 
         <div className="flex gap-4 items-end w-full md:w-auto md:justify-end justify-between">
 
-          {/* ── Seller Dropdown ─────────────────────────────────────────── */}
+          {/* Seller Dropdown */}
           <div className="min-w-[260px] relative" ref={sellerDropdownRef}>
             <label className="block mb-1 font-medium">Select Seller</label>
-
-            {/* trigger */}
             <div
               className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm hover:border-primary/50 cursor-pointer"
-              onClick={() => setIsSellerDropdownOpen(v => !v)}
+              onClick={() => setIsSellerDropdownOpen((v) => !v)}
             >
               <span className={selectedSeller ? "text-foreground font-medium" : "text-muted-foreground"}>
                 {selectedSeller ? (() => {
-                  const s = sellers.find(s => s.id === selectedSeller);
+                  const s = sellers.find((s) => s.id === selectedSeller);
                   if (!s) return "Select a seller";
                   return (
                     <span className="flex items-center gap-2">
@@ -349,7 +429,6 @@ export default function AdminProductsPage() {
               <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", isSellerDropdownOpen && "rotate-180")} />
             </div>
 
-            {/* list */}
             {isSellerDropdownOpen && (
               <div className="absolute z-[60] left-0 w-full mt-1 bg-background rounded-lg border shadow-xl p-1 min-w-[400px] animate-in fade-in zoom-in-95">
                 <div className="max-h-[300px] overflow-y-auto">
@@ -357,24 +436,21 @@ export default function AdminProductsPage() {
                     <div className="py-6 flex justify-center"><Loader2 className="h-4 w-4 animate-spin" /></div>
                   ) : sellers.length === 0 ? (
                     <div className="py-4 text-center text-sm text-muted-foreground">No sellers found.</div>
-                  ) : sellers.map(seller => (
+                  ) : sellers.map((seller) => (
                     <div
                       key={seller.id}
                       className={cn(
                         "flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
                         selectedSeller === seller.id && "bg-primary/5 text-primary font-medium"
                       )}
-                      onClick={e => { e.stopPropagation(); setSelectedSeller(seller.id); setIsSellerDropdownOpen(false); }}
+                      onClick={(e) => { e.stopPropagation(); setSelectedSeller(seller.id); setIsSellerDropdownOpen(false); }}
                     >
-                      {/* checkbox */}
                       <div className={cn(
                         "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-primary transition-all",
                         selectedSeller === seller.id ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50"
                       )}>
                         {selectedSeller === seller.id && <Check className="h-3 w-3" />}
                       </div>
-
-                      {/* seller info + pending badge — always rendered */}
                       <div className="flex flex-1 items-center justify-between min-w-0">
                         <div className="flex flex-col min-w-0 mr-3">
                           <span className="font-medium truncate">{seller.name}</span>
@@ -391,7 +467,7 @@ export default function AdminProductsPage() {
 
           <div className="flex gap-2 items-end">
             <Button variant={layout === "table" ? "default" : "outline"} size="sm" onClick={() => setLayout("table")}>Tabular View</Button>
-            <Button variant={layout === "card"  ? "default" : "outline"} size="sm" onClick={() => setLayout("card")}>Card View</Button>
+            <Button variant={layout === "card" ? "default" : "outline"} size="sm" onClick={() => setLayout("card")}>Card View</Button>
           </div>
         </div>
       </div>
@@ -402,17 +478,17 @@ export default function AdminProductsPage() {
           Approved Products ({products.length})
         </Button>
         <Button variant={activeView === "pending" ? "default" : "ghost"} onClick={() => setActiveView("pending")} className="rounded-b-none">
-          Pending Products ({sellers.find(s => s.id === selectedSeller)?.pendingCount ?? pendingProducts.length})
+          Pending Products ({sellers.find((s) => s.id === selectedSeller)?.pendingCount ?? pendingProducts.length})
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          { label: activeView === "approved" ? "Total Products"    : "Pending Products",  value: activeView === "approved" ? totalProducts : pendingProducts.length,                                                                        icon: <Package className="h-4 w-4 text-muted-foreground" /> },
-          { label: activeView === "approved" ? "Total Stock"       : "Pending Stock",      value: activeView === "approved" ? totalStock    : pendingProducts.reduce((s,p)=>s+(Number(p.stock)||0),0),                                      icon: <Package className="h-4 w-4 text-muted-foreground" /> },
-          { label: activeView === "approved" ? "Estimated Revenue" : "Potential Revenue",  value: "$"+(activeView === "approved" ? totalRevenue : pendingProducts.reduce((s,p)=>s+Number(p.price)*(Number((p as any).sales)||0),0)).toLocaleString(), icon: <DollarSign className="h-4 w-4 text-muted-foreground" /> },
-        ].map(c => (
+          { label: activeView === "approved" ? "Total Products" : "Pending Products", value: activeView === "approved" ? totalProducts : pendingProducts.length, icon: <Package className="h-4 w-4 text-muted-foreground" /> },
+          { label: activeView === "approved" ? "Total Stock" : "Pending Stock", value: activeView === "approved" ? totalStock : pendingProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0), icon: <Package className="h-4 w-4 text-muted-foreground" /> },
+          { label: activeView === "approved" ? "Estimated Revenue" : "Potential Revenue", value: "$" + (activeView === "approved" ? totalRevenue : pendingProducts.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0)).toLocaleString(), icon: <DollarSign className="h-4 w-4 text-muted-foreground" /> },
+        ].map((c) => (
           <Card key={c.label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">{c.label}</CardTitle>{c.icon}
@@ -429,25 +505,25 @@ export default function AdminProductsPage() {
         <Card className="col-span-full text-center py-12">No {activeView === "approved" ? "products" : "pending products"} found.</Card>
       ) : layout === "table" ? (
 
-        /* ── TABLE VIEW ── */
+        /* TABLE VIEW */
         <div className="overflow-x-auto rounded-lg border bg-background">
           <table className="min-w-full divide-y divide-muted">
             <thead className="bg-muted/50">
               <tr>
-                {["Image","Title","Category","Price","Stock","Status","Actions"].map(h=>(
+                {["Image", "Title", "Category", "Price", "Stock", "Status", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {currentProducts.map(product => (
+              {currentProducts.map((product) => (
                 <React.Fragment key={product.id}>
                   <tr className="hover:bg-muted/20">
                     <td className="px-4 py-2">
-                      {product.images?.length ? (
-                        <Image src={product.images[0]} alt={product.title||"Product"} width={48} height={48}
+                      {(product.featuredImage || product.images?.length) ? (
+                        <Image src={product.featuredImage || product.images![0]} alt={product.title || "Product"} width={48} height={48}
                           className="h-12 w-12 object-cover rounded"
-                          onError={e=>{(e.target as HTMLImageElement).src="https://placehold.co/100x100?text=No+Image";}} />
+                          onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/100x100?text=No+Image"; }} />
                       ) : (
                         <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
                           <LucideImage className="h-6 w-6 text-muted-foreground/50" />
@@ -459,35 +535,35 @@ export default function AdminProductsPage() {
                     <td className="px-4 py-2 text-primary font-bold">${product.price}</td>
                     <td className="px-4 py-2">{product.stock}</td>
                     <td className="px-4 py-2">
-                      <Badge variant={activeView==="pending"||product.status!=="ACTIVE"?"secondary":"default"}>
-                        {activeView==="pending"?"PENDING":product.status||"Active"}
+                      <Badge variant={activeView === "pending" || product.status !== "ACTIVE" ? "secondary" : "default"}>
+                        {activeView === "pending" ? "PENDING" : product.status || "Active"}
                       </Badge>
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex gap-1 items-center">
-                        {activeView==="approved"?(
+                        {activeView === "approved" ? (
                           <>
-                            <Button variant="outline" size="sm" className="gap-1" onClick={()=>openEditModal(product.id)}><Edit className="h-3 w-3"/>Edit</Button>
-                            {product.status==="INACTIVE" ? (
-                              <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={()=>handleActivate(product.id)}><CheckCircle className="h-3 w-3"/>Activate</Button>
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" />Edit</Button>
+                            {product.status === "INACTIVE" ? (
+                              <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleActivate(product.id)}><CheckCircle className="h-3 w-3" />Activate</Button>
                             ) : (
-                              <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700" onClick={()=>handleInactivate(product.id)}><PowerOff className="h-3 w-3"/>Inactive</Button>
+                              <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700" onClick={() => handleInactivate(product.id)}><PowerOff className="h-3 w-3" />Inactive</Button>
                             )}
                           </>
-                        ):(
+                        ) : (
                           <>
-                            <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={()=>handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3"/>Approve</Button>
-                            <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={()=>handleRejectProduct(product.id)}><XCircle className="h-3 w-3"/>Reject</Button>
+                            <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
+                            <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleRejectProduct(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
                           </>
                         )}
                         <Button variant="outline" size="sm" className="gap-1"
-                          onClick={()=>setExpandedProductId(expandedProductId===product.id?null:product.id)}>
-                          {expandedProductId===product.id?<><X className="h-3 w-3"/>Hide</>:<><Eye className="h-3 w-3"/>View</>}
+                          onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}>
+                          {expandedProductId === product.id ? <><X className="h-3 w-3" />Hide</> : <><Eye className="h-3 w-3" />View</>}
                         </Button>
                       </div>
                     </td>
                   </tr>
-                  {expandedProductId===product.id&&(
+                  {expandedProductId === product.id && (
                     <tr><td colSpan={7} className="bg-muted/10 p-4">
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
@@ -496,26 +572,26 @@ export default function AdminProductsPage() {
                           <div className="mb-2"><strong>Category:</strong> {product.category}</div>
                           <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
                           <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
-                          <div className="mb-2"><strong>Status:</strong> {product.status||"Active"}</div>
-                          <div className="mb-2"><strong>Featured:</strong> {product.featured?"Yes":"No"}</div>
+                          <div className="mb-2"><strong>Status:</strong> {product.status || "Active"}</div>
+                          <div className="mb-2"><strong>Featured:</strong> {product.featured ? "Yes" : "No"}</div>
                           <div className="mb-2"><strong>Tags:</strong>{" "}
-                            {product.tags&&product.tags.length>0?(
+                            {product.tags && product.tags.length > 0 ? (
                               <div className="flex flex-wrap gap-1 mt-1">
-                                {(Array.isArray(product.tags)?product.tags:String(product.tags).split(",")).map((tag,i)=>(
+                                {(Array.isArray(product.tags) ? product.tags : String(product.tags).split(",")).map((tag, i) => (
                                   <Badge key={i} variant="secondary" className="text-xs">{String(tag).trim()}</Badge>
                                 ))}
                               </div>
-                            ):<span className="text-muted-foreground ml-2">No tags</span>}
+                            ) : <span className="text-muted-foreground ml-2">No tags</span>}
                           </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                          {product.images?.length?product.images.map((img,i)=>(
-                            <div key={img+i} className="w-32 h-32 rounded border bg-muted overflow-hidden">
-                              <Image src={img} alt={product.title||"Product"} width={120} height={120} className="w-full h-full object-contain" unoptimized/>
+                          {product.images?.length ? product.images.map((img, i) => (
+                            <div key={img + i} className="w-32 h-32 rounded border bg-muted overflow-hidden">
+                              <Image src={img} alt={product.title || "Product"} width={120} height={120} className="w-full h-full object-contain" unoptimized />
                             </div>
-                          )):(
+                          )) : (
                             <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center">
-                              <LucideImage className="h-8 w-8 opacity-30"/>
+                              <LucideImage className="h-8 w-8 opacity-30" />
                             </div>
                           )}
                         </div>
@@ -530,21 +606,21 @@ export default function AdminProductsPage() {
 
       ) : (
 
-        /* ── CARD VIEW ── */
+        /* CARD VIEW */
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {currentProducts.map(product=>(
+          {currentProducts.map((product) => (
             <Card key={product.id} className="overflow-hidden flex flex-col">
               <div className="relative h-48 w-full bg-muted">
-                {product.images?.length?(
-                  <Image src={product.images[0]} alt={product.title||"Product"} width={400} height={192}
+                {(product.featuredImage || product.images?.length) ? (
+                  <Image src={product.featuredImage || product.images![0]} alt={product.title || "Product"} width={400} height={192}
                     className="h-full w-full object-cover transition-transform hover:scale-105"
-                    onError={e=>{(e.target as HTMLImageElement).src="https://placehold.co/400x300?text=No+Image";}}/>
-                ):(
-                  <div className="flex h-full items-center justify-center"><LucideImage className="h-12 w-12 text-muted-foreground/50"/></div>
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/400x300?text=No+Image"; }} />
+                ) : (
+                  <div className="flex h-full items-center justify-center"><LucideImage className="h-12 w-12 text-muted-foreground/50" /></div>
                 )}
                 <Badge className="absolute top-2 right-2"
-                  variant={activeView==="pending"?"secondary":product.status==="ACTIVE"?"default":"secondary"}>
-                  {activeView==="pending"?"PENDING":product.status||"Active"}
+                  variant={activeView === "pending" ? "secondary" : product.status === "ACTIVE" ? "default" : "secondary"}>
+                  {activeView === "pending" ? "PENDING" : product.status || "Active"}
                 </Badge>
               </div>
               <CardHeader className="pb-3">
@@ -561,19 +637,19 @@ export default function AdminProductsPage() {
                   <span className="font-semibold">{product.stock} units</span>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  {activeView==="approved"?(
+                  {activeView === "approved" ? (
                     <>
-                      <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={()=>openEditModal(product.id)}><Edit className="h-3 w-3"/>Edit</Button>
-                      {product.status==="INACTIVE" ? (
-                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={()=>handleActivate(product.id)}><CheckCircle className="h-3 w-3"/>Activate</Button>
+                      <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" />Edit</Button>
+                      {product.status === "INACTIVE" ? (
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleActivate(product.id)}><CheckCircle className="h-3 w-3" />Activate</Button>
                       ) : (
-                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700" onClick={()=>handleInactivate(product.id)}><PowerOff className="h-3 w-3"/>Inactive</Button>
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700" onClick={() => handleInactivate(product.id)}><PowerOff className="h-3 w-3" />Inactive</Button>
                       )}
                     </>
-                  ):(
+                  ) : (
                     <>
-                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={()=>handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3"/>Approve</Button>
-                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={()=>handleRejectProduct(product.id)}><XCircle className="h-3 w-3"/>Reject</Button>
+                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
+                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleRejectProduct(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
                     </>
                   )}
                 </div>
@@ -583,77 +659,85 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      {/* ── Edit Modal ── */}
-      {showEditModal&&activeView==="approved"&&(
+      {/* Edit Modal */}
+      {showEditModal && activeView === "approved" && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
             <CardHeader className="border-b sticky top-0 bg-background z-10">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl font-bold">Edit Product</CardTitle>
-                <Button variant="ghost" size="sm" onClick={()=>setShowEditModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4"/></Button>
+                <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-6 p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 col-span-2">
                   <Label className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
-                  <Input placeholder="Give your product a clear name" value={editFormData.title} onChange={e=>setEditFormData({...editFormData,title:e.target.value})} className="h-10"/>
+                  <Input placeholder="Give your product a clear name" value={editFormData.title} onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-2 col-span-2">
                   <Label className="text-sm font-semibold">Detailed Description</Label>
-                  <Textarea placeholder="Product details..." value={editFormData.description} rows={4} onChange={e=>setEditFormData({...editFormData,description:e.target.value})} className="resize-none"/>
+                  <Textarea placeholder="Product details..." value={editFormData.description} rows={4} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })} className="resize-none" />
                 </div>
                 <div className="space-y-2 col-span-2">
                   <Label className="text-sm font-semibold">Artist Name (Optional)</Label>
-                  <Input placeholder="Enter artist name" value={editFormData.artistName} onChange={e=>setEditFormData({...editFormData,artistName:e.target.value})} className="h-10"/>
+                  <Input placeholder="Enter artist name" value={editFormData.artistName} onChange={(e) => setEditFormData({ ...editFormData, artistName: e.target.value })} className="h-10" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Price ($) <span className="text-red-500">*</span></Label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                    <Input type="number" placeholder="0.00" value={editFormData.price} onChange={e=>setEditFormData({...editFormData,price:e.target.value})} className="pl-9 h-10"/>
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input type="number" placeholder="0.00" value={editFormData.price} onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })} className="pl-9 h-10" />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Stock Quantity <span className="text-red-500">*</span></Label>
-                  <Input type="number" placeholder="0" value={editFormData.stock} onChange={e=>setEditFormData({...editFormData,stock:e.target.value})} className="h-10"/>
+                  <Input type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="h-10" />
                 </div>
 
                 {/* Category */}
                 <div className="space-y-2 relative" ref={editCatDropdownRef}>
                   <Label className="text-sm font-semibold">Category <span className="text-red-500">*</span></Label>
-                  <div className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm hover:border-primary/50 cursor-pointer"
-                    onClick={()=>setIsEditCatOpen(v=>!v)}>
-                    <span className={editFormData.category?"text-foreground font-medium":"text-muted-foreground"}>{editFormData.category||"Select a category"}</span>
-                    <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200",isEditCatOpen&&"rotate-180")}/>
+                  <div
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm hover:border-primary/50 cursor-pointer"
+                    onClick={() => setIsEditCatOpen((v) => !v)}
+                  >
+                    <span className={editFormData.category ? "text-foreground font-medium" : "text-muted-foreground"}>{editFormData.category || "Select a category"}</span>
+                    <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", isEditCatOpen && "rotate-180")} />
                   </div>
-                  {isEditCatOpen&&(
+                  {isEditCatOpen && (
                     <div className="absolute z-[60] w-full mt-1 bg-background rounded-lg border shadow-xl p-1">
                       <div className="flex items-center border-b px-3 pb-2 pt-1">
-                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50"/>
-                        <input className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                        <input
+                          className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
                           placeholder="Search categories..." value={editCatSearch} autoFocus
-                          onChange={e=>setEditCatSearch(e.target.value)} onClick={e=>e.stopPropagation()}/>
+                          onChange={(e) => setEditCatSearch(e.target.value)} onClick={(e) => e.stopPropagation()}
+                        />
                       </div>
                       <div className="max-h-[220px] overflow-y-auto mt-1">
-                        {availableCategories.length===0?(
+                        {availableCategories.length === 0 ? (
                           <div className="py-4 text-center">
                             <Button variant="ghost" size="sm" className="text-xs text-primary underline"
-                              onClick={e=>{e.stopPropagation();loadCategories();}}>Refresh Categories</Button>
+                              onClick={(e) => { e.stopPropagation(); loadCategories(); }}>Refresh Categories</Button>
                           </div>
-                        ):availableCategories.filter(c=>c.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).map(cat=>(
-                          <div key={cat.categoryName}
-                            className={cn("flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
-                              editFormData.category===cat.categoryName&&"bg-primary/5 text-primary font-medium")}
-                            onClick={e=>{e.stopPropagation();setEditFormData({...editFormData,category:cat.categoryName});setIsEditCatOpen(false);setEditCatSearch("");}}>
+                        ) : availableCategories.filter((c) => c.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).map((cat) => (
+                          <div
+                            key={cat.categoryName}
+                            className={cn(
+                              "flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
+                              editFormData.category === cat.categoryName && "bg-primary/5 text-primary font-medium"
+                            )}
+                            onClick={(e) => { e.stopPropagation(); setEditFormData({ ...editFormData, category: cat.categoryName }); setIsEditCatOpen(false); setEditCatSearch(""); }}
+                          >
                             <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded border border-primary transition-all",
-                              editFormData.category===cat.categoryName?"bg-primary text-primary-foreground":"bg-transparent opacity-50")}>
-                              {editFormData.category===cat.categoryName&&<Check className="h-3 w-3"/>}
+                              editFormData.category === cat.categoryName ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50")}>
+                              {editFormData.category === cat.categoryName && <Check className="h-3 w-3" />}
                             </div>
                             {cat.categoryName}
                           </div>
                         ))}
-                        {availableCategories.length>0&&availableCategories.filter(c=>c.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).length===0&&(
+                        {availableCategories.length > 0 && availableCategories.filter((c) => c.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).length === 0 && (
                           <div className="py-6 text-center text-sm text-muted-foreground">No category found.</div>
                         )}
                       </div>
@@ -661,59 +745,144 @@ export default function AdminProductsPage() {
                   )}
                 </div>
 
-                {/* Featured */}
+                {/* Featured toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors">
                   <div className="space-y-0.5">
                     <Label className="text-base font-semibold">Featured Product</Label>
                     <p className="text-xs text-muted-foreground">Show this product on the home page</p>
                   </div>
-                  <Switch checked={editFormData.featured} onCheckedChange={checked=>setEditFormData({...editFormData,featured:checked})}/>
+                  <Switch checked={editFormData.featured} onCheckedChange={(checked) => setEditFormData({ ...editFormData, featured: checked })} />
                 </div>
 
                 <div className="space-y-2 col-span-2">
                   <Label className="text-sm font-semibold">Tags (comma separated)</Label>
-                  <Input placeholder="e.g. handmade, vintage, summer" value={editFormData.tags} onChange={e=>setEditFormData({...editFormData,tags:e.target.value})} className="h-10"/>
+                  <Input placeholder="e.g. handmade, vintage, summer" value={editFormData.tags} onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })} className="h-10" />
                 </div>
 
-                {/* Images */}
-                <div className="space-y-2 col-span-2">
-                  <Label className="text-sm font-semibold">Product Images ({editFormData.images.length+editFormData.oldImages.length}/5)</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
-                    {editFormData.oldImages.map((img,idx)=>(
-                      <div key={`old-${idx}`} className="relative group aspect-square rounded-lg overflow-hidden border bg-muted">
-                        <Image src={img} alt={`Product ${idx}`} fill className="object-cover transition-transform group-hover:scale-105"/>
-                        <button type="button" onClick={()=>setEditFormData(prev=>({...prev,oldImages:prev.oldImages.filter((_,i)=>i!==idx)}))}
+                {/* Featured Image */}
+                <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20 col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-sm font-semibold">Featured Image</Label>
+                    <span className="text-[10px] text-muted-foreground">Main product image</span>
+                  </div>
+                  <input
+                    ref={editFeaturedImageRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setEditFormData((prev) => ({ ...prev, featuredImage: file }));
+                    }}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                  />
+                  <div className="flex gap-3 flex-wrap pt-2">
+                    {editFormData.oldFeaturedImage && !editFormData.featuredImage && (
+                      <div className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
+                        <Image src={editFormData.oldFeaturedImage} alt="Featured" fill className="object-cover" />
+                        <button type="button"
+                          onClick={() => setEditFormData((prev) => ({ ...prev, oldFeaturedImage: null }))}
                           className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                          <X className="h-3 w-3"/>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
+                    {editFormData.featuredImage && (
+                      <div className="relative h-20 w-20 rounded border overflow-hidden bg-muted">
+                        <Image src={URL.createObjectURL(editFormData.featuredImage)} alt="New Featured" fill className="object-cover" />
+                        <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
+                      </div>
+                    )}
+                    {!editFormData.oldFeaturedImage && !editFormData.featuredImage && (
+                      <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                        <Package className="h-6 w-6 mb-1 opacity-20" />
+                        <p className="text-xs">No featured image</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gallery Images — FIX: accumulator ref prevents replace-on-reselect */}
+                <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20 col-span-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <Label className="text-sm font-semibold">Gallery Images</Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      {editFormData.oldGalleryImages.length + editFormData.galleryImages.length} image(s) total
+                    </span>
+                  </div>
+                  <input
+                    ref={editGalleryImagesRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const newFiles = Array.from(e.target.files);
+                        // Accumulate into the ref — never overwrites previous picks
+                        editGalleryAccumRef.current = [...editGalleryAccumRef.current, ...newFiles];
+                        // Sync state for preview rendering
+                        setEditFormData((prev) => ({
+                          ...prev,
+                          galleryImages: [...editGalleryAccumRef.current],
+                        }));
+                        // Clear native input so same file can be re-added if needed
+                        e.target.value = "";
+                      }
+                    }}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                  />
+                  <div className="flex gap-3 flex-wrap pt-2">
+                    {/* Existing gallery images from server */}
+                    {editFormData.oldGalleryImages.map((img, idx) => (
+                      <div key={`old-${idx}`} className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
+                        <Image src={img} alt={`Gallery ${idx}`} fill className="object-cover" />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditFormData((prev) => ({
+                              ...prev,
+                              oldGalleryImages: prev.oldGalleryImages.filter((_, i) => i !== idx),
+                            }))
+                          }
+                          className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
                         </button>
                       </div>
                     ))}
-                    {editFormData.images.map((file,idx)=>(
-                      <div key={`new-${idx}`} className="relative group aspect-square rounded-lg overflow-hidden border bg-muted">
-                        <Image src={URL.createObjectURL(file)} alt={`New ${idx}`} fill className="object-cover transition-transform group-hover:scale-105"/>
-                        <button type="button" onClick={()=>setEditFormData(prev=>({...prev,images:prev.images.filter((_,i)=>i!==idx)}))}
-                          className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                          <X className="h-3 w-3"/>
+
+                    {/* Newly picked gallery images */}
+                    {editFormData.galleryImages.map((file, idx) => (
+                      <div key={`new-${idx}`} className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
+                        <Image src={URL.createObjectURL(file)} alt={`New ${idx}`} fill className="object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = editFormData.galleryImages.filter((_, i) => i !== idx);
+                            editGalleryAccumRef.current = updated; // keep ref in sync
+                            setEditFormData((prev) => ({ ...prev, galleryImages: updated }));
+                          }}
+                          className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
                         </button>
+                        <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
                       </div>
                     ))}
-                    {editFormData.images.length+editFormData.oldImages.length<5&&(
-                      <label className="border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all aspect-square">
-                        <Package className="h-6 w-6 text-muted-foreground mb-2"/>
-                        <span className="text-xs text-muted-foreground font-medium">Add Image</span>
-                        <input type="file" multiple accept="image/*"
-                          onChange={e=>{if(e.target.files)setEditFormData({...editFormData,images:Array.from(e.target.files)});}}
-                          className="hidden"/>
-                      </label>
+
+                    {editFormData.oldGalleryImages.length === 0 && editFormData.galleryImages.length === 0 && (
+                      <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                        <Package className="h-6 w-6 mb-1 opacity-20" />
+                        <p className="text-xs">No gallery images</p>
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             </CardContent>
             <div className="p-6 border-t bg-muted/10 sticky bottom-0 z-10 flex justify-end gap-3">
-              <Button variant="outline" onClick={()=>setShowEditModal(false)} disabled={editSubmitting} className="h-10 px-4">Cancel</Button>
+              <Button variant="outline" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} disabled={editSubmitting} className="h-10 px-4">Cancel</Button>
               <Button onClick={handleEditProduct} disabled={editSubmitting} className="h-10 px-6 font-semibold shadow-md">
-                {editSubmitting?<><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Saving...</>:"Save Changes"}
+                {editSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Changes"}
               </Button>
             </div>
           </Card>

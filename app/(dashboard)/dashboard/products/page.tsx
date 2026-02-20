@@ -51,6 +51,8 @@ type Product = {
   stock: number;
   category?: string;
   images: string[];
+  featuredImage?: string | null;
+  galleryImages?: string[];
   status?: string;
   sales?: number;
   featured?: boolean;
@@ -67,6 +69,8 @@ const addProduct = async (productData: {
   stock: string;
   category: string;
   images: File[];
+  featuredImage?: File | null;
+  galleryImages?: File[];
   artistName?: string;
 }) => {
   const token = getAuthToken();
@@ -77,9 +81,26 @@ const addProduct = async (productData: {
   form.append("price", productData.price);
   form.append("stock", productData.stock);
   form.append("category", productData.category);
-  for (let i = 0; i < productData.images.length; i++) {
-    form.append("images", productData.images[i]);
+
+  // Send gallery images under 'galleryImages' key. 
+  // Repeating the key for each file as per Postman working configuration.
+  if (productData.galleryImages && productData.galleryImages.length > 0) {
+    productData.galleryImages.forEach((file) => {
+      form.append("galleryImages", file);
+    });
   }
+
+  // Also send any files in the 'images' array if any 
+  if (productData.images && productData.images.length > 0) {
+    productData.images.forEach((file) => {
+      form.append("galleryImages", file);
+    });
+  }
+
+  if (productData.featuredImage) {
+    form.append("featuredImage", productData.featuredImage);
+  }
+
   form.append("featured", String(productData.featured));
   form.append("tags", productData.tags);
   if (productData.artistName) {
@@ -153,6 +174,16 @@ function ProjectsPage() {
   const catDropdownRef = useRef<HTMLDivElement>(null);
   const editCatDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Native refs for file inputs — bypasses shadcn wrapper entirely
+  const addFeaturedImageRef   = useRef<HTMLInputElement>(null);
+  const addGalleryImagesRef   = useRef<HTMLInputElement>(null);
+  const editFeaturedImageRef  = useRef<HTMLInputElement>(null);
+  const editGalleryImagesRef  = useRef<HTMLInputElement>(null);
+
+  // Mutable accumulator refs for gallery files — always current, no stale closure
+  const addGalleryAccumRef   = useRef<File[]>([]);
+  const editGalleryAccumRef  = useRef<File[]>([]);
+
   // Category Search State for Modals
   const [catSearch, setCatSearch] = useState("");
   const [isCatOpen, setIsCatOpen] = useState(false);
@@ -179,6 +210,8 @@ function ProjectsPage() {
     stock: "",
     category: "",
     images: [] as File[],
+    featuredImage: null as File | null,
+    galleryImages: [] as File[],
     featured: false,
     tags: "",
     artistName: "",
@@ -194,6 +227,10 @@ function ProjectsPage() {
     category: "",
     images: [] as File[],
     oldImages: [] as string[],
+    featuredImage: null as File | null,
+    oldFeaturedImage: null as string | null,
+    galleryImages: [] as File[],
+    oldGalleryImages: [] as string[],
     featured: false,
     tags: "",
     artistName: "",
@@ -243,13 +280,21 @@ function ProjectsPage() {
     }
     try {
       setSubmitting(true);
+      // featuredImage: read from native input ref — always current
+      const featuredImageFile = addFeaturedImageRef.current?.files?.[0] ?? null;
+      // galleryImages: read from mutable accumulator ref — always current, no stale closure
+      const galleryImageFiles = [...addGalleryAccumRef.current];
+      console.log("featuredImage file to send:", featuredImageFile);
+      console.log("galleryImages files to send:", galleryImageFiles);
       const productData = {
         title: formData.title,
         description: formData.description,
         price: formData.price,
         stock: formData.stock,
         category: formData.category,
-        images: formData.images,
+        images: [],
+        featuredImage: featuredImageFile,
+        galleryImages: galleryImageFiles,
         featured: formData.featured,
         tags: formData.tags,
         artistName: formData.artistName,
@@ -257,7 +302,8 @@ function ProjectsPage() {
       await addProduct(productData);
       toast.success("Product added successfully!");
       setShowAddModal(false);
-      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featured: false, tags: "", artistName: "" });
+      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featuredImage: null, galleryImages: [], featured: false, tags: "", artistName: "" });
+      addGalleryAccumRef.current = []; // clear accumulator
       loadProducts();
     } catch {
       toast.error("Failed to add product");
@@ -301,15 +347,53 @@ function ProjectsPage() {
     }
   };
 
+  const handleFeaturedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setFormData(prev => ({ ...prev, featuredImage: file }));
+    }
+  };
+
+  const handleGalleryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      // Append to mutable ref (always current at submit time)
+      addGalleryAccumRef.current = [...addGalleryAccumRef.current, ...newFiles];
+      // Also update state so previews re-render
+      setFormData(prev => ({ ...prev, galleryImages: [...addGalleryAccumRef.current] }));
+      e.target.value = "";
+    }
+  };
+
   const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setEditFormData({ ...editFormData, images: Array.from(e.target.files) });
+      const files = Array.from(e.target.files);
+      setEditFormData(prev => ({ ...prev, images: files }));
+    }
+  };
+
+  const handleEditFeaturedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setEditFormData(prev => ({ ...prev, featuredImage: file }));
+    }
+  };
+
+  const handleEditGalleryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      // Append to mutable ref (always current at submit time)
+      editGalleryAccumRef.current = [...editGalleryAccumRef.current, ...newFiles];
+      // Also update state so previews re-render
+      setEditFormData(prev => ({ ...prev, galleryImages: [...editGalleryAccumRef.current] }));
+      e.target.value = "";
     }
   };
 
   const openEditModal = async (productId: string) => {
     setEditProductId(productId);
     setEditSubmitting(false);
+    editGalleryAccumRef.current = []; // reset accumulator for fresh edit session
     try {
       const token = getAuthToken();
       const response = await fetch(`${BASE_URL}/api/products/${productId}`, {
@@ -330,6 +414,10 @@ function ProjectsPage() {
         category: prod.category || "",
         images: [],
         oldImages: prod.images || [],
+        featuredImage: null,
+        oldFeaturedImage: prod.featuredImage || null,
+        galleryImages: [],
+        oldGalleryImages: prod.galleryImages || [],
         featured: prod.featured ?? false,
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
         artistName: prod.artistName || "",
@@ -355,12 +443,37 @@ function ProjectsPage() {
       form.append("price", String(editFormData.price));
       form.append("stock", String(editFormData.stock));
       form.append("category", editFormData.category.trim());
-      // Only append images if new images are selected
-      if (editFormData.images && editFormData.images.length > 0) {
-        for (let i = 0; i < editFormData.images.length; i++) {
-          form.append("images", editFormData.images[i]);
-        }
+
+      // featuredImage: read from native input ref — always current
+      const editFeaturedFile = editFeaturedImageRef.current?.files?.[0] ?? null;
+      // galleryImages: read from mutable accumulator ref — always current, no stale closure
+      const editGalleryFiles = [...editGalleryAccumRef.current];
+
+      // Append featuredImage if new one selected; else send old URL to keep it
+      if (editFeaturedFile) {
+        form.append("featuredImage", editFeaturedFile);
+      } else if (editFormData.oldFeaturedImage) {
+        form.append("oldFeaturedImage", editFormData.oldFeaturedImage);
       }
+
+      // Append existing gallery images back to the server. 
+      // This ensures they are not deleted if the server replaces the whole list.
+      if (editFormData.oldGalleryImages?.length > 0) {
+        editFormData.oldGalleryImages.forEach(url => {
+          form.append("galleryImages", url);
+        });
+      }
+      
+      // Append the new gallery files
+      if (editGalleryFiles?.length > 0) {
+        editGalleryFiles.forEach(f => {
+          form.append("galleryImages", f);
+        });
+      }
+
+      console.log("featuredImage file to send:", editFeaturedFile);
+      console.log("existing gallery URLs to keep:", editFormData.oldGalleryImages);
+      console.log("new galleryImages files to add:", editGalleryFiles);
       // Add featured and tags fields
       form.append("featured", String(editFormData.featured));
       form.append("tags", editFormData.tags);
@@ -394,6 +507,7 @@ function ProjectsPage() {
       toast.success("Product updated successfully!");
       setShowEditModal(false);
       setEditProductId(null);
+      editGalleryAccumRef.current = []; // clear accumulator
       loadProducts();
     } catch (err: unknown) {
       const error = err as Error;
@@ -511,9 +625,9 @@ function ProjectsPage() {
                 <React.Fragment key={product.id}>
                 <tr className="hover:bg-muted/20">
                   <td className="px-4 py-2">
-                    {product.images && product.images.length > 0 ? (
+                    {(product.featuredImage || (product.images && product.images.length > 0)) ? (
                       <Image
-                        src={product.images[0]}
+                        src={product.featuredImage || product.images[0]}
                         alt={product.title}
                         width={48}
                         height={48}
@@ -604,29 +718,63 @@ function ProjectsPage() {
                             ) : 'None'}
                           </div>
                         </div>
-                        <div className="flex gap-2 flex-wrap">
-                          {product.images && product.images.length > 0 ? (
-                            product.images.map((img, idx) => (
-                              <div key={idx} className="w-80 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                        <div className="space-y-3">
+                          {product.featuredImage && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Featured Image</p>
+                              <div className="w-80 rounded border bg-muted flex items-center justify-center overflow-hidden">
                                 <Image
-                                  src={img}
+                                  src={product.featuredImage}
                                   alt={product.title}
-                                  width={120}
-                                  height={120}
+                                  width={320}
+                                  height={240}
                                   className="w-full object-cover"
                                   unoptimized
                                 />
                               </div>
-                            ))
-                          ) : (
+                            </div>
+                          )}
+                          {product.galleryImages && product.galleryImages.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Gallery Images</p>
+                              <div className="flex gap-2 flex-wrap">
+                                {product.galleryImages.map((img, idx) => (
+                                  <div key={idx} className="w-28 h-28 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                    <Image
+                                      src={img}
+                                      alt={`Gallery ${idx + 1}`}
+                                      width={112}
+                                      height={112}
+                                      className="w-full h-full object-cover"
+                                      unoptimized
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {product.images && product.images.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Images</p>
+                              <div className="flex gap-2 flex-wrap">
+                                {product.images.map((img, idx) => (
+                                  <div key={idx} className="w-28 h-28 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                    <Image
+                                      src={img}
+                                      alt={product.title}
+                                      width={112}
+                                      height={112}
+                                      className="w-full h-full object-cover"
+                                      unoptimized
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {!product.featuredImage && (!product.galleryImages || product.galleryImages.length === 0) && (!product.images || product.images.length === 0) && (
                             <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center">
-                              <Image
-                                src="/placeholder.svg"
-                                alt="No image"
-                                width={48}
-                                height={48}
-                                className="opacity-50"
-                              />
+                              <Image src="/placeholder.svg" alt="No image" width={48} height={48} className="opacity-50" />
                             </div>
                           )}
                         </div>
@@ -645,9 +793,9 @@ function ProjectsPage() {
             <div key={product.id} className="flex flex-col">
               <Card className="overflow-hidden flex flex-col">
                 <div className="relative h-48 w-full bg-muted">
-                  {product.images && product.images.length > 0 ? (
+                  {(product.featuredImage || (product.images && product.images.length > 0)) ? (
                     <Image
-                      src={product.images[0]}
+                      src={product.featuredImage || product.images[0]}
                       alt={product.title}
                       width={400}
                       height={192}
@@ -748,29 +896,63 @@ function ProjectsPage() {
                             ) : 'None'}
                           </div>
                         </div>
-                        <div className="flex gap-2 flex-wrap">
-                          {product.images && product.images.length > 0 ? (
-                            product.images.map((img, idx) => (
-                              <div key={idx} className="w-32 h-32 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                        <div className="space-y-3">
+                          {product.featuredImage && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Featured Image</p>
+                              <div className="w-full rounded border bg-muted flex items-center justify-center overflow-hidden">
                                 <Image
-                                  src={img}
+                                  src={product.featuredImage}
                                   alt={product.title}
-                                  width={120}
-                                  height={120}
-                                  className="max-w-full max-h-full object-contain"
+                                  width={320}
+                                  height={240}
+                                  className="w-full object-cover"
                                   unoptimized
                                 />
                               </div>
-                            ))
-                          ) : (
+                            </div>
+                          )}
+                          {product.galleryImages && product.galleryImages.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Gallery Images</p>
+                              <div className="flex gap-2 flex-wrap">
+                                {product.galleryImages.map((img, idx) => (
+                                  <div key={idx} className="w-24 h-24 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                    <Image
+                                      src={img}
+                                      alt={`Gallery ${idx + 1}`}
+                                      width={96}
+                                      height={96}
+                                      className="w-full h-full object-cover"
+                                      unoptimized
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {product.images && product.images.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Images</p>
+                              <div className="flex gap-2 flex-wrap">
+                                {product.images.map((img, idx) => (
+                                  <div key={idx} className="w-24 h-24 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                                    <Image
+                                      src={img}
+                                      alt={product.title}
+                                      width={96}
+                                      height={96}
+                                      className="w-full h-full object-cover"
+                                      unoptimized
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {!product.featuredImage && (!product.galleryImages || product.galleryImages.length === 0) && (!product.images || product.images.length === 0) && (
                             <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center">
-                              <Image
-                                src="/placeholder.svg"
-                                alt="No image"
-                                width={48}
-                                height={48}
-                                className="opacity-50"
-                              />
+                              <Image src="/placeholder.svg" alt="No image" width={48} height={48} className="opacity-50" />
                             </div>
                           )}
                         </div>
@@ -790,7 +972,7 @@ function ProjectsPage() {
                   <CardHeader className="border-b sticky top-0 bg-background z-10">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-xl font-bold">Edit Product</CardTitle>
-                      <Button variant="ghost" size="sm" onClick={() => setShowEditModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6 p-6">
@@ -948,45 +1130,133 @@ function ProjectsPage() {
                       </div>
                     </div>
                     {/* --- IMAGE UPLOAD --- */}
+                    {/* Featured Image */}  
                     <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20">
                       <div className="flex items-center justify-between mb-1">
-                        <Label htmlFor="edit-images" className="text-sm font-semibold">Product Media</Label>
-                        <span className="text-[10px] text-muted-foreground">Add or update images</span>
+                        <Label htmlFor="edit-featuredImage" className="text-sm font-semibold">Featured Image</Label>
+                        <span className="text-[10px] text-muted-foreground">Main product image</span>
                       </div>
-                      <Input id="edit-images" type="file" accept="image/*" multiple onChange={handleEditImageChange} className="bg-background cursor-pointer" />
+                      <input
+                        ref={editFeaturedImageRef}
+                        id="edit-featuredImage"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEditFeaturedImageChange}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                      />
                       <div className="flex gap-3 flex-wrap pt-2">
-                        {editFormData.oldImages && editFormData.oldImages.length > 0 && editFormData.oldImages.map((img, idx) => (
-                          <div key={idx} className="h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                        {editFormData.oldFeaturedImage && !editFormData.featuredImage && (
+                          <div className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
                             <Image
-                              src={img}
+                              src={editFormData.oldFeaturedImage}
                               className="h-full w-full object-cover"
-                              alt="Preview"
+                              alt="Featured"
                               width={80}
                               height={80}
                               onError={(e) => (e.target as HTMLImageElement).style.display='none'}
                               unoptimized
                             />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => setEditFormData({ ...editFormData, oldFeaturedImage: null })}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                        ))}
-                        {editFormData.images && editFormData.images.length > 0 && editFormData.images.map((file, idx) => (
-                          <div key={idx} className="h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                        )}
+                        {editFormData.featuredImage && (
+                          <div className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
                             <Image
-                              src={URL.createObjectURL(file)}
+                              src={URL.createObjectURL(editFormData.featuredImage)}
                               className="h-full w-full object-cover"
-                              alt="Preview"
+                              alt="New Featured"
+                              width={80}
+                              height={80}
+                            />
+                            <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
+                          </div>
+                        )}
+                        {!editFormData.oldFeaturedImage && !editFormData.featuredImage && (
+                          <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                            <Package className="h-6 w-6 mb-1 opacity-20" />
+                            <p className="text-xs">No featured image</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Gallery Images */}
+                    <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20">
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor="edit-galleryImages" className="text-sm font-semibold">Gallery Images</Label>
+                        <span className="text-[10px] text-muted-foreground">Multiple gallery images</span>
+                      </div>
+                      <input
+                        ref={editGalleryImagesRef}
+                        id="edit-galleryImages"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleEditGalleryImageChange}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                      />
+                      <div className="flex gap-3 flex-wrap pt-2">
+                        {editFormData.oldGalleryImages && editFormData.oldGalleryImages.length > 0 && editFormData.oldGalleryImages.map((img, idx) => (
+                          <div key={idx} className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                            <Image
+                              src={img}
+                              className="h-full w-full object-cover"
+                              alt="Gallery"
                               width={80}
                               height={80}
                               onError={(e) => (e.target as HTMLImageElement).style.display='none'}
+                              unoptimized
                             />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => {
+                                const updated = editFormData.oldGalleryImages.filter((_, i) => i !== idx);
+                                setEditFormData({ ...editFormData, oldGalleryImages: updated });
+                              }}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         ))}
+                        {editFormData.galleryImages && editFormData.galleryImages.length > 0 && editFormData.galleryImages.map((file, idx) => (
+                          <div key={idx} className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                            <Image
+                              src={URL.createObjectURL(file)}
+                              className="h-full w-full object-cover"
+                              alt="New Gallery"
+                              width={80}
+                              height={80}
+                            />
+                            <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => {
+                                const updated = editFormData.galleryImages.filter((_, i) => i !== idx);
+                                editGalleryAccumRef.current = updated; // keep ref in sync
+                                setEditFormData({ ...editFormData, galleryImages: updated });
+                              }}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                        {(!editFormData.oldGalleryImages || editFormData.oldGalleryImages.length === 0) && editFormData.galleryImages.length === 0 && (
+                          <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                            <Package className="h-6 w-6 mb-1 opacity-20" />
+                            <p className="text-xs">No gallery images</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-4 pt-4 sticky bottom-0 bg-background/80 backdrop-blur-sm mt-4 border-t py-4">
                       <Button className="flex-1 h-11 text-base font-semibold shadow-lg shadow-primary/20" onClick={handleEditProduct} disabled={editSubmitting}>
                         {editSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Save Changes"}
                       </Button>
-                      <Button variant="outline" className="h-11 px-8" onClick={() => setShowEditModal(false)} disabled={editSubmitting}>Cancel</Button>
+                      <Button variant="outline" className="h-11 px-8" onClick={() => {
+                          editGalleryAccumRef.current = []; // reset on cancel
+                          setShowEditModal(false);
+                        }} disabled={editSubmitting}>Cancel</Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1001,7 +1271,7 @@ function ProjectsPage() {
             <CardHeader className="border-b sticky top-0 bg-background z-10">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl font-bold">Add New Product</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="sm" onClick={() => { addGalleryAccumRef.current = []; setShowAddModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-6 p-6">
@@ -1165,52 +1435,103 @@ function ProjectsPage() {
               </div>
               
               {/* --- IMAGE UPLOAD --- */}
+              {/* Featured Image */}
               <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20">
                 <div className="flex items-center justify-between mb-1">
-                  <Label htmlFor="images" className="text-sm font-semibold">Product Media</Label>
-                  <span className="text-[10px] text-muted-foreground">Upload up to 5 images</span>
+                  <Label htmlFor="featuredImage" className="text-sm font-semibold">Featured Image</Label>
+                  <span className="text-[10px] text-muted-foreground">Main product image</span>
                 </div>
-                <Input id="images" type="file" accept="image/*" multiple onChange={handleImageChange} className="bg-background cursor-pointer" />
+                <input
+                  ref={addFeaturedImageRef}
+                  id="featuredImage"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFeaturedImageChange}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                />
                 <div className="flex gap-3 flex-wrap pt-2">
-                  {formData.images && formData.images.length > 0 && formData.images.map((file, idx) => (
-                    <div key={idx} className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
+                  {formData.featuredImage ? (
+                    <div className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
                       <Image
-                        src={URL.createObjectURL(file)}
+                        src={URL.createObjectURL(formData.featuredImage)}
                         className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                        alt="Preview"
+                        alt="Featured Preview"
                         width={96}
                         height={96}
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                         <Button 
-                            variant="destructive" 
-                            size="icon" 
-                            className="h-7 w-7 rounded-full"
-                            onClick={() => {
-                              const newImages = [...formData.images];
-                              newImages.splice(idx, 1);
-                              setFormData({...formData, images: newImages});
-                            }}
-                          >
-                           <X className="h-4 w-4" />
-                         </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="h-7 w-7 rounded-full"
+                          onClick={() => setFormData({ ...formData, featuredImage: null })}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                  {formData.images.length === 0 && (
+                  ) : (
                     <div className="h-24 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
                       <Package className="h-8 w-8 mb-2 opacity-20" />
-                      <p className="text-xs">No images selected yet</p>
+                      <p className="text-xs">No featured image selected</p>
                     </div>
                   )}
                 </div>
               </div>
-
+              {/* Gallery Images */}
+              <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20">
+                <div className="flex items-center justify-between mb-1">
+                  <Label htmlFor="galleryImages" className="text-sm font-semibold">Gallery Images</Label>
+                  <span className="text-[10px] text-muted-foreground">Upload multiple gallery images</span>
+                </div>
+                <input
+                  ref={addGalleryImagesRef}
+                  id="galleryImages"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleGalleryImageChange}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+                />
+                <div className="flex gap-3 flex-wrap pt-2">
+                  {formData.galleryImages && formData.galleryImages.length > 0 && formData.galleryImages.map((file, idx) => (
+                    <div key={idx} className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
+                      <Image
+                        src={URL.createObjectURL(file)}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-110"
+                        alt="Gallery Preview"
+                        width={96}
+                        height={96}
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="h-7 w-7 rounded-full"
+                          onClick={() => {
+                            const updated = [...formData.galleryImages];
+                            updated.splice(idx, 1);
+                            setFormData({ ...formData, galleryImages: updated });
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {formData.galleryImages.length === 0 && (
+                    <div className="h-24 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                      <Package className="h-8 w-8 mb-2 opacity-20" />
+                      <p className="text-xs">No gallery images selected</p>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="flex gap-4 pt-4 sticky bottom-0 bg-background/80 backdrop-blur-sm mt-4 border-t py-4">
                 <Button className="flex-1 h-11 text-base font-semibold shadow-lg shadow-primary/20" onClick={handleAddProduct} disabled={submitting}>
                   {submitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <> <Plus className="w-5 h-5 mr-2" /> Publish Product</>}
                 </Button>
-                <Button variant="outline" className="h-11 px-8" onClick={() => setShowAddModal(false)} disabled={submitting}>Cancel</Button>
+                <Button variant="outline" className="h-11 px-8" onClick={() => { addGalleryAccumRef.current = []; setShowAddModal(false); }} disabled={submitting}>Cancel</Button>
               </div>
             </CardContent>
           </Card>
