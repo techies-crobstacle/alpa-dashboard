@@ -30,14 +30,20 @@ type OrderItem = {
 };
 
 type Order = {
-  id: string;
-  createdAt?: string;
-  customerName?: string;
-  status?: string;
+  id: any;
+  createdAt: any;
+  customerName?: any;
+  status: any;
   items?: OrderItem[];
-  totalAmount?: number;
-  trackingNumber?: string;
-  estimatedDelivery?: string;
+  totalAmount: any;
+  trackingNumber?: any;
+  estimatedDelivery?: any;
+  paymentMethod?: any;
+  shippingAddress?: any;
+  shippingCity?: any;
+  shippingState?: any;
+  shippingPostcode?: any;
+  shippingPhone?: any;
 };
 
 export default function AdminOrdersPage() {
@@ -185,17 +191,20 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const renderValue = (val: any) => {
+    if (val === null || val === undefined) return "N/A";
+    if (typeof val === "object") return JSON.stringify(val);
+    return String(val);
+  };
+
   // Helper to render shipping address safely
   function renderShippingAddress(address: any) {
     if (!address) return "N/A";
     if (typeof address === "string") return address;
     if (typeof address === "object") {
-      // Show only present fields
-      const { street, suburb, postcode, fullAddress } = address;
-      const parts = [fullAddress, street, suburb, postcode].filter(Boolean);
-      if (parts.length > 0) return parts.join(", ");
-      // fallback: show JSON
-      return JSON.stringify(address);
+      const { address: addrText, street, suburb, postcode, fullAddress, orderSummary } = address;
+      const parts = [fullAddress, addrText, street, suburb, postcode, orderSummary].filter(p => p && typeof p === 'string');
+      return parts.length > 0 ? parts.join(", ") : JSON.stringify(address);
     }
     return String(address);
   }
@@ -331,16 +340,29 @@ export default function AdminOrdersPage() {
                   </div>
                 </div>
                 {expandedOrderId === order.id && (
-                  <div className="mt-6 border-t pt-4 space-y-2 bg-muted/40 rounded">
-                    <div className="flex items-center gap-2"><Hash className="h-4 w-4" /><strong>Order ID:</strong> {order.id}</div>
-                    <div className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /><strong>Status:</strong> {order.status}</div>
-                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><strong>Created At:</strong> {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}</div>
-                    <div className="flex items-center gap-2"><DollarSign className="h-4 w-4" /><strong>Total Amount:</strong> ${order.totalAmount}</div>
-                    <div className="flex items-center gap-2"><CreditCard className="h-4 w-4" /><strong>Payment Method:</strong> {(order as any).paymentMethod || "N/A"}</div>
-                    <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><strong>Shipping Address:</strong> {renderShippingAddress((order as any).shippingAddress)}</div>
-                    <div className="flex items-center gap-2"><Truck className="h-4 w-4" /><strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}</div>
-                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</div>
+                  <div className="mt-6 border-t pt-4 space-y-4 bg-muted/40 rounded p-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="flex items-center gap-2 font-medium"><Hash className="h-4 w-4" /><strong>Order ID:</strong> {renderValue(order.id)}</div>
+                      <div className="flex items-center gap-2 font-medium"><ClipboardList className="h-4 w-4" /><strong>Status:</strong> {renderValue(order.status).toUpperCase()}</div>
+                      <div className="flex items-center gap-2 font-medium"><Calendar className="h-4 w-4" /><strong>Created At:</strong> {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}</div>
+                      <div className="flex items-center gap-2 font-medium"><DollarSign className="h-4 w-4" /><strong>Total Amount:</strong> ${renderValue(order.totalAmount)}</div>
+                      <div className="flex items-center gap-2 font-medium"><CreditCard className="h-4 w-4" /><strong>Payment Method:</strong> {renderValue(order.paymentMethod)}</div>
+                      <div className="flex items-center gap-2 font-medium"><Truck className="h-4 w-4" /><strong>Tracking Number:</strong> {renderValue(order.trackingNumber || 'N/A')}</div>
+                    </div>
                     
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1"><MapPin className="h-4 w-4" /><strong>Shipping Address:</strong></div>
+                        <p className="ml-6 font-medium">{renderShippingAddress(order.shippingAddress)}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div><strong className="text-muted-foreground mr-1">City:</strong> <span className="font-medium">{renderValue(order.shippingCity)}</span></div>
+                        <div><strong className="text-muted-foreground mr-1">State:</strong> <span className="font-medium">{renderValue(order.shippingState)}</span></div>
+                        <div><strong className="text-muted-foreground mr-1">Postcode:</strong> <span className="font-medium">{renderValue(order.shippingPostcode)}</span></div>
+                        <div><strong className="text-muted-foreground mr-1">Phone:</strong> <span className="font-medium">{renderValue(order.shippingPhone)}</span></div>
+                      </div>
+                    </div>
+
                     {/* Download Invoice Button */}
                     {order.status && order.status.toLowerCase() !== 'pending' && (
                       <div className="mt-4 pt-2 border-t">
@@ -366,14 +388,16 @@ export default function AdminOrdersPage() {
                       </div>
                     )}
                     
-                    <div className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /><strong>Items:</strong></div>
-                    <ul className="list-disc ml-8">
-                      {order.items?.map((item, i) => (
-                        <li key={i}>
-                          {item.product?.title || item.title} x {item.quantity} @ ${(item as any).price || "N/A"}
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2 mb-2 font-medium"><ClipboardList className="h-4 w-4" /><strong>Items:</strong></div>
+                      <ul className="list-disc ml-8 space-y-1">
+                        {order.items?.map((item, i) => (
+                          <li key={i}>
+                            <span className="font-medium">{renderValue(item.product?.title || item.title)}</span> x {renderValue(item.quantity)} @ ${renderValue((item as any).price)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -442,53 +466,64 @@ export default function AdminOrdersPage() {
                     {expandedOrderId === order.id && (
                       <TableRow>
                         <TableCell colSpan={8} className="bg-muted/40 p-0">
-                          <div className="p-4 space-y-4">
-                            <div className="grid md:grid-cols-2 gap-4">
+                          <div className="p-6 space-y-4 text-sm">
+                            <div className="grid md:grid-cols-2 gap-6">
                               {/* Order Details */}
-                              <div className="space-y-2">
-                                <div><strong>Order ID:</strong> {order.id}</div>
-                                <div><strong>Status:</strong> {order.status}</div>
-                                <div><strong>Created At:</strong> {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}</div>
-                                <div><strong>Total Amount:</strong> ${order.totalAmount}</div>
-                                <div><strong>Payment Method:</strong> {(order as any).paymentMethod || "N/A"}</div>
-                                <div><strong>Shipping Address:</strong> {renderShippingAddress((order as any).shippingAddress)}</div>
-                                <div><strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}</div>
-                                <div><strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</div>
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div><strong className="text-muted-foreground mr-1">Order ID:</strong> <span className="font-medium">{renderValue(order.id)}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">Status:</strong> <span className="font-medium">{renderValue(order.status).toUpperCase()}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">Created At:</strong> <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">Total Amount:</strong> <span className="font-medium">${renderValue(order.totalAmount)}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">Payment:</strong> <span className="font-medium">{renderValue(order.paymentMethod)}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">Tracking:</strong> <span className="font-medium">{renderValue(order.trackingNumber || 'N/A')}</span></div>
+                                </div>
+                                <div className="border-t pt-3">
+                                  <strong className="text-muted-foreground">Shipping Address:</strong>
+                                  <p className="font-medium">{renderShippingAddress(order.shippingAddress)}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div><strong className="text-muted-foreground mr-1">City:</strong> <span className="font-medium">{renderValue(order.shippingCity)}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">State:</strong> <span className="font-medium">{renderValue(order.shippingState)}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">Postcode:</strong> <span className="font-medium">{renderValue(order.shippingPostcode)}</span></div>
+                                  <div><strong className="text-muted-foreground mr-1">Phone:</strong> <span className="font-medium">{renderValue(order.shippingPhone)}</span></div>
+                                </div>
                               </div>
                               
                               {/* Management Section */}
-                              <div className="space-y-4">                              {/* Download Invoice Button */}
-                              {order.status && order.status.toLowerCase() !== 'pending' && (
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">Invoice</Label>
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    disabled={downloadingInvoiceId === order.id}
-                                    onClick={() => handleDownloadInvoice(order.id)}
-                                    className="w-full gap-2"
-                                  >
-                                    {downloadingInvoiceId === order.id ? (
-                                      <>
-                                        <Loader2 className="animate-spin h-4 w-4" />
-                                        Downloading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Download className="h-4 w-4" />
-                                        Download Invoice
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              )}
-                                                              {/* Status Update */}
+                              <div className="space-y-4 border-l pl-6">
+                                {/* Download Invoice Button */}
+                                {order.status && order.status.toLowerCase() !== 'pending' && (
+                                  <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Invoice</Label>
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      disabled={downloadingInvoiceId === order.id}
+                                      onClick={() => handleDownloadInvoice(order.id)}
+                                      className="w-full gap-2"
+                                    >
+                                      {downloadingInvoiceId === order.id ? (
+                                        <>
+                                          <Loader2 className="animate-spin h-4 w-4" />
+                                          Downloading...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Download className="h-4 w-4" />
+                                          Download Invoice
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                )}
+                                {/* Status Update */}
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">Update Status</Label>
-                                  <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status || "pending"}>
+                                  <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "pending"}>
                                     <SelectTrigger className="w-full">
                                       <SelectValue>
-                                        {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Pending"}
+                                        {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Pending"}
                                       </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
@@ -514,12 +549,12 @@ export default function AdminOrdersPage() {
                             </div>
                             
                             {/* Items List */}
-                            <div className="space-y-2">
-                              <strong>Order Items:</strong>
-                              <ul className="list-disc ml-6">
+                            <div className="space-y-2 border-t pt-4">
+                              <strong className="font-medium">Order Items:</strong>
+                              <ul className="list-disc ml-6 space-y-1">
                                 {order.items?.map((item, i) => (
                                   <li key={i}>
-                                    {item.product?.title || item.title} x {item.quantity} @ ${(item as any).price || "N/A"}
+                                    <span className="font-medium">{renderValue(item.product?.title || item.title)}</span> x {renderValue(item.quantity)} @ ${renderValue((item as any).price)}
                                   </li>
                                 ))}
                               </ul>

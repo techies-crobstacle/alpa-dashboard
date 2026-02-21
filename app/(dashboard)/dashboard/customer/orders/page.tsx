@@ -182,27 +182,32 @@ type OrderItem = {
   price?: string;
 };
 type Order = {
-  id: string;
-  createdAt: string;
-  status: string;
+  id: any;
+  createdAt: any;
+  status: any;
   items?: OrderItem[];
-  totalAmount: number;
-  trackingNumber?: string;
-  estimatedDelivery?: string;
-  paymentMethod?: string;
-  shippingAddress?: string;
+  totalAmount: any;
+  trackingNumber?: any;
+  estimatedDelivery?: any;
+  paymentMethod?: any;
+  shippingAddress?: any;
+  shippingCity?: any;
+  shippingState?: any;
+  shippingPostcode?: any;
+  shippingPhone?: any;
+  shippingAddressLine?: any;
 };
 
-const OrderProgressTracker = ({ status }: { status: string }) => {
+const OrderProgressTracker = ({ status }: { status: any }) => {
   const statuses = ['pending', 'processing', 'shipped', 'delivered'];
-  const isCancelled = status === 'cancelled';
+  const statusStr = typeof status === 'string' ? status.toLowerCase() : '';
+  const isCancelled = statusStr === 'cancelled';
   
   const getStatusIndex = (orderStatus: string) => {
-    const lowerStatus = orderStatus.toLowerCase();
-    return statuses.indexOf(lowerStatus);
+    return statuses.indexOf(orderStatus);
   };
 
-  const currentIndex = getStatusIndex(status);
+  const currentIndex = getStatusIndex(statusStr);
 
   if (isCancelled) {
     return (
@@ -331,6 +336,23 @@ const CustomerOrdersPage = () => {
     }
   };
 
+  const renderShippingAddress = (address: any) => {
+    if (!address) return "N/A";
+    if (typeof address === "string") return address;
+    if (typeof address === "object") {
+      const { address: addrText, street, suburb, postcode, fullAddress, orderSummary } = address;
+      const parts = [fullAddress, addrText, street, suburb, postcode, orderSummary].filter(p => p && typeof p === 'string');
+      return parts.length > 0 ? parts.join(", ") : JSON.stringify(address);
+    }
+    return String(address);
+  };
+
+  const renderValue = (val: any) => {
+    if (val === null || val === undefined) return "N/A";
+    if (typeof val === "object") return JSON.stringify(val);
+    return String(val);
+  };
+
   const handleCancelOrder = async (orderId: string) => {
     setCancellingOrderId(orderId);
     try {
@@ -422,19 +444,19 @@ const CustomerOrdersPage = () => {
               {orders.map((order) => (
                 <React.Fragment key={order.id}>
                   <tr className="border-b hover:bg-muted/50">
-                    <td className="px-4 py-3">#{order.id.slice(-6).toUpperCase()}</td>
-                    <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : 'N/A'}</td>
+                    <td className="px-4 py-3">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</td>
                     <td className="px-4 py-3">
                       <Badge variant={order.status === "delivered" ? "default" : order.status === "cancelled" ? "destructive" : "secondary"}>
-                        {order.status.toUpperCase()}
+                        {renderValue(order.status).toUpperCase()}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">${order.totalAmount}</td>
+                    <td className="px-4 py-3">${renderValue(order.totalAmount)}</td>
                     <td className="px-4 py-3">
                       {order.trackingNumber ? (
                         <div className="flex flex-col">
-                          <span className="font-medium flex items-center gap-1"><Truck className="h-4 w-4" /> {order.trackingNumber}</span>
-                          <span className="text-xs text-muted-foreground">Est: {order.estimatedDelivery}</span>
+                          <span className="font-medium flex items-center gap-1"><Truck className="h-4 w-4" /> {renderValue(order.trackingNumber)}</span>
+                          <span className="text-xs text-muted-foreground">Est: {renderValue(order.estimatedDelivery)}</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">No tracking</span>
@@ -469,35 +491,56 @@ const CustomerOrdersPage = () => {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
                                   <span className="text-sm text-muted-foreground">Status</span>
-                                  <p className="font-medium">{order.status}</p>
+                                  <p className="font-medium">{renderValue(order.status).toUpperCase()}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Created At</span>
-                                  <p className="font-medium">{new Date(order.createdAt).toLocaleString()}</p>
+                                  <p className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Total Amount</span>
-                                  <p className="font-medium">${order.totalAmount}</p>
+                                  <p className="font-medium">${renderValue(order.totalAmount)}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Payment Method</span>
-                                  <p className="font-medium">{order.paymentMethod}</p>
+                                  <p className="font-medium">{renderValue(order.paymentMethod)}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Tracking Number</span>
-                                  <p className="font-medium">{order.trackingNumber || 'N/A'}</p>
+                                  <p className="font-medium">{renderValue(order.trackingNumber)}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Estimated Delivery</span>
                                   <p className="font-medium">{order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</p>
                                 </div>
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Phone</span>
+                                  <p className="font-medium">{renderValue(order.shippingPhone)}</p>
+                                </div>
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Postcode</span>
+                                  <p className="font-medium">{renderValue(order.shippingPostcode)}</p>
+                                </div>
                               </div>
-                              <div>
-                                <span className="text-sm text-muted-foreground">Shipping Address</span>
-                                <p className="font-medium">{order.shippingAddress}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Shipping Address</span>
+                                  <p className="font-medium">{renderShippingAddress(order.shippingAddress)}</p>
+                                  {order.shippingAddressLine && <p className="text-sm">{renderValue(order.shippingAddressLine)}</p>}
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <span className="text-sm text-muted-foreground">City</span>
+                                    <p className="font-medium">{renderValue(order.shippingCity)}</p>
+                                  </div>
+                                  <div>
+                                    <span className="text-sm text-muted-foreground">State</span>
+                                    <p className="font-medium">{renderValue(order.shippingState)}</p>
+                                  </div>
+                                </div>
                               </div>
                               {/* Cancel Order Button */}
-                              {order.status.toLowerCase() === "pending" && (
+                              {typeof order.status === 'string' && order.status.toLowerCase() === "pending" && (
                                 <Button
                                   variant="destructive"
                                   disabled={cancellingOrderId === order.id}
@@ -510,7 +553,7 @@ const CustomerOrdersPage = () => {
                               )}
 
                               {/* Download Invoice Button */}
-                              {order.status.toLowerCase() === "delivered" && (
+                              {typeof order.status === 'string' && order.status.toLowerCase() === "delivered" && (
                                 <Button
                                   variant="default"
                                   disabled={downloadingInvoiceId === order.id}
@@ -545,7 +588,7 @@ const CustomerOrdersPage = () => {
                                     {item.product?.images?.[0] && (
                                       <Image 
                                         src={item.product.images[0]} 
-                                        alt={item.product.title || "Product image"} 
+                                        alt={renderValue(item.product.title || "Product image")} 
                                         width={64} 
                                         height={64} 
                                         className="rounded object-cover" 
@@ -553,11 +596,11 @@ const CustomerOrdersPage = () => {
                                       />
                                     )}
                                     <div className="flex-1">
-                                      <p className="font-medium">{item.product?.title || item.title}</p>
-                                      <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                                      <p className="font-medium">{renderValue(item.product?.title || item.title)}</p>
+                                      <p className="text-sm text-muted-foreground">Quantity: {renderValue(item.quantity)}</p>
                                     </div>
                                     <div className="text-right">
-                                      <p className="font-medium">${item.price}</p>
+                                      <p className="font-medium">${renderValue(item.price)}</p>
                                     </div>
                                   </div>
                                 ))}
