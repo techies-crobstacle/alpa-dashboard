@@ -420,14 +420,14 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
 import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
  
@@ -480,11 +480,37 @@ export default function OrdersPage() {
   const [layout, setLayout] = useState<'table' | 'card'>("card");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const renderValue = (val: any) => {
     if (val === null || val === undefined) return "N/A";
     if (typeof val === "object") return JSON.stringify(val);
     return String(val);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
+  const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.min(Math.max(1, page), totalPages));
+    setExpandedOrderId(null);
+  };
+
+  const getPaginationPages = (): (number | "...")[] => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
   };
 
   useEffect(() => {
@@ -613,7 +639,7 @@ export default function OrdersPage() {
         <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
       ) : layout === 'card' ? (
         <div className="grid gap-4">
-          {orders.map((order) => (
+          {paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
@@ -669,14 +695,14 @@ export default function OrdersPage() {
                   {/* Actions: Update Status */}
                   <div className="space-y-3">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Management</Label>
-                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "pending"}>
+                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "confirmed"}>
                       <SelectTrigger className="w-full">
                         <SelectValue>
-                          {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Pending"}
+                          {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Confirmed"}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
                         <SelectItem value="processing">Processing</SelectItem>
                         <SelectItem value="shipped">Shipped</SelectItem>
                         <SelectItem value="delivered">Delivered</SelectItem>
@@ -782,9 +808,9 @@ export default function OrdersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order) => (
-                <>
-                  <TableRow key={order.id}>
+              {paginatedOrders.map((order) => (
+                <Fragment key={order.id}>
+                  <TableRow>
                     <TableCell>#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : 'N/A'}</TableCell>
                     <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell>{renderValue(order.customerName || "Guest")}</TableCell>
@@ -891,10 +917,51 @@ export default function OrdersPage() {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </Fragment>
               ))}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && orders.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>
+              Showing{" "}
+              <span className="font-medium text-foreground">{Math.min((currentPage - 1) * itemsPerPage + 1, orders.length)}</span>
+              {"–"}
+              <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, orders.length)}</span>
+              {" of "}
+              <span className="font-medium text-foreground">{orders.length}</span>
+              {" orders"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline">Per page:</span>
+              <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="h-8 w-[70px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[5, 10, 25, 50].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {getPaginationPages().map((page, idx) =>
+              page === "..." ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm select-none">&hellip;</span>
+              ) : (
+                <Button key={page} variant={page === currentPage ? "default" : "outline"} size="icon" className="h-8 w-8 text-xs" onClick={() => handlePageChange(page as number)}>{page}</Button>
+              )
+            )}
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => handlePageChange(currentPage + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 

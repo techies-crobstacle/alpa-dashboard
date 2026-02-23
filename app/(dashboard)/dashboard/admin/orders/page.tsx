@@ -333,14 +333,14 @@ export default function AdminOrdersPage() {
                   {/* Actions: Update Status */}
                   <div className="space-y-3">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Management</Label>
-                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status || "pending"}>
+                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status || "confirmed"}>
                       <SelectTrigger className="w-full">
                         <SelectValue>
-                          {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Pending"}
+                          {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Confirmed"}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
                         <SelectItem value="processing">Processing</SelectItem>
                         <SelectItem value="shipped">Shipped</SelectItem>
                         <SelectItem value="delivered">Delivered</SelectItem>
@@ -547,14 +547,14 @@ export default function AdminOrdersPage() {
                                 {/* Status Update */}
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">Update Status</Label>
-                                  <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "pending"}>
+                                  <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "confirmed"}>
                                     <SelectTrigger className="w-full">
                                       <SelectValue>
-                                        {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Pending"}
+                                        {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Confirmed"}
                                       </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="pending">Pending</SelectItem>
+                                      <SelectItem value="confirmed">Confirmed</SelectItem>
                                       <SelectItem value="processing">Processing</SelectItem>
                                       <SelectItem value="shipped">Shipped</SelectItem>
                                       <SelectItem value="delivered">Delivered</SelectItem>

@@ -9,11 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown } from "lucide-react";
+import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // --- CONFIGURATION ---
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
@@ -236,6 +237,8 @@ function ProjectsPage() {
     artistName: "",
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const loadCategories = async () => {
     try {
@@ -260,6 +263,8 @@ function ProjectsPage() {
     loadProducts();
     loadCategories();
   }, []);
+
+  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter]);
 
   const loadProducts = async () => {
     try {
@@ -532,6 +537,30 @@ function ProjectsPage() {
       (categoryFilter ? p.category === categoryFilter : true)
   );
 
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.min(Math.max(1, page), totalPages));
+    setExpandedProductId(null);
+  };
+
+  const getPaginationPages = (): (number | "...")[] => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -621,7 +650,7 @@ function ProjectsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {filteredProducts.map((product) => (
+              {paginatedProducts.map((product) => (
                 <React.Fragment key={product.id}>
                 <tr className="hover:bg-muted/20">
                   <td className="px-4 py-2">
@@ -789,7 +818,7 @@ function ProjectsPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredProducts.map((product) => (
+          {paginatedProducts.map((product) => (
             <div key={product.id} className="flex flex-col">
               <Card className="overflow-hidden flex flex-col">
                 <div className="relative h-48 w-full bg-muted">
@@ -965,6 +994,48 @@ function ProjectsPage() {
           ))}
         </div>
       )}
+
+      {/* Pagination */}
+      {!loading && filteredProducts.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>
+              Showing{" "}
+              <span className="font-medium text-foreground">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}</span>
+              {"–"}
+              <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</span>
+              {" of "}
+              <span className="font-medium text-foreground">{filteredProducts.length}</span>
+              {" products"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline">Per page:</span>
+              <Select value={String(itemsPerPage)} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="h-8 w-[70px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[6, 12, 24, 48].map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {getPaginationPages().map((page, idx) =>
+              page === "..." ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm select-none">&hellip;</span>
+              ) : (
+                <Button key={page} variant={page === currentPage ? "default" : "outline"} size="icon" className="h-8 w-8 text-xs" onClick={() => handlePageChange(page as number)}>{page}</Button>
+              )
+            )}
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === totalPages} onClick={() => handlePageChange(currentPage + 1)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
             {/* Edit Product Modal */}
             {showEditModal && (
               <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
