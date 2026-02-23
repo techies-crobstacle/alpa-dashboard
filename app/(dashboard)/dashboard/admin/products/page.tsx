@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Package, DollarSign, Edit, PowerOff, X, Search, Check, ChevronDown, Eye, CheckCircle, XCircle } from "lucide-react";
+import { Package, DollarSign, Edit, PowerOff, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import Image from "next/image";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Seller = {
   id: string;
@@ -94,6 +95,10 @@ export default function AdminProductsPage() {
   const allPendingRef = useRef<Product[]>([]);
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectProductId, setRejectProductId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editProductId, setEditProductId] = useState<string | null>(null);
@@ -113,6 +118,9 @@ export default function AdminProductsPage() {
     tags: "",
     artistName: "",
   });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const [isSellerDropdownOpen, setIsSellerDropdownOpen] = useState(false);
   const sellerDropdownRef = useRef<HTMLDivElement>(null);
@@ -227,6 +235,7 @@ export default function AdminProductsPage() {
     if (!selectedSeller) { setProducts([]); setPendingProducts([]); return; }
     if (activeView === "approved") fetchProducts(selectedSeller);
     else applyPendingFilter(selectedSeller);
+    setCurrentPage(1);
   }, [selectedSeller, activeView]); // eslint-disable-line
 
   // ── edit modal ─────────────────────────────────────────────────────────────
@@ -382,18 +391,59 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleRejectProduct = async (productId: string) => {
+  const openRejectModal = (productId: string) => {
+    setRejectProductId(productId);
+    setRejectReason("");
+    setShowRejectModal(true);
+  };
+
+  const handleRejectProduct = async () => {
+    if (!rejectProductId) return;
+    if (!rejectReason.trim()) {
+      toast.error("Please enter a rejection reason.");
+      return;
+    }
     try {
-      await api.put(`/api/admin/products/${productId}/reject`);
+      setRejectSubmitting(true);
+      await api.delete(`/api/admin/products/reject/${rejectProductId}`, { reason: rejectReason.trim() });
       toast.success("Product rejected successfully!");
+      setShowRejectModal(false);
+      setRejectProductId(null);
+      setRejectReason("");
       const fresh = await refreshPending(sellersRef.current);
       setPendingProducts(fresh.filter((p) => productBelongsTo(p, selectedSeller)));
     } catch (err: any) {
       toast.error(err.message || "Failed to reject product");
+    } finally {
+      setRejectSubmitting(false);
     }
   };
 
   const currentProducts = activeView === "approved" ? products : pendingProducts;
+
+  const totalPages = Math.max(1, Math.ceil(currentProducts.length / itemsPerPage));
+  const paginatedProducts = currentProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.min(Math.max(1, page), totalPages));
+    setExpandedProductId(null);
+  };
+
+  const getPaginationPages = (): (number | "...")[] => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   // ── render ─────────────────────────────────────────────────────────────────
   return (
@@ -516,7 +566,7 @@ export default function AdminProductsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-muted">
-              {currentProducts.map((product) => (
+              {paginatedProducts.map((product) => (
                 <React.Fragment key={product.id}>
                   <tr className="hover:bg-muted/20">
                     <td className="px-4 py-2">
@@ -553,7 +603,7 @@ export default function AdminProductsPage() {
                         ) : (
                           <>
                             <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
-                            <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleRejectProduct(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
+                            <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openRejectModal(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
                           </>
                         )}
                         <Button variant="outline" size="sm" className="gap-1"
@@ -608,7 +658,7 @@ export default function AdminProductsPage() {
 
         /* CARD VIEW */
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {currentProducts.map((product) => (
+          {paginatedProducts.map((product) => (
             <Card key={product.id} className="overflow-hidden flex flex-col">
               <div className="relative h-48 w-full bg-muted">
                 {(product.featuredImage || product.images?.length) ? (
@@ -649,13 +699,132 @@ export default function AdminProductsPage() {
                   ) : (
                     <>
                       <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
-                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleRejectProduct(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
+                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openRejectModal(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
                     </>
                   )}
                 </div>
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!((activeView === "approved" ? loading : loadingPending)) && currentProducts.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
+          {/* Left: count info + per-page */}
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {Math.min((currentPage - 1) * itemsPerPage + 1, currentProducts.length)}
+              </span>
+              {"\u2013"}
+              <span className="font-medium text-foreground">
+                {Math.min(currentPage * itemsPerPage, currentProducts.length)}
+              </span>
+              {" of "}
+              <span className="font-medium text-foreground">{currentProducts.length}</span>
+              {" products"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline">Per page:</span>
+              <Select
+                value={String(itemsPerPage)}
+                onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}
+              >
+                <SelectTrigger className="h-8 w-[70px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[6, 12, 24, 48].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Right: page buttons */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            {getPaginationPages().map((page, idx) =>
+              page === "..." ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm select-none">
+                  &hellip;
+                </span>
+              ) : (
+                <Button
+                  key={page}
+                  variant={page === currentPage ? "default" : "outline"}
+                  size="icon"
+                  className="h-8 w-8 text-xs"
+                  onClick={() => handlePageChange(page as number)}
+                >
+                  {page}
+                </Button>
+              )
+            )}
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <XCircle className="h-5 w-5 text-red-500" /> Reject Product
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowRejectModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted" disabled={rejectSubmitting}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Please provide a reason for rejecting this product. The seller will be notified.</p>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Rejection Reason <span className="text-red-500">*</span></Label>
+                <Textarea
+                  placeholder="e.g. Product images are unclear, description is incomplete, pricing is incorrect..."
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                  disabled={rejectSubmitting}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">{rejectReason.length} characters</p>
+              </div>
+            </CardContent>
+            <div className="p-4 border-t bg-muted/10 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowRejectModal(false)} disabled={rejectSubmitting} className="h-10 px-4">Cancel</Button>
+              <Button variant="destructive" onClick={handleRejectProduct} disabled={rejectSubmitting || !rejectReason.trim()} className="h-10 px-6 font-semibold">
+                {rejectSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Rejecting...</> : <><XCircle className="mr-2 h-4 w-4" />Reject Product</>}
+              </Button>
+            </div>
+          </Card>
         </div>
       )}
 

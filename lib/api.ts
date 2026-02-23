@@ -141,6 +141,6 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  delete: (endpoint: string) =>
+  delete: (endpoint: string, p0: { reason: string; }) =>
     apiClient(endpoint, { method: "DELETE" }),
 };

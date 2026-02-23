@@ -336,15 +336,52 @@ const CustomerOrdersPage = () => {
     }
   };
 
-  const renderShippingAddress = (address: any) => {
-    if (!address) return "N/A";
-    if (typeof address === "string") return address;
-    if (typeof address === "object") {
-      const { address: addrText, street, suburb, postcode, fullAddress, orderSummary } = address;
-      const parts = [fullAddress, addrText, street, suburb, postcode, orderSummary].filter(p => p && typeof p === 'string');
-      return parts.length > 0 ? parts.join(", ") : JSON.stringify(address);
+  const parseShippingAddress = (order: Order): Record<string, string> => {
+    const result: Record<string, string> = {};
+
+    // Extract fields from the nested shippingAddress object
+    const addr = order.shippingAddress;
+    if (addr && typeof addr === "object") {
+      const fieldMap: Record<string, string> = {
+        address: "Address",
+        street: "Street",
+        suburb: "Suburb",
+        city: "City",
+        state: "State",
+        postcode: "Postcode",
+        country: "Country",
+        fullAddress: "Full Address",
+        orderSummary: "Summary",
+        firstName: "First Name",
+        lastName: "Last Name",
+        phone: "Phone",
+        email: "Email",
+      };
+      for (const [key, label] of Object.entries(fieldMap)) {
+        if (addr[key] && typeof addr[key] === "string") {
+          result[label] = addr[key];
+        }
+      }
+    } else if (addr && typeof addr === "string") {
+      result["Address"] = addr;
     }
-    return String(address);
+
+    // Also merge top-level shipping fields
+    const topLevelMap: [keyof Order, string][] = [
+      ["shippingAddressLine", "Address Line"],
+      ["shippingCity", "City"],
+      ["shippingState", "State"],
+      ["shippingPostcode", "Postcode"],
+      ["shippingPhone", "Phone"],
+    ];
+    for (const [field, label] of topLevelMap) {
+      const val = order[field];
+      if (val && typeof val === "string") {
+        result[label] = val;
+      }
+    }
+
+    return result;
   };
 
   const renderValue = (val: any) => {
@@ -513,32 +550,38 @@ const CustomerOrdersPage = () => {
                                   <span className="text-sm text-muted-foreground">Estimated Delivery</span>
                                   <p className="font-medium">{order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</p>
                                 </div>
-                                <div>
-                                  <span className="text-sm text-muted-foreground">Phone</span>
-                                  <p className="font-medium">{renderValue(order.shippingPhone)}</p>
-                                </div>
-                                <div>
-                                  <span className="text-sm text-muted-foreground">Postcode</span>
-                                  <p className="font-medium">{renderValue(order.shippingPostcode)}</p>
-                                </div>
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
-                                <div>
-                                  <span className="text-sm text-muted-foreground">Shipping Address</span>
-                                  <p className="font-medium">{renderShippingAddress(order.shippingAddress)}</p>
-                                  {order.shippingAddressLine && <p className="text-sm">{renderValue(order.shippingAddressLine)}</p>}
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div>
-                                    <span className="text-sm text-muted-foreground">City</span>
-                                    <p className="font-medium">{renderValue(order.shippingCity)}</p>
+
+                              {/* Shipping Address Table */}
+                              {(() => {
+                                const addressFields = parseShippingAddress(order);
+                                const entries = Object.entries(addressFields);
+                                if (entries.length === 0) return (
+                                  <div className="pt-2 border-t">
+                                    <span className="text-sm text-muted-foreground">Shipping Address</span>
+                                    <p className="font-medium">N/A</p>
                                   </div>
-                                  <div>
-                                    <span className="text-sm text-muted-foreground">State</span>
-                                    <p className="font-medium">{renderValue(order.shippingState)}</p>
+                                );
+                                return (
+                                  <div className="pt-2 border-t">
+                                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                                      Shipping Address
+                                    </p>
+                                    <div className="rounded-lg border overflow-hidden">
+                                      <table className="w-full text-sm">
+                                        <tbody>
+                                          {entries.map(([label, value], idx) => (
+                                            <tr key={label} className={idx % 2 === 0 ? "bg-muted/30" : "bg-background"}>
+                                              <td className="px-4 py-2.5 text-muted-foreground font-medium w-1/3 border-r">{label}</td>
+                                              <td className="px-4 py-2.5 font-medium">{value}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
+                                );
+                              })()}
                               {/* Cancel Order Button */}
                               {typeof order.status === 'string' && order.status.toLowerCase() === "pending" && (
                                 <Button

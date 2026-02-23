@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronUp, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
+import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -58,6 +58,8 @@ export default function AdminOrdersPage() {
   const [layout, setLayout] = useState<'table' | 'card'>('card');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     fetchSellers();
@@ -69,6 +71,7 @@ export default function AdminOrdersPage() {
     } else {
       setOrders([]);
     }
+    setCurrentPage(1);
   }, [selectedSeller]);
 
   const fetchSellers = async () => {
@@ -209,6 +212,30 @@ export default function AdminOrdersPage() {
     return String(address);
   }
 
+  const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
+  const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(Math.min(Math.max(1, page), totalPages));
+    setExpandedOrderId(null);
+  };
+
+  const getPaginationPages = () => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   if (loadingSellers) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
   return (
@@ -249,7 +276,7 @@ export default function AdminOrdersPage() {
         ) : orders.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
         ) : layout === 'card' ? (
-          orders.map((order) => (
+          paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
@@ -419,9 +446,9 @@ export default function AdminOrdersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((order) => (
-                  <>
-                    <TableRow key={order.id}>
+                {paginatedOrders.map((order) => (
+                  <Fragment key={order.id}>
+                    <TableRow>
                       <TableCell>#{order.id?.slice(-6)?.toUpperCase?.()}</TableCell>
                       <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}</TableCell>
                       <TableCell>{order.customerName || "Guest"}</TableCell>
@@ -563,13 +590,92 @@ export default function AdminOrdersPage() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && orders.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
+          {/* Left: count info + per-page */}
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {Math.min((currentPage - 1) * itemsPerPage + 1, orders.length)}
+              </span>
+              {"–"}
+              <span className="font-medium text-foreground">
+                {Math.min(currentPage * itemsPerPage, orders.length)}
+              </span>
+              {" of "}
+              <span className="font-medium text-foreground">{orders.length}</span>
+              {" orders"}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="hidden sm:inline">Per page:</span>
+              <Select
+                value={String(itemsPerPage)}
+                onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}
+              >
+                <SelectTrigger className="h-8 w-[70px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[5, 10, 25, 50].map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Right: page buttons */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            {getPaginationPages().map((page, idx) =>
+              page === "..." ? (
+                <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground text-sm select-none">
+                  &hellip;
+                </span>
+              ) : (
+                <Button
+                  key={page}
+                  variant={page === currentPage ? "default" : "outline"}
+                  size="icon"
+                  className="h-8 w-8 text-xs"
+                  onClick={() => handlePageChange(page as number)}
+                >
+                  {page}
+                </Button>
+              )
+            )}
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Tracking Modal */}
       {activeTrackingOrder && (
@@ -613,3 +719,4 @@ export default function AdminOrdersPage() {
     </div>
   );
 }
+
