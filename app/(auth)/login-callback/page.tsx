@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +17,8 @@ function setCookie(name: string, value: string, days = 7) {
   document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
 }
 
-export default function LoginCallbackPage() {
+// Inner component that reads search params (must be inside Suspense)
+function LoginCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -101,6 +102,7 @@ export default function LoginCallbackPage() {
 
   // ── UI ───────────────────────────────────────────────────────────────────────
   return (
+
     <div className="flex flex-col items-center justify-center gap-4 text-center">
       {stage === "exchanging" && (
         <>
@@ -138,5 +140,25 @@ export default function LoginCallbackPage() {
         </>
       )}
     </div>
+  );
+}
+
+// Suspense wrapper required because useSearchParams() causes
+// a CSR bailout during static generation without it.
+export default function LoginCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center gap-4 text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <h2 className="text-xl font-semibold">Signing you in…</h2>
+          <p className="text-sm text-muted-foreground">
+            Please wait while we securely complete your sign-in.
+          </p>
+        </div>
+      }
+    >
+      <LoginCallbackContent />
+    </Suspense>
   );
 }
