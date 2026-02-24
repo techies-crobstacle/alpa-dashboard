@@ -2,13 +2,13 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
 
-type Stage = "exchanging" | "success" | "error";
+type Stage = "exchanging" | "success";
 
 // Helper – same pattern as login page
 function setCookie(name: string, value: string, days = 7) {
@@ -23,7 +23,6 @@ function LoginCallbackContent() {
   const searchParams = useSearchParams();
 
   const [stage, setStage] = useState<Stage>("exchanging");
-  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     const ticket = searchParams.get("ticket");
@@ -31,10 +30,12 @@ function LoginCallbackContent() {
 
     // ── Validate params ──────────────────────────────────────────────────────
     if (!ticket) {
-      setErrorMessage("No SSO ticket found in the URL. Please try again.");
-      setStage("error");
+      router.replace("/login");
       return;
     }
+
+    // Only allow internal paths — block open redirects
+    const safePath = redirectTo.startsWith("/") ? redirectTo : "/dashboard";
 
     // ── Exchange the ticket for a real token ─────────────────────────────────
     const exchangeTicket = async () => {
@@ -45,7 +46,7 @@ function LoginCallbackContent() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ ticket }),
+            body: JSON.stringify({ ticketId: ticket }),
           }
         );
 
@@ -65,9 +66,9 @@ function LoginCallbackContent() {
           setCookie("userRole", data.role, 7);
         }
 
-        // Optionally cache user data if the backend returns it
+        // Cache user data if the backend returns it
         if (data.user) {
-          localStorage.setItem("user_data", JSON.stringify(data.user));
+          localStorage.setItem("user", JSON.stringify(data.user));
         }
 
         setStage("success");
@@ -78,16 +79,14 @@ function LoginCallbackContent() {
 
         // Small delay so the success state is visible, then navigate
         setTimeout(() => {
-          router.replace(redirectTo);
+          router.replace(safePath);
           router.refresh();
         }, 800);
       } catch (err) {
         const error = err as Error;
         console.error("[SSO] Ticket exchange error:", error);
-        setErrorMessage(
-          error.message || "Something went wrong. Please try logging in again."
-        );
-        setStage("error");
+        // Fallback — send to normal login
+        router.replace("/login");
       }
     };
 
@@ -95,10 +94,6 @@ function LoginCallbackContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Redirect helper shown on error ──────────────────────────────────────────
-  const handleManualLogin = () => {
-    router.replace("/login");
-  };
 
   // ── UI ───────────────────────────────────────────────────────────────────────
   return (
@@ -121,22 +116,6 @@ function LoginCallbackContent() {
           <p className="text-sm text-muted-foreground">
             Redirecting you now…
           </p>
-        </>
-      )}
-
-      {stage === "error" && (
-        <>
-          <XCircle className="h-12 w-12 text-destructive" />
-          <h2 className="text-xl font-semibold">Sign-in failed</h2>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            {errorMessage}
-          </p>
-          <button
-            onClick={handleManualLogin}
-            className="mt-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            Go to Login
-          </button>
         </>
       )}
     </div>
