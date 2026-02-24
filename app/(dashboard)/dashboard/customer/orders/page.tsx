@@ -7,7 +7,7 @@
 // import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp } from "lucide-react";
 // import Image from "next/image";
 
-// const BASE_URL = "http://127.0.0.1:5000";
+// const BASE_URL = "https://alpa-be-1.onrender.com";
 
 // function getAuthHeaders() {
 //   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -165,7 +165,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
-const BASE_URL = "http://127.0.0.1:5000";
+const BASE_URL = "https://alpa-be-1.onrender.com";
 
 function getAuthHeaders() {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;

@@ -156,7 +156,7 @@ export default function AdminOrdersPage() {
     setDownloadingInvoiceId(orderId);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/orders/invoice/${orderId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/orders/invoice/${orderId}`, {
         method: "GET",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
