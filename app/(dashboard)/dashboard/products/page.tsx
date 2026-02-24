@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // --- CONFIGURATION ---
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
 
 // --- HELPER: Get Auth Token ---
 const getAuthToken = () => {
@@ -83,17 +83,10 @@ const addProduct = async (productData: {
   form.append("stock", productData.stock);
   form.append("category", productData.category);
 
-  // Send gallery images under 'galleryImages' key. 
+  // Send gallery images under 'galleryImages' key.
   // Repeating the key for each file as per Postman working configuration.
   if (productData.galleryImages && productData.galleryImages.length > 0) {
     productData.galleryImages.forEach((file) => {
-      form.append("galleryImages", file);
-    });
-  }
-
-  // Also send any files in the 'images' array if any 
-  if (productData.images && productData.images.length > 0) {
-    productData.images.forEach((file) => {
       form.append("galleryImages", file);
     });
   }
@@ -411,6 +404,15 @@ function ProjectsPage() {
       if (!response.ok) throw new Error("Failed to fetch product details");
       const data = await response.json();
       const prod = data.product || data;
+      // Deduplicate gallery: merge galleryImages + images, remove featured, remove dupes
+      const featuredImg: string | null = prod.featuredImage || null;
+      const rawGallery: string[] = [
+        ...(Array.isArray(prod.galleryImages) ? prod.galleryImages : []),
+        ...(Array.isArray(prod.images) ? prod.images : []),
+      ];
+      const resolvedGallery: string[] = [...new Set(rawGallery)].filter(
+        (img) => img !== featuredImg
+      );
       setEditFormData({
         title: prod.title || "",
         description: prod.description || "",
@@ -420,9 +422,9 @@ function ProjectsPage() {
         images: [],
         oldImages: prod.images || [],
         featuredImage: null,
-        oldFeaturedImage: prod.featuredImage || null,
+        oldFeaturedImage: featuredImg,
         galleryImages: [],
-        oldGalleryImages: prod.galleryImages || [],
+        oldGalleryImages: resolvedGallery,
         featured: prod.featured ?? false,
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
         artistName: prod.artistName || "",
@@ -1284,7 +1286,7 @@ function ProjectsPage() {
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => {
                                 const updated = editFormData.oldGalleryImages.filter((_, i) => i !== idx);
-                                setEditFormData({ ...editFormData, oldGalleryImages: updated });
+                                setEditFormData(prev => ({ ...prev, oldGalleryImages: updated }));
                               }}>
                                 <X className="h-3 w-3" />
                               </Button>
@@ -1305,7 +1307,7 @@ function ProjectsPage() {
                               <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => {
                                 const updated = editFormData.galleryImages.filter((_, i) => i !== idx);
                                 editGalleryAccumRef.current = updated; // keep ref in sync
-                                setEditFormData({ ...editFormData, galleryImages: updated });
+                                setEditFormData(prev => ({ ...prev, galleryImages: updated }));
                               }}>
                                 <X className="h-3 w-3" />
                               </Button>
@@ -1580,9 +1582,9 @@ function ProjectsPage() {
                           size="icon"
                           className="h-7 w-7 rounded-full"
                           onClick={() => {
-                            const updated = [...formData.galleryImages];
-                            updated.splice(idx, 1);
-                            setFormData({ ...formData, galleryImages: updated });
+                            const updated = formData.galleryImages.filter((_, i) => i !== idx);
+                            addGalleryAccumRef.current = updated; // keep ref in sync
+                            setFormData(prev => ({ ...prev, galleryImages: updated }));
                           }}
                         >
                           <X className="h-4 w-4" />

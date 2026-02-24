@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 //   startDate: string;
 //   endDate: string;
 // }) => {
-//   const BASE_URL = "https://alpa-be-1.onrender.com";
+//   const BASE_URL = "http://127.0.0.1:5000";
 //   const token =
 //     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWppZjNrOTEwMDAyd296eDdma3BidWhxIiwidXNlclR5cGUiOiJzZWxsZXIiLCJyb2xlIjoiU0VMTEVSIiwiaWF0IjoxNzY2NDg0NTEzLCJleHAiOjE3NjkwNzY1MTN9.Y82RBMLKkta1bb1Lj7ZsWjKdHky4AwQe1lg80_yjjCk";
 //   const res = await fetch(
@@ -36,7 +36,7 @@ import {
   
 } from "lucide-react";
 
-const BASE_URL = "https://alpa-be-1.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 const getAuthHeaders = () => {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
   return {
@@ -108,7 +108,7 @@ export default function AnalyticsPage() {
     setExportError("");
     try {
       const params = { ...exportParams, endDate: exportParams.endDate };
-      const BASE_URL = "https://alpa-be-1.onrender.com";
+      const BASE_URL = "http://127.0.0.1:5000";
       const url = `${BASE_URL}/api/seller/orders/export-sales?reportType=${params.reportType}&startDate=${params.startDate}&endDate=${params.endDate}`;
       const res = await fetch(url, {
         headers: getAuthHeaders(),

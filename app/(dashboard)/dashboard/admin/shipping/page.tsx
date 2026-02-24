@@ -12,7 +12,7 @@ import { Plus, Truck, DollarSign, Clock, Edit, Trash2, Loader2, X } from "lucide
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
 
 const getAuthToken = () => {
   if (typeof window === "undefined") {

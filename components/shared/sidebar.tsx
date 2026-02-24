@@ -20,6 +20,7 @@ import {
 	ListOrdered,
 	icons,
 	Heart,
+	MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -138,11 +139,18 @@ const baseSidebarGroups = [
 				badge: null,
 			},
 			{
+				title: "Feedback",
+				href: "/dashboard/admin/feedback",
+				icon: MessageSquare,
+				badge: null,
+			},
+			{
 				title: "Orders",
 				href: "/dashboard/orders",
 				icon: ListOrdered,
 				badge: "3",
 			},
+			
 			
 			// {
 			// 	title: "Invoices",
@@ -232,12 +240,22 @@ const baseSidebarGroups = [
 
 interface SidebarProps {
 	onMobileClose?: () => void;
+	isCollapsed?: boolean;
+	onCollapsedChange?: (collapsed: boolean) => void;
 }
 
-export function Sidebar({ onMobileClose }: SidebarProps) {
+export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCollapsedChange }: SidebarProps) {
 	const pathname = usePathname();
-	const [isCollapsed, setIsCollapsed] = useState(false);
+	const [internalCollapsed, setInternalCollapsed] = useState(false);
 	const [role, setRole] = useState<string | null>(null);
+
+	const isCollapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+
+	const toggleCollapsed = () => {
+		const next = !isCollapsed;
+		if (onCollapsedChange) onCollapsedChange(next);
+		else setInternalCollapsed(next);
+	};
 
 	useEffect(() => {
 		if (typeof window !== "undefined") {
@@ -258,7 +276,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard",].includes(item.href)) {
+			if (["/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard","/dashboard/admin/feedback"].includes(item.href)) {
 				return role === "ADMIN";
 			}
 			// Seller and customer can see /dashboard/orders
@@ -302,7 +320,7 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 			)}
 		>
 			{/* Logo */}
-			<div className="flex h-16 items-center border-b px-6 justify-between">
+			<div className={cn("flex h-16 items-center border-b justify-between", isCollapsed ? "px-2 justify-center" : "px-6")}>
 				{!isCollapsed && (
 					<Link href="/dashboard" className="flex items-center py-4 gap-3 group">
 						<img src="/navbarLogo.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-primary p-1" />
@@ -311,16 +329,11 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 						</span>
 					</Link>
 				)}
-				{isCollapsed && (
-					<div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center mx-auto">
-						<img src="/navbarLogo.png" alt="Logo" className="w-6 h-6 object-contain" />
-					</div>
-				)}
 				<Button
 					variant="ghost"
 					size="icon"
-					className="h-8 w-8 hover:bg-muted"
-					onClick={() => setIsCollapsed(!isCollapsed)}
+					className="h-8 w-8 hover:bg-muted flex-shrink-0"
+					onClick={toggleCollapsed}
 				>
 					{isCollapsed ? (
 						<ChevronRight className="h-4 w-4" />
@@ -332,7 +345,10 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 
 
 			{/* Navigation Groups (Scrollable) */}
-			<nav className="flex-1 space-y-8 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+		<nav className={cn(
+			"flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent",
+			isCollapsed ? "px-2 py-4 space-y-4" : "p-6 space-y-8"
+		)}>
 				{sidebarGroups.map((group) =>
 					group.items.length > 0 ? (
 						<div key={group.title} className="space-y-3">
@@ -386,9 +402,16 @@ export function Sidebar({ onMobileClose }: SidebarProps) {
 
 			{/* Role Indicator at Bottom */}
 			<div className="border-t p-4 mt-auto flex items-center justify-center">
-				<span className="text-xs text-muted-foreground">
-					{role ? `Role: ${role.charAt(0).toUpperCase() + role.slice(1)}` : "Role: Unknown"}
-				</span>
+				{!isCollapsed && (
+					<span className="text-xs text-muted-foreground">
+						{role ? `Role: ${role.charAt(0).toUpperCase() + role.slice(1)}` : "Role: Unknown"}
+					</span>
+				)}
+				{isCollapsed && (
+					<span className="text-xs font-bold text-muted-foreground">
+						{role ? role.charAt(0).toUpperCase() : "?"}
+					</span>
+				)}
 			</div>
 		</div>
 	);

@@ -20,6 +20,8 @@ import {
   MoreHorizontal,
   Mail,
   Phone,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
 	DropdownMenu,
@@ -54,6 +56,8 @@ export default function UsersPage() {
   const [search, setSearch] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     // Use the correct token key as set in login
@@ -104,6 +108,9 @@ export default function UsersPage() {
     return <div className="p-8 text-red-600">You do not have permission to view this page.</div>;
   }
 
+  // Reset to first page when filters/sort change
+  // (handled inline via derived page count below)
+
   // Filter and search logic
   let filteredUsers = users.filter((user) => {
     // Role filter
@@ -137,6 +144,12 @@ export default function UsersPage() {
     return 0;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedUsers = filteredUsers.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+
+  const handlePageChange = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -162,14 +175,14 @@ export default function UsersPage() {
                 placeholder="Search users by name or email..."
                 className="pl-8"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               />
             </div>
             <div className="flex gap-2 items-center">
               <select
                 className="border rounded px-3 py-2 text-sm"
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
               >
                 <option value="ALL">All Roles</option>
                 <option value="ADMIN">Admin</option>
@@ -182,7 +195,7 @@ export default function UsersPage() {
               <select
                 className="border rounded px-3 py-2 text-sm"
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
               >
                 <option value="createdAt">Sort by Created Date</option>
                 <option value="name">Sort by Name</option>
@@ -194,7 +207,7 @@ export default function UsersPage() {
               <select
                 className="border rounded px-3 py-2 text-sm"
                 value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+                onChange={(e) => { setSortOrder(e.target.value as "asc" | "desc"); setCurrentPage(1); }}
               >
                 <option value="desc">Descending</option>
                 <option value="asc">Ascending</option>
@@ -203,7 +216,7 @@ export default function UsersPage() {
                 variant="outline"
                 size="sm"
                 className="ml-2"
-                onClick={() => { setRoleFilter("ALL"); setSearch(""); }}
+                onClick={() => { setRoleFilter("ALL"); setSearch(""); setCurrentPage(1); }}
                 type="button"
               >
                 Clear Filter
@@ -215,8 +228,11 @@ export default function UsersPage() {
 
       {/* Users Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>All Users</CardTitle>
+          <span className="text-sm text-muted-foreground">
+            {filteredUsers.length} user{filteredUsers.length !== 1 ? "s" : ""}
+          </span>
         </CardHeader>
         <CardContent>
           <Table>
@@ -231,7 +247,7 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
+              {paginatedUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -281,6 +297,84 @@ export default function UsersPage() {
               ))}
             </TableBody>
           </Table>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Rows per page:</span>
+              <select
+                className="border rounded px-2 py-1 text-sm"
+                value={itemsPerPage}
+                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              >
+                {[5, 10, 20, 50].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              <span>
+                {filteredUsers.length === 0 ? "0" : `${(safePage - 1) * itemsPerPage + 1}–${Math.min(safePage * itemsPerPage, filteredUsers.length)}`} of {filteredUsers.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(1)}
+                disabled={safePage === 1}
+              >
+                «
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(safePage - 1)}
+                disabled={safePage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === "..." ? (
+                    <span key={`ellipsis-${i}`} className="px-2 text-muted-foreground">…</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={safePage === p ? "default" : "outline"}
+                      size="sm"
+                      className="w-8"
+                      onClick={() => handlePageChange(p as number)}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(safePage + 1)}
+                disabled={safePage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={safePage === totalPages}
+              >
+                »
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

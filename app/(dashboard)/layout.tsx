@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 	const pathname = usePathname();
 	const [checking, setChecking] = useState(true);
 	const [globalLoading, setGlobalLoading] = useState(false);
+	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
 	useEffect(() => {
 		// Only run on client to verify token exists
@@ -55,12 +56,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 	return (
 		<div className="relative flex h-screen overflow-hidden bg-background">
 			{/* Sidebar */}
-			<Sidebar />
+			<Sidebar isCollapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} />
 
 			{/* Main Content */}
-			<div className="flex-1 overflow-auto relative">
+			<div className="flex-1 overflow-auto relative min-w-0">
 				<Topbar />
-				<main className="p-8 max-w-[calc(100vw-18rem)] mx-auto">
+				<main className="p-8">
 					{globalLoading ? (
 						<LoadingDashboard />
 					) : (

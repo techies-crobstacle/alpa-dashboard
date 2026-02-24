@@ -596,35 +596,35 @@ export default function DashboardPage() {
             {loadingSla ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-blue-50">
-                    <p className="text-sm font-medium text-blue-600">
+                  <div className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900">
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
                       Total Notifications
                     </p>
-                    <p className="text-2xl font-bold text-blue-700">
+                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                       <Skeleton className="h-7 w-16" />
                     </p>
                   </div>
-                  <div className="p-4 rounded-lg border bg-green-50">
-                    <p className="text-sm font-medium text-green-600">
+                  <div className="p-4 rounded-lg border bg-green-50 dark:bg-green-950/30 dark:border-green-900">
+                    <p className="text-sm font-medium text-green-600 dark:text-green-400">
                       Pending
                     </p>
-                    <p className="text-2xl font-bold text-green-700">
+                    <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                       <Skeleton className="h-7 w-16" />
                     </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-red-50">
-                    <p className="text-sm font-medium text-red-600">Overdue</p>
-                    <p className="text-2xl font-bold text-red-700">
+                  <div className="p-4 rounded-lg border bg-red-50 dark:bg-red-950/30 dark:border-red-900">
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400">Overdue</p>
+                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">
                       <Skeleton className="h-7 w-16" />
                     </p>
                   </div>
-                  <div className="p-4 rounded-lg border bg-orange-50">
-                    <p className="text-sm font-medium text-orange-600">
+                  <div className="p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/30 dark:border-orange-900">
+                    <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
                       Critical
                     </p>
-                    <p className="text-2xl font-bold text-orange-700">
+                    <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                       <Skeleton className="h-7 w-16" />
                     </p>
                   </div>
@@ -633,35 +633,35 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-blue-50">
-                    <p className="text-sm font-medium text-blue-600">
+                  <div className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900">
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
                       Total Notifications
                     </p>
-                    <p className="text-2xl font-bold text-blue-700">
+                    <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
                       {slaData?.summary?.total || 0}
                     </p>
                   </div>
-                  <div className="p-4 rounded-lg border bg-green-50">
-                    <p className="text-sm font-medium text-green-600">
+                  <div className="p-4 rounded-lg border bg-green-50 dark:bg-green-950/30 dark:border-green-900">
+                    <p className="text-sm font-medium text-green-600 dark:text-green-400">
                       Pending
                     </p>
-                    <p className="text-2xl font-bold text-green-700">
+                    <p className="text-2xl font-bold text-green-700 dark:text-green-300">
                       {slaData?.summary?.pending || 0}
                     </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg border bg-red-50">
-                    <p className="text-sm font-medium text-red-600">Overdue</p>
-                    <p className="text-2xl font-bold text-red-700">
+                  <div className="p-4 rounded-lg border bg-red-50 dark:bg-red-950/30 dark:border-red-900">
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400">Overdue</p>
+                    <p className="text-2xl font-bold text-red-700 dark:text-red-300">
                       {slaData?.summary?.overdue || 0}
                     </p>
                   </div>
-                  <div className="p-4 rounded-lg border bg-orange-50">
-                    <p className="text-sm font-medium text-orange-600">
+                  <div className="p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/30 dark:border-orange-900">
+                    <p className="text-sm font-medium text-orange-600 dark:text-orange-400">
                       Critical
                     </p>
-                    <p className="text-2xl font-bold text-orange-700">
+                    <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                       {slaData?.summary?.critical || 0}
                     </p>
                   </div>
@@ -744,7 +744,7 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <p className="font-medium text-gray-700">Notifications</p>
+              <p className="font-medium text-foreground">Notifications</p>
               <div className="max-h-64 overflow-y-auto space-y-2">
                 {slaData?.notifications?.length > 0 ? (
                   slaData.notifications.map((notification: any) => {
@@ -756,10 +756,10 @@ export default function DashboardPage() {
                         ? "bg-orange-500"
                         : "bg-blue-500";
                     const bgColor = isOverdue
-                      ? "border-red-200 bg-red-50"
+                      ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
                       : isHighPriority
-                        ? "border-orange-200 bg-orange-50"
-                        : "border-blue-200 bg-blue-50";
+                        ? "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30"
+                        : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30";
                     const ack = ackState[notification.id] || {
                       loading: false,
                       acknowledged: !!notification.acknowledged,
@@ -775,23 +775,23 @@ export default function DashboardPage() {
                         <div className="flex-1">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <p className="font-medium text-gray-800 text-sm">
+                              <p className="font-medium text-foreground text-sm">
                                 {notification.message}
                               </p>
-                              <p className="text-xs text-gray-600 mt-1">
+                              <p className="text-xs text-muted-foreground mt-1">
                                 {notification.notes}
                               </p>
-                              <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                                 <span>
                                   Order: {notification.order?.customerName}
                                 </span>
                                 <span
                                   className={`px-2 py-1 rounded-full text-xs font-medium ${
                                     notification.slaIndicator === "GREEN"
-                                      ? "bg-green-100 text-green-700"
+                                      ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400"
                                       : notification.slaIndicator === "YELLOW"
-                                        ? "bg-yellow-100 text-yellow-700"
-                                        : "bg-red-100 text-red-700"
+                                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400"
+                                        : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
                                   }`}
                                 >
                                   {notification.slaIndicator}
@@ -804,13 +804,13 @@ export default function DashboardPage() {
                               </div>
                             </div>
                             <div className="flex flex-col items-end ml-2 gap-2">
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-muted-foreground">
                                 {new Date(
                                   notification.createdAt,
                                 ).toLocaleDateString()}
                               </span>
                               <button
-                                className={`px-3 py-1 rounded text-xs font-medium border ${ack.acknowledged ? "bg-green-100 text-green-700 border-green-300 cursor-default" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"} disabled:opacity-60`}
+                                className={`px-3 py-1 rounded text-xs font-medium border ${ack.acknowledged ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800 cursor-default" : "bg-background text-foreground border-border hover:bg-muted"} disabled:opacity-60`}
                                 disabled={ack.loading || ack.acknowledged}
                                 onClick={async () => {
                                   setAckState((prev) => ({
@@ -860,7 +860,7 @@ export default function DashboardPage() {
                     );
                   })
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     <p>No notifications found</p>
                   </div>
                 )}

@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import UserListCard from "../UserListCard";
+import UserListCard from "../users/UserListCard";
 
 // Default stats configuration - will be replaced with real analytics data
 const defaultStats = [
@@ -81,7 +81,7 @@ export default function DashboardPage() {
 			
 			console.log("🔍 Fetching sellers with token:", token ? `${token.slice(0, 20)}...` : "NO TOKEN");
 			
-			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/users/all`;
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/users/all`;
 			console.log("📍 API URL:", url);
 			
 			// Use fetch directly with better error handling
@@ -173,7 +173,7 @@ export default function DashboardPage() {
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
 			
 			const response = await fetch(
-				`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/seller/notifications?sellerId=${sellerId}`,
+				`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/seller/notifications?sellerId=${sellerId}`,
 				{
 					method: "GET",
 					headers: {
@@ -229,7 +229,7 @@ export default function DashboardPage() {
 			
 			console.log("🔍 Fetching analytics with token:", token ? `${token.slice(0, 20)}...` : "NO TOKEN");
 			
-			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/admin/sales/analytics`;
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/admin/sales/analytics`;
 			console.log("📍 Analytics API URL:", url);
 			
 			const response = await fetch(url, {
@@ -390,20 +390,20 @@ export default function DashboardPage() {
 			<div className="space-y-8 animate-pulse">
 				{/* Header Skeleton */}
 				<div className="flex flex-col gap-2">
-					<div className="h-10 w-1/3 bg-gray-200 rounded mb-2" />
-					<div className="h-6 w-1/2 bg-gray-100 rounded" />
+					<div className="h-10 w-1/3 bg-muted rounded mb-2" />
+					<div className="h-6 w-1/2 bg-muted/60 rounded" />
 				</div>
 
 				{/* Stats Grid Skeleton */}
 				<div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
 					{[...Array(4)].map((_, i) => (
-						<div key={i} className="p-4 rounded-lg border bg-white flex flex-col gap-3">
+						<div key={i} className="p-4 rounded-lg border bg-card flex flex-col gap-3">
 							<div className="flex flex-row items-center justify-between">
-								<div className="h-4 w-20 bg-gray-200 rounded" />
-								<div className="h-8 w-8 bg-gray-100 rounded-lg" />
+								<div className="h-4 w-20 bg-muted rounded" />
+								<div className="h-8 w-8 bg-muted/60 rounded-lg" />
 							</div>
-							<div className="h-8 w-2/3 bg-gray-200 rounded" />
-							<div className="h-4 w-1/2 bg-gray-100 rounded" />
+							<div className="h-8 w-2/3 bg-muted rounded" />
+							<div className="h-4 w-1/2 bg-muted/60 rounded" />
 						</div>
 					))}
 				</div>
@@ -411,45 +411,45 @@ export default function DashboardPage() {
 				{/* SLA Dashboard and User List Skeletons */}
 				<div className="grid gap-6 lg:grid-cols-2">
 					{/* SLA Dashboard Card Skeleton */}
-					<div className="p-6 rounded-lg border bg-white flex flex-col gap-4">
-						<div className="h-6 w-1/3 bg-gray-200 rounded mb-2" />
-						<div className="h-4 w-1/4 bg-gray-100 rounded mb-4" />
+					<div className="p-6 rounded-lg border bg-card flex flex-col gap-4">
+						<div className="h-6 w-1/3 bg-muted rounded mb-2" />
+						<div className="h-4 w-1/4 bg-muted/60 rounded mb-4" />
 						<div className="flex items-center gap-2 mb-4">
-							<div className="h-8 w-32 bg-gray-100 rounded" />
-							<div className="h-8 w-40 bg-gray-100 rounded" />
+							<div className="h-8 w-32 bg-muted/60 rounded" />
+							<div className="h-8 w-40 bg-muted/60 rounded" />
 						</div>
 						{/* Summary Stats Skeleton */}
 						<div className="grid grid-cols-2 gap-4">
 							{[...Array(4)].map((_, i) => (
-								<div key={i} className="p-4 rounded-lg border bg-gray-50 flex flex-col gap-2">
-									<div className="h-4 w-1/2 bg-gray-200 rounded" />
-									<div className="h-6 w-1/3 bg-gray-100 rounded" />
+								<div key={i} className="p-4 rounded-lg border bg-muted/40 flex flex-col gap-2">
+									<div className="h-4 w-1/2 bg-muted rounded" />
+									<div className="h-6 w-1/3 bg-muted/60 rounded" />
 								</div>
 							))}
 						</div>
 						{/* Notifications List Skeleton */}
 						<div className="space-y-2 mt-4">
 							{[...Array(3)].map((_, i) => (
-								<div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-gray-50">
-									<div className="w-2 h-2 rounded-full mt-2 bg-gray-300" />
+								<div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/40">
+									<div className="w-2 h-2 rounded-full mt-2 bg-muted" />
 									<div className="flex-1 min-w-0">
-										<div className="h-4 w-2/3 bg-gray-200 rounded mb-2" />
-										<div className="h-3 w-1/2 bg-gray-100 rounded mb-1" />
+										<div className="h-4 w-2/3 bg-muted rounded mb-2" />
+										<div className="h-3 w-1/2 bg-muted/60 rounded mb-1" />
 										<div className="flex gap-2 mt-2">
-											<div className="h-3 w-12 bg-gray-100 rounded" />
-											<div className="h-3 w-10 bg-gray-100 rounded" />
+											<div className="h-3 w-12 bg-muted/60 rounded" />
+											<div className="h-3 w-10 bg-muted/60 rounded" />
 										</div>
 									</div>
-									<div className="h-3 w-10 bg-gray-100 rounded mt-2" />
+									<div className="h-3 w-10 bg-muted/60 rounded mt-2" />
 								</div>
 							))}
 						</div>
 					</div>
 					{/* User List Card Skeleton */}
-					<div className="p-6 rounded-lg border bg-white flex flex-col gap-4">
-						<div className="h-6 w-1/3 bg-gray-200 rounded mb-2" />
+					<div className="p-6 rounded-lg border bg-card flex flex-col gap-4">
+						<div className="h-6 w-1/3 bg-muted rounded mb-2" />
 						{[...Array(5)].map((_, i) => (
-							<div key={i} className="h-4 w-full bg-gray-100 rounded mb-2" />
+							<div key={i} className="h-4 w-full bg-muted/60 rounded mb-2" />
 						))}
 					</div>
 				</div>
@@ -607,7 +607,7 @@ export default function DashboardPage() {
 										value={selectedSeller}
 										onChange={handleSellerChange}
 										disabled={loadingSellers || sellers.length === 0}
-										className="min-w-[200px] px-3 py-2 pr-8 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed appearance-none"
+										className="min-w-[200px] px-3 py-2 pr-8 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed appearance-none"
 									>
 										<option value="">
 											{loadingSellers 
@@ -622,7 +622,7 @@ export default function DashboardPage() {
 											</option>
 										))}
 									</select>
-									<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4 text-gray-400" />
+									<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none w-4 h-4 text-muted-foreground" />
 								</div>
 								{/* <div className="text-xs text-muted-foreground whitespace-nowrap">
 									({sellers.length} {sellers.length === 1 ? 'seller' : 'sellers'})
@@ -662,29 +662,29 @@ export default function DashboardPage() {
 							<div className="space-y-4">
 								{/* Summary Stats */}
 								<div className="grid grid-cols-2 gap-4">
-									<div className="p-4 rounded-lg border bg-blue-50">
-										<p className="text-sm font-medium text-blue-600">Total Notifications</p>
-										<p className="text-2xl font-bold text-blue-700">
-											{slaData?.summary?.total || 0}
-										</p>
-									</div>
-									<div className="p-4 rounded-lg border bg-green-50">
-										<p className="text-sm font-medium text-green-600">Pending</p>
-										<p className="text-2xl font-bold text-green-700">
+								<div className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900">
+									<p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Notifications</p>
+									<p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+										{slaData?.summary?.total || 0}
+									</p>
+								</div>
+								<div className="p-4 rounded-lg border bg-green-50 dark:bg-green-950/30 dark:border-green-900">
+									<p className="text-sm font-medium text-green-600 dark:text-green-400">Pending</p>
+									<p className="text-2xl font-bold text-green-700 dark:text-green-300">
 											{slaData?.summary?.pending || 0}
 										</p>
 									</div>
 								</div>
 								<div className="grid grid-cols-2 gap-4">
-									<div className="p-4 rounded-lg border bg-red-50">
-										<p className="text-sm font-medium text-red-600">Overdue</p>
-										<p className="text-2xl font-bold text-red-700">
-											{slaData?.summary?.overdue || 0}
-										</p>
-									</div>
-									<div className="p-4 rounded-lg border bg-orange-50">
-										<p className="text-sm font-medium text-orange-600">Critical</p>
-										<p className="text-2xl font-bold text-orange-700">
+								<div className="p-4 rounded-lg border bg-red-50 dark:bg-red-950/30 dark:border-red-900">
+									<p className="text-sm font-medium text-red-600 dark:text-red-400">Overdue</p>
+									<p className="text-2xl font-bold text-red-700 dark:text-red-300">
+										{slaData?.summary?.overdue || 0}
+									</p>
+								</div>
+								<div className="p-4 rounded-lg border bg-orange-50 dark:bg-orange-950/30 dark:border-orange-900">
+									<p className="text-sm font-medium text-orange-600 dark:text-orange-400">Critical</p>
+									<p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
 											{slaData?.summary?.critical || 0}
 										</p>
 									</div>
@@ -692,14 +692,18 @@ export default function DashboardPage() {
 
 								{/* Notifications List */}
 								<div className="space-y-2">
-									<p className="font-medium text-gray-700">Recent Notifications</p>
+									<p className="font-medium text-foreground">Recent Notifications</p>
 									<div className="max-h-64 overflow-y-auto space-y-2">
 										{slaData?.notifications?.length > 0 ? (
 											slaData.notifications.map((notification: any) => {
 												const isHighPriority = notification.priority === "HIGH";
 												const isOverdue = notification.isOverdue;
 												const badgeColor = isOverdue ? "bg-red-500" : isHighPriority ? "bg-orange-500" : "bg-blue-500";
-												const bgColor = isOverdue ? "border-red-200 bg-red-50" : isHighPriority ? "border-orange-200 bg-orange-50" : "border-blue-200 bg-blue-50";
+												const bgColor = isOverdue
+											? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+											: isHighPriority
+												? "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30"
+												: "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30";
 												
 												return (
 													<div key={notification.id} className={`flex items-start gap-3 p-3 rounded-lg border ${bgColor}`}>
@@ -707,24 +711,26 @@ export default function DashboardPage() {
 														<div className="flex-1 min-w-0">
 															<div className="flex items-start justify-between gap-2">
 																<div className="flex-1 min-w-0">
-																	<p className="font-medium text-gray-800 text-sm">
-																		{notification.message}
+																<p className="font-medium text-foreground text-sm">
+																	{notification.message}
+																</p>
+																{notification.notes && (
+																	<p className="text-xs text-muted-foreground mt-1">
+																		{notification.notes}
 																	</p>
-																	{notification.notes && (
-																		<p className="text-xs text-gray-600 mt-1">
-																			{notification.notes}
-																		</p>
-																	)}
-																	<div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap">
+																)}
+																<div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
 																		{notification.order?.customerName && (
 																			<span className="truncate">
 																				Order: {notification.order.customerName}
 																			</span>
 																		)}
 																		<span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-																			notification.slaIndicator === 'GREEN' ? 'bg-green-100 text-green-700' :
-																			notification.slaIndicator === 'YELLOW' ? 'bg-yellow-100 text-yellow-700' :
-																			'bg-red-100 text-red-700'
+																		notification.slaIndicator === 'GREEN'
+																			? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400'
+																			: notification.slaIndicator === 'YELLOW'
+																				? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400'
+																				: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
 																		}`}>
 																			{notification.slaIndicator}
 																		</span>
@@ -735,7 +741,7 @@ export default function DashboardPage() {
 																		</span>
 																	</div>
 																</div>
-																<div className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">
+																<div className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
 																	{new Date(notification.createdAt).toLocaleDateString()}
 																</div>
 															</div>
@@ -744,7 +750,7 @@ export default function DashboardPage() {
 												);
 											})
 										) : (
-											<div className="text-center py-8 text-gray-500">
+										<div className="text-center py-8 text-muted-foreground">
 												<Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
 												<p>No notifications found for this seller</p>
 											</div>

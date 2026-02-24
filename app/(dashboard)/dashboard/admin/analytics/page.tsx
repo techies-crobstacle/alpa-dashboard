@@ -1,10 +1,11 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { DollarSign, TrendingUp, Calendar, Download } from "lucide-react";
+import { DollarSign, TrendingUp, Download, RefreshCw } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { api } from "@/lib/api";
 
 interface AnalyticsData {
 	totalRevenue: string;
@@ -35,7 +36,8 @@ const AnalyticsPage = () => {
 	const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [dayData, setDayData] = useState<DayData[]>([]);
-	const [timeframe, setTimeframe] = useState<"week" | "month" | "year">("month");
+	const [timeframe, setTimeframe] = useState<"7D" | "30D" | "1Y">("30D");
+	const [chartLoading, setChartLoading] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const [exporting, setExporting] = useState(false);
 
@@ -51,7 +53,7 @@ const AnalyticsPage = () => {
 
 			console.log("🔍 Fetching analytics with token:", token ? `${token.slice(0, 20)}...` : "NO TOKEN");
 
-			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/admin/sales/analytics`;
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/admin/sales/analytics`;
 			console.log("📍 Analytics API URL:", url);
 
 			const response = await fetch(url, {
@@ -76,9 +78,6 @@ const AnalyticsPage = () => {
 
 			if (data.success && data.analytics) {
 				setAnalytics(data.analytics);
-				
-				// Generate sample day data for the chart (in real scenario, this would come from API)
-				generateDayData(data.analytics);
 				toast.success("Analytics data loaded successfully");
 			} else {
 				throw new Error("Invalid analytics response structure");
@@ -102,7 +101,7 @@ const AnalyticsPage = () => {
 				throw new Error("No authentication token found");
 			}
 
-			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/admin/sales/export`;
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/admin/sales/export`;
 			
 			const response = await fetch(url, {
 				method: "GET",
@@ -141,35 +140,39 @@ const AnalyticsPage = () => {
 			setExporting(false);
 		}
 	};
-	const generateDayData = (analyticsData: AnalyticsData) => {
-		const today = new Date();
-		const data: DayData[] = [];
-		let daysToShow = 30;
+	// Fetch chart data from the dedicated revenue-chart endpoint
+	const fetchChartData = useCallback(async (tf: "7D" | "30D" | "1Y") => {
+		setChartLoading(true);
+		try {
+			const endpoint = `/api/admin/analytics/revenue-chart?period=${tf}`;
+			console.log("📊 Fetching chart:", `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}${endpoint}`);
 
-		if (timeframe === "week") daysToShow = 7;
-		else if (timeframe === "month") daysToShow = 30;
-		else if (timeframe === "year") daysToShow = 365;
+			const json = await api.get(endpoint);
 
-		const totalRevenue = parseFloat(analyticsData.totalRevenue);
-		const totalOrders = analyticsData.totalOrders;
-
-		for (let i = daysToShow - 1; i >= 0; i--) {
-			const date = new Date(today);
-			date.setDate(date.getDate() - i);
-
-			// Generate realistic data with some variance
-			const dayRevenue = (totalRevenue / daysToShow) * (0.7 + Math.random() * 0.6);
-			const dayOrders = Math.floor((totalOrders / daysToShow) * (0.6 + Math.random() * 0.8));
-
-			data.push({
-				date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-				revenue: Math.round(dayRevenue * 100) / 100,
-				orders: dayOrders,
-			});
+			if (json?.success && Array.isArray(json.data)) {
+				const formatted: DayData[] = json.data.map(
+					(entry: { date: string; revenue: number; orders: number }) => ({
+						date: new Date(entry.date + "T00:00:00").toLocaleDateString(
+							"en-US",
+							tf === "1Y"
+								? { month: "short", year: "2-digit" }
+								: { month: "short", day: "numeric" }
+						),
+						revenue: entry.revenue,
+						orders: entry.orders,
+					})
+				);
+				setDayData(formatted);
+			} else {
+				throw new Error("Invalid chart response structure");
+			}
+		} catch (error) {
+			console.error("Failed to fetch chart data:", error);
+			toast.error("Failed to load chart data");
+		} finally {
+			setChartLoading(false);
 		}
-
-		setDayData(data);
-	};
+	}, []);
 
 	// Initial fetch
 	useEffect(() => {
@@ -209,8 +212,8 @@ const AnalyticsPage = () => {
 					return;
 				}
 
-				// Fetch analytics
-				await fetchAnalytics();
+				// Fetch analytics summary and chart data in parallel
+				await Promise.all([fetchAnalytics(), fetchChartData(timeframe)]);
 				setLoading(false);
 			} catch (e) {
 				console.error("Token validation error:", e);
@@ -225,12 +228,12 @@ const AnalyticsPage = () => {
 		checkAuth();
 	}, [router]);
 
-	// Refetch when timeframe changes
+	// Re-fetch chart data when timeframe changes
 	useEffect(() => {
-		if (analytics) {
-			generateDayData(analytics);
+		if (!loading) {
+			fetchChartData(timeframe);
 		}
-	}, [timeframe]);
+	}, [timeframe, loading, fetchChartData]);
 
 	// Skeleton loader
 	const renderSkeleton = () => (
@@ -253,14 +256,6 @@ const AnalyticsPage = () => {
 		return renderSkeleton();
 	}
 
-	// Calculate max values with proper defaults and safety checks
-	const maxRevenue = dayData.length > 0 
-		? Math.max(...dayData.map((d) => d.revenue || 0), 1) 
-		: 1000;
-	const maxOrders = dayData.length > 0 
-		? Math.max(...dayData.map((d) => d.orders || 0), 1) 
-		: 10;
-
 	return (
 		<div className="space-y-8">
 			{/* Header */}
@@ -282,11 +277,11 @@ const AnalyticsPage = () => {
 						{exporting ? "Exporting..." : "Export CSV"}
 					</button>
 					<button
-						onClick={() => fetchAnalytics()}
-						disabled={refreshing}
+						onClick={() => Promise.all([fetchAnalytics(), fetchChartData(timeframe)])}
+						disabled={refreshing || chartLoading}
 						className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
 					>
-						{refreshing ? "Refreshing..." : "Refresh Data"}
+						{refreshing || chartLoading ? "Refreshing..." : "Refresh Data"}
 					</button>
 				</div>
 			</div>
@@ -371,7 +366,7 @@ const AnalyticsPage = () => {
 								</p>
 							</div>
 							<div className="flex gap-2">
-								{(["week", "month", "year"] as const).map((tf) => (
+								{(["7D", "30D", "1Y"] as const).map((tf) => (
 									<button
 										key={tf}
 										onClick={() => setTimeframe(tf)}
@@ -381,68 +376,73 @@ const AnalyticsPage = () => {
 												: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 										}`}
 									>
-										{tf === "week" ? "7D" : tf === "month" ? "30D" : "1Y"}
+										{tf}
 									</button>
 								))}
 							</div>
 						</div>
 					</CardHeader>
 					<CardContent>
-						{dayData.length > 0 ? (
-							<ResponsiveContainer width="100%" height={400}>
-								<LineChart
-									data={dayData}
-									margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-								>
-									<CartesianGrid strokeDasharray="3 3" />
-									<XAxis 
-										dataKey="date" 
-										angle={-45}
-										textAnchor="end"
-										height={80}
-										tick={{ fontSize: 12 }}
-									/>
-									<YAxis 
-										yAxisId="left"
-										tick={{ fontSize: 12 }}
-										label={{ value: "Revenue ($)", angle: -90, position: "insideLeft" }}
-									/>
-									<YAxis 
-										yAxisId="right" 
-										orientation="right"
-										tick={{ fontSize: 12 }}
-										label={{ value: "Orders", angle: 90, position: "insideRight" }}
-									/>
-									<Tooltip 
-										formatter={(value: number | undefined) => value?.toFixed(2) ?? "0.00"}
-										contentStyle={{ backgroundColor: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "8px" }}
-									/>
-									<Legend />
-									<Line 
-										yAxisId="left"
-										type="monotone" 
-										dataKey="revenue" 
-										stroke="#3b82f6" 
-										dot={false}
-										name="Revenue ($)"
-										strokeWidth={2}
-									/>
-									<Line 
-										yAxisId="right"
-										type="monotone" 
-										dataKey="orders" 
-										stroke="#10b981" 
-										dot={false}
-										name="Orders"
-										strokeWidth={2}
-									/>
-								</LineChart>
-							</ResponsiveContainer>
-						) : (
-							<div className="flex items-center justify-center h-80 text-gray-500">
-								<p>Loading chart data...</p>
-							</div>
-						)}
+					{chartLoading ? (
+						<div className="flex items-center justify-center h-80 text-gray-500 gap-2">
+							<RefreshCw className="h-5 w-5 animate-spin" />
+							<p>Fetching real-time chart data...</p>
+						</div>
+					) : dayData.length > 0 ? (
+						<ResponsiveContainer width="100%" height={400}>
+							<LineChart
+								data={dayData}
+								margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+							>
+								<CartesianGrid strokeDasharray="3 3" />
+								<XAxis
+									dataKey="date"
+									angle={-45}
+									textAnchor="end"
+									height={80}
+									tick={{ fontSize: 12 }}
+								/>
+								<YAxis
+									yAxisId="left"
+									tick={{ fontSize: 12 }}
+									label={{ value: "Revenue ($)", angle: -90, position: "insideLeft" }}
+								/>
+								<YAxis
+									yAxisId="right"
+									orientation="right"
+									tick={{ fontSize: 12 }}
+									label={{ value: "Orders", angle: 90, position: "insideRight" }}
+								/>
+								<Tooltip
+									formatter={(value: number | undefined) => value?.toFixed(2) ?? "0.00"}
+									contentStyle={{ backgroundColor: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: "8px" }}
+								/>
+								<Legend />
+								<Line
+									yAxisId="left"
+									type="monotone"
+									dataKey="revenue"
+									stroke="#3b82f6"
+									dot={false}
+									name="Revenue ($)"
+									strokeWidth={2}
+								/>
+								<Line
+									yAxisId="right"
+									type="monotone"
+									dataKey="orders"
+									stroke="#10b981"
+									dot={false}
+									name="Orders"
+									strokeWidth={2}
+								/>
+							</LineChart>
+						</ResponsiveContainer>
+					) : (
+						<div className="flex items-center justify-center h-80 text-gray-500">
+							<p>No chart data available for this period</p>
+						</div>
+					)}
 					</CardContent>
 				</Card>
 			</div>

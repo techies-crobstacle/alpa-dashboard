@@ -101,20 +101,6 @@ function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading
             )}
             {product.stock > 0 ? "Move to Cart" : "Out of Stock"}
           </Button>
-          
-          <Button 
-            variant="outline"
-            className="w-full" 
-            disabled={product.stock === 0 || isAddingToCart}
-            onClick={() => onAddToCart(product.id)}
-          >
-            {isAddingToCart ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <ShoppingCart className="h-4 w-4 mr-2" />
-            )}
-            {product.stock > 0 ? "Add to Cart" : "Out of Stock"}
-          </Button>
         </div>
       </CardContent>
     </Card>
@@ -201,20 +187,6 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
                   
                   {/* Secondary actions row */}
                   <div className="flex gap-1">
-                    {/* Add to Cart - Secondary action */}
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      disabled={product.stock === 0 || isAddingToCart}
-                      onClick={() => onAddToCart(product.id)}
-                    >
-                      {isAddingToCart ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ShoppingCart className="h-4 w-4" />
-                      )}
-                    </Button>
-                    
                     <Button size="sm" variant="outline">
                       <StickyNote className="h-4 w-4" />
                     </Button>
@@ -417,7 +389,9 @@ export default function WishlistPage() {
       }
       
       // Use the productId as per the API endpoint requirement: /api/wishlist/:productId
-      await api.delete(`/api/wishlist/${wishlistItem.product.id}`);
+      await api.delete(`/api/wishlist/${wishlistItem.product.id}`, {
+        reason: ""
+      });
       
       // Update wishlist status
       updateWishlistStatus(wishlistItem.product.id, false);
@@ -445,7 +419,10 @@ export default function WishlistPage() {
       setActionLoading(prev => ({ ...prev, [`cart-${productId}`]: true }));
       
       // Call the move-to-cart API endpoint
-      await api.post(`/move-to-cart/${productId}`, { quantity: 1 });
+      await api.post('/api/cart/add', { productId, quantity: 1 });
+      await api.delete(`/api/wishlist/${productId}`, {
+        reason: ""
+      });
       
       // Update wishlist status (item removed from wishlist after moving to cart)
       updateWishlistStatus(productId, false);

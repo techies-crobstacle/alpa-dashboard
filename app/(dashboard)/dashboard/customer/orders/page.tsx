@@ -7,7 +7,7 @@
 // import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp } from "lucide-react";
 // import Image from "next/image";
 
-// const BASE_URL = "https://alpa-be-1.onrender.com";
+// const BASE_URL = "http://127.0.0.1:5000";
 
 // function getAuthHeaders() {
 //   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -165,7 +165,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
-const BASE_URL = "https://alpa-be-1.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 function getAuthHeaders() {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -199,7 +199,7 @@ type Order = {
 };
 
 const OrderProgressTracker = ({ status }: { status: any }) => {
-  const statuses = ['pending', 'processing', 'shipped', 'delivered'];
+  const statuses = ['confirmed', 'processing', 'shipped', 'delivered'];
   const statusStr = typeof status === 'string' ? status.toLowerCase() : '';
   const isCancelled = statusStr === 'cancelled';
   
@@ -240,7 +240,7 @@ const OrderProgressTracker = ({ status }: { status: any }) => {
           const isActive = index <= currentIndex;
           const isCurrent = index === currentIndex;
           let icon = null;
-          if (statusName === 'pending') icon = <ClipboardList className="h-6 w-6" />;
+          if (statusName === 'confirmed') icon = <ClipboardList className="h-6 w-6" />;
           else if (statusName === 'processing') icon = <Package className="h-6 w-6" />;
           else if (statusName === 'shipped') icon = <Truck className="h-6 w-6" />;
           else if (statusName === 'delivered') icon = <CheckCircle2 className="h-6 w-6" />;
@@ -583,7 +583,7 @@ const CustomerOrdersPage = () => {
                                 );
                               })()}
                               {/* Cancel Order Button */}
-                              {typeof order.status === 'string' && order.status.toLowerCase() === "pending" && (
+                              {typeof order.status === 'string' && order.status.toLowerCase() === "confirmed" && (
                                 <Button
                                   variant="destructive"
                                   disabled={cancellingOrderId === order.id}

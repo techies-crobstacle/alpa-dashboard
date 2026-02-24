@@ -15,7 +15,7 @@ export default function UserListCard() {
       setLoading(true);
       try {
         const token = typeof window !== "undefined" ? (localStorage.getItem("alpa_token") || localStorage.getItem("auth_token")) : null;
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/users/all`;
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/users/all`;
         
         console.log("📍 UserListCard fetching from:", apiUrl);
         console.log("🔍 Token exists:", !!token);
@@ -68,17 +68,17 @@ export default function UserListCard() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-border">
               <thead>
                 <tr className="bg-muted">
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Avatar</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Email</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Role</th>
-                  <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Avatar</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Email</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Role</th>
+                  <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">Status</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <tbody className="bg-card divide-y divide-border">
                 {users.slice(-7).reverse().map((user) => (
                   <tr key={user.id} className="hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-2">
@@ -96,8 +96,8 @@ export default function UserListCard() {
                         )}
                       </Avatar>
                     </td>
-                    <td className="px-4 py-2 font-medium text-gray-900 truncate max-w-[160px]">{user.name || <span className="italic text-gray-400">No Name</span>}</td>
-                    <td className="px-4 py-2 text-gray-700 truncate max-w-[200px]">{user.email}</td>
+                    <td className="px-4 py-2 font-medium text-foreground truncate max-w-[160px]">{user.name || <span className="italic text-muted-foreground">No Name</span>}</td>
+                    <td className="px-4 py-2 text-muted-foreground truncate max-w-[200px]">{user.email}</td>
                     <td className="px-4 py-2">
                       <Badge variant={user.role === "ADMIN" ? "destructive" : user.role === "SELLER" ? "secondary" : "outline"}>
                         {user.role}
