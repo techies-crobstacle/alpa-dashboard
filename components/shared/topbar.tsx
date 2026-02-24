@@ -132,12 +132,43 @@ const getNotificationIcon = (type: string) => {
 			}
 		}, []);
 
-		const handleLogout = () => {
+		// Silently loads a hidden iframe on the Website so it can clear its own session.
+		// Resolves when the Website posts "alpa-logout-done" or after a 2-second timeout.
+		const triggerCrossDomainLogout = (iframeUrl: string): Promise<void> => {
+			return new Promise((resolve) => {
+				const iframe = document.createElement("iframe");
+				iframe.src = iframeUrl;
+				iframe.style.cssText = "display:none;width:0;height:0;border:none;position:absolute;";
+				document.body.appendChild(iframe);
+
+				const timer = setTimeout(() => {
+					window.removeEventListener("message", handler);
+					if (document.body.contains(iframe)) document.body.removeChild(iframe);
+					resolve();
+				}, 2000);
+
+				function handler(e: MessageEvent) {
+					if (e.data === "alpa-logout-done") {
+						clearTimeout(timer);
+						window.removeEventListener("message", handler);
+						if (document.body.contains(iframe)) document.body.removeChild(iframe);
+						resolve();
+					}
+				}
+				window.addEventListener("message", handler);
+			});
+		};
+
+		const handleLogout = async () => {
 			if (typeof window !== "undefined") {
+				// Silently clear the Website session before clearing our own
+				await triggerCrossDomainLogout("https://alpa-fe.vercel.app/logout-callback");
+
 				// Clear localStorage
 				localStorage.removeItem("alpa_token");
 				localStorage.removeItem("auth_token");
 				localStorage.removeItem("user_data");
+				localStorage.removeItem("user");
 				
 				// Remove the correct cookies that middleware checks
 				document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
