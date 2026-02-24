@@ -177,8 +177,8 @@ const getNotificationIcon = (type: string) => {
 				// Also remove any legacy cookies
 				document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 				
-				// Use router for navigation instead of window.location
-				router.push("/login");
+				// Redirect to the main website after logout
+				window.location.href = "https://apla-fe.vercel.app/";
 			}
 		};
 
