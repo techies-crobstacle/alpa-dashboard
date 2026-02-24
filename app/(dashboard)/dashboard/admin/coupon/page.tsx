@@ -119,7 +119,9 @@ export default function CouponPage() {
 
   const handleDelete = async (couponId: string, couponCode: string) => {
     try {
-      await api.delete(`/api/admin/coupons/${couponId}`);
+      await api.delete(`/api/admin/coupons/${couponId}`, {
+        reason: ""
+      });
       
       toast.success("Coupon deleted successfully!", {
         description: `Coupon ${couponCode} has been removed.`,
