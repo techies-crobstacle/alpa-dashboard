@@ -21,6 +21,8 @@ import {
   Check,
   X,
   Eye,
+  Flag,
+  Loader2,
 } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -47,7 +49,6 @@ type Seller = {
     accountName: string;
     accountNumber: string;
   };
-  culturalApprovalStatus?: string;
 };
 
 export default function SellersPage() {
@@ -56,8 +57,8 @@ export default function SellersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("all");
+  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
 
-  // Fetch sellers from API
   async function fetchSellers() {
     setLoading(true);
     try {
@@ -75,7 +76,52 @@ export default function SellersPage() {
     fetchSellers();
   }, []);
 
-  // Tab filtering logic
+  const setLoaderFor = (sellerId: string, state: boolean) =>
+    setActionLoading((prev) => ({ ...prev, [sellerId]: state }));
+
+  const handleApprove = async (sellerId: string) => {
+    setLoaderFor(sellerId + "-approve", true);
+    try {
+      await api.post(`/api/admin/sellers/approve/${sellerId}`);
+      toast.success("Seller approved");
+      fetchSellers();
+    } catch {
+      toast.error("Failed to approve seller");
+    } finally {
+      setLoaderFor(sellerId + "-approve", false);
+    }
+  };
+
+  const handleReject = async (sellerId: string) => {
+    setLoaderFor(sellerId + "-reject", true);
+    try {
+      await api.post(`/api/admin/sellers/${sellerId}/reject`, {});
+      toast.success("Seller rejected");
+      fetchSellers();
+    } catch {
+      toast.error("Failed to reject seller");
+    } finally {
+      setLoaderFor(sellerId + "-reject", false);
+    }
+  };
+
+  const handleActivate = async (seller: Seller) => {
+    if ((seller.productCount ?? 0) < 1) {
+      toast.error("Seller must upload at least 1 product before activation.");
+      return;
+    }
+    setLoaderFor(seller.sellerId + "-activate", true);
+    try {
+      await api.post(`/api/admin/sellers/activate/${seller.sellerId}`, {});
+      toast.success("Seller activated");
+      fetchSellers();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to activate seller");
+    } finally {
+      setLoaderFor(seller.sellerId + "-activate", false);
+    }
+  };
+
   const filtered = sellers
     .filter((seller) => {
       if (tab === "pending") return seller.status === "PENDING";
@@ -119,27 +165,37 @@ export default function SellersPage() {
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="all">All Sellers</TabsTrigger>
-          <TabsTrigger value="pending">Pending Requests</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected Sellers</TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending
+            {sellers.filter((s) => s.status === "PENDING").length > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold h-4 min-w-4 px-1">
+                {sellers.filter((s) => s.status === "PENDING").length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="rejected">Rejected</TabsTrigger>
         </TabsList>
         <TabsContent value={tab} className="w-full">
           <Card>
             <CardHeader>
               <CardTitle>
-                {tab === "all" && "All Sellers"}
-                {tab === "pending" && "Pending Requests"}
-                {tab === "rejected" && "Rejected Sellers"}
+                {tab === "all" && `All Sellers (${filtered.length})`}
+                {tab === "pending" && `Pending Requests (${filtered.length})`}
+                {tab === "rejected" && `Rejected Sellers (${filtered.length})`}
               </CardTitle>
             </CardHeader>
             <CardContent>
               {loading ? (
-                <div className="p-8">Loading sellers...</div>
+                <div className="flex items-center justify-center p-8 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" /> Loading sellers...
+                </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Seller</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Products</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -148,7 +204,7 @@ export default function SellersPage() {
                   <TableBody>
                     {filtered.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           No sellers found.
                         </TableCell>
                       </TableRow>
@@ -156,17 +212,18 @@ export default function SellersPage() {
                       filtered.map((seller) => (
                         <TableRow key={seller.id}>
                           <TableCell>
-                            <span className="font-medium block">
-                              {seller.businessName}
-                            </span>
-                            <span className="text-xs text-muted-foreground block">
-                              {seller.storeName}
-                            </span>
-                            <span className="text-xs text-muted-foreground block">
-                              Contact: {seller.contactPerson}
-                            </span>
+                            <span className="font-medium block">{seller.businessName}</span>
+                            <span className="text-xs text-muted-foreground block">{seller.storeName}</span>
+                            <span className="text-xs text-muted-foreground block">Contact: {seller.contactPerson}</span>
                           </TableCell>
                           <TableCell>{seller.email}</TableCell>
+                          <TableCell>
+                            <span className={`font-semibold ${
+                              (seller.productCount ?? 0) >= 1 ? "text-green-600" : "text-muted-foreground"
+                            }`}>
+                              {seller.productCount ?? 0}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             <Badge
                               variant={
@@ -179,21 +236,75 @@ export default function SellersPage() {
                                   : "secondary"
                               }
                             >
-                              {seller.status.charAt(0) +
-                                seller.status.slice(1).toLowerCase()}
+                              {seller.status.charAt(0) + seller.status.slice(1).toLowerCase()}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {new Date(seller.createdAt).toLocaleDateString()}
                           </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              onClick={() => router.push(`/dashboard/admin/sellers/${seller.sellerId}`)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" /> View Details
-                            </Button>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1 justify-end">
+                              {seller.status === "PENDING" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="default"
+                                    className="gap-1 text-xs h-7"
+                                    disabled={actionLoading[seller.sellerId + "-approve"]}
+                                    onClick={() => handleApprove(seller.sellerId)}
+                                  >
+                                    {actionLoading[seller.sellerId + "-approve"] ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3 w-3" />
+                                    )}
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    className="gap-1 text-xs h-7"
+                                    disabled={actionLoading[seller.sellerId + "-reject"]}
+                                    onClick={() => handleReject(seller.sellerId)}
+                                  >
+                                    {actionLoading[seller.sellerId + "-reject"] ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <X className="h-3 w-3" />
+                                    )}
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {seller.status === "APPROVED" && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="gap-1 text-xs h-7"
+                                  disabled={
+                                    actionLoading[seller.sellerId + "-activate"] ||
+                                    (seller.productCount ?? 0) < 1
+                                  }
+                                  onClick={() => handleActivate(seller)}
+                                  title={(seller.productCount ?? 0) < 1 ? "Seller needs at least 1 product" : ""}
+                                >
+                                  {actionLoading[seller.sellerId + "-activate"] ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Flag className="h-3 w-3" />
+                                  )}
+                                  Activate
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1 text-xs h-7"
+                                onClick={() => router.push(`/dashboard/admin/sellers/${seller.sellerId}`)}
+                              >
+                                <Eye className="h-3 w-3" /> View
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))

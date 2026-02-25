@@ -16,7 +16,6 @@ import {
   Banknote,
   Tag,
   Flag,
-  Globe,
   Check,
   X,
   ArrowLeft,
@@ -26,11 +25,6 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 const iconClass = "inline-block mr-2 text-muted-foreground";
-
-type CulturalApprovalState = {
-  approved: boolean;
-  feedback: string;
-};
 
 interface SellerData {
   id: string;
@@ -101,11 +95,6 @@ export default function SingleSellerPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [statistics, setStatistics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [culturalApproval, setCulturalApproval] = useState<CulturalApprovalState>({
-    approved: true,
-    feedback: "",
-  });
-
   // Fetch seller details
   useEffect(() => {
     async function fetchSellerDetails() {
@@ -179,27 +168,6 @@ export default function SingleSellerPage() {
     }
   };
 
-  const handleCulturalApproval = async () => {
-    try {
-      await api.post(`/api/admin/sellers/cultural-approval/${sellerId}`, {
-        approved: culturalApproval.approved,
-        feedback: culturalApproval.feedback,
-      });
-      toast.success("Cultural approval updated");
-      const res = await api.get(`/api/admin/sellers/${sellerId}`);
-      if (res.success) {
-        setSeller(res.seller);
-      }
-    } catch (err: any) {
-      console.error("Cultural approval error:", err);
-      const message =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to update cultural approval";
-      toast.error("Failed to update cultural approval", { description: message });
-    }
-  };
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -244,6 +212,31 @@ export default function SingleSellerPage() {
           {seller.status.charAt(0) + seller.status.slice(1).toLowerCase()}
         </Badge>
       </div>
+
+      {/* Action Buttons */}
+      {(seller.status === "PENDING" || (seller.status !== "ACTIVE" && (seller.productCount ?? 0) >= 1)) && (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-2">
+              {seller.status === "PENDING" && (
+                <>
+                  <Button onClick={handleApprove} variant="default">
+                    <Check className="h-4 w-4 mr-1" /> Approve Seller
+                  </Button>
+                  <Button onClick={handleReject} variant="destructive">
+                    <X className="h-4 w-4 mr-1" /> Reject Seller
+                  </Button>
+                </>
+              )}
+              {seller.status !== "ACTIVE" && (seller.productCount ?? 0) >= 1 && (
+                <Button onClick={handleActivate} variant="secondary">
+                  <Flag className="h-4 w-4 mr-1" /> Activate Seller
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Business Information */}
       <Card>
@@ -404,124 +397,7 @@ export default function SingleSellerPage() {
         </Card>
       )}
 
-      {/* Cultural Approval */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Globe className="h-5 w-5" /> Cultural Approval
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {seller.culturalApprovalStatus?.toLowerCase() === "approved" ? (
-            <div className="space-y-4">
-              <div>
-                <Badge variant="default" className="mb-2">
-                  <Check className="h-4 w-4 mr-1" /> Approved
-                </Badge>
-                <p>
-                  <span className="font-semibold">Approved By:</span> {seller.culturalApprovalBy}
-                </p>
-                <p>
-                  <span className="font-semibold">Approved At:</span>{" "}
-                  {new Date(seller.culturalApprovalAt).toLocaleString()}
-                </p>
-                <p>
-                  <span className="font-semibold">Feedback:</span> {seller.culturalApprovalFeedback}
-                </p>
-              </div>
-              {seller.culturalStory && (
-                <div>
-                  <span className="font-semibold">Cultural Story:</span>
-                  <p className="text-sm text-muted-foreground">{seller.culturalStory}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {seller.culturalStory && (
-                <div>
-                  <span className="font-semibold">Cultural Story:</span>
-                  <p className="text-sm text-muted-foreground">{seller.culturalStory}</p>
-                </div>
-              )}
-              <div className="border p-4 rounded-md bg-muted/30 space-y-4">
-                <div className="flex items-center gap-4">
-                  <span className="font-semibold">Approval Decision:</span>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="cultural-approval"
-                      checked={culturalApproval.approved === true}
-                      onChange={() =>
-                        setCulturalApproval({
-                          approved: true,
-                          feedback: culturalApproval.feedback || "Your Cultural is well Approved you can go live and sell your product",
-                        })
-                      }
-                    />
-                    <span>Approve</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="cultural-approval"
-                      checked={culturalApproval.approved === false}
-                      onChange={() =>
-                        setCulturalApproval({
-                          approved: false,
-                          feedback: culturalApproval.feedback || "Cultural approval denied. Please review your submission.",
-                        })
-                      }
-                    />
-                    <span>Reject</span>
-                  </label>
-                </div>
-                <div>
-                  <label className="text-sm font-semibold block mb-2">Feedback Message:</label>
-                  <textarea
-                    className="w-full border rounded p-2 text-sm"
-                    rows={3}
-                    placeholder="Enter feedback message..."
-                    value={culturalApproval.feedback}
-                    onChange={(e) =>
-                      setCulturalApproval({ ...culturalApproval, feedback: e.target.value })
-                    }
-                  />
-                </div>
-                <Button onClick={handleCulturalApproval} className="w-full">
-                  <Globe className="h-4 w-4 mr-2" /> Submit Cultural Approval
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Action Buttons */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {seller.status === "PENDING" && (
-              <>
-                <Button onClick={handleApprove} variant="default">
-                  <Check className="h-4 w-4 mr-1" /> Approve Seller
-                </Button>
-                <Button onClick={handleReject} variant="destructive">
-                  <X className="h-4 w-4 mr-1" /> Reject Seller
-                </Button>
-              </>
-            )}
-            {seller.status !== "ACTIVE" && (
-              <Button onClick={handleActivate} variant="secondary">
-                <Flag className="h-4 w-4 mr-1" /> Activate Seller
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
