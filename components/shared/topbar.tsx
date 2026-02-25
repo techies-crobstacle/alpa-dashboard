@@ -132,53 +132,44 @@ const getNotificationIcon = (type: string) => {
 			}
 		}, []);
 
-		// Silently loads a hidden iframe on the Website so it can clear its own session.
-		// Resolves when the Website posts "alpa-logout-done" or after a 2-second timeout.
-		const triggerCrossDomainLogout = (iframeUrl: string): Promise<void> => {
-			return new Promise((resolve) => {
-				const iframe = document.createElement("iframe");
-				iframe.src = iframeUrl;
-				iframe.style.cssText = "display:none;width:0;height:0;border:none;position:absolute;";
-				document.body.appendChild(iframe);
-
-				const timer = setTimeout(() => {
-					window.removeEventListener("message", handler);
-					if (document.body.contains(iframe)) document.body.removeChild(iframe);
-					resolve();
-				}, 2000);
-
-				function handler(e: MessageEvent) {
-					if (e.data === "alpa-logout-done") {
-						clearTimeout(timer);
-						window.removeEventListener("message", handler);
-						if (document.body.contains(iframe)) document.body.removeChild(iframe);
-						resolve();
-					}
-				}
-				window.addEventListener("message", handler);
-			});
-		};
-
 		const handleLogout = async () => {
 			if (typeof window !== "undefined") {
-				// Silently clear the Website session before clearing our own
-				await triggerCrossDomainLogout("https://alpa-fe.vercel.app/logout-callback");
+				// 1. Invalidate the server-side session
+				const token =
+					localStorage.getItem("alpa_token") ||
+					localStorage.getItem("auth_token");
+				try {
+					await fetch(
+						`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/auth/logout`,
+						{
+							method: "POST",
+							credentials: "include",
+							headers: {
+								"Content-Type": "application/json",
+								...(token ? { Authorization: `Bearer ${token}` } : {}),
+							},
+						}
+					);
+				} catch (_) {
+					// Best-effort — always continue to clear local state
+				}
 
-				// Clear localStorage
+				// 2. Clear Dashboard localStorage
 				localStorage.removeItem("alpa_token");
 				localStorage.removeItem("auth_token");
 				localStorage.removeItem("user_data");
 				localStorage.removeItem("user");
-				
-				// Remove the correct cookies that middleware checks
+
+				// 3. Clear Dashboard cookies
 				document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
 				document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
-				
-				// Also remove any legacy cookies
 				document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-				
-				// Redirect to the main website after logout
-				window.location.href = "https://apla-fe.vercel.app/";
+
+				// 4. Redirect to Webapp's logout-callback so it also clears its session.
+				//    The ?redirect param tells the Webapp where to send the user afterwards.
+				window.location.href =
+					"https://apla-fe.vercel.app/logout-callback?redirect=" +
+					encodeURIComponent("https://apla-fe.vercel.app");
 			}
 		};
 

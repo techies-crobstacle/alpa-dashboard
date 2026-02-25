@@ -54,10 +54,17 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
       console.error(`[API] Authentication error (${response.status}) on ${endpoint}`);
       localStorage.removeItem("auth_token");
       localStorage.removeItem("alpa_token");
-      
-      // Only redirect if we're in browser context
+      localStorage.removeItem("user");
+      localStorage.removeItem("user_data");
+      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
+      document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
+      document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
+      // Redirect through Webapp logout-callback so it also clears its session
       if (typeof window !== "undefined") {
-        window.location.href = "/login";
+        window.location.href =
+          "https://apla-fe.vercel.app/logout-callback?redirect=" +
+          encodeURIComponent("https://apla-fe.vercel.app");
       }
       throw new Error("Session expired. Please login again.");
     }
