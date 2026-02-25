@@ -1,14 +1,16 @@
 "use client";
-// Tell Next.js to render this route with no layout wrapper —
-// it runs inside a hidden iframe so no chrome is needed.
 export const dynamic = "force-dynamic";
 
 import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
 
-export default function LogoutCallbackPage() {
+function LogoutCallbackContent() {
+  const searchParams = useSearchParams();
+
   useEffect(() => {
     const doLogout = async () => {
       // Invalidate the server-side session
@@ -28,7 +30,7 @@ export default function LogoutCallbackPage() {
         // Best-effort — always continue to clear local state
       }
 
-      // Clear ALL keys the Dashboard stores
+      // Clear ALL Dashboard session keys
       localStorage.removeItem("alpa_token");
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user");
@@ -39,19 +41,33 @@ export default function LogoutCallbackPage() {
         "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
       document.cookie =
         "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
-      document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie =
+        "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-      if (window.parent !== window) {
-        // We're inside a hidden iframe — tell the Webapp we're done
-        window.parent.postMessage("alpa-logout-done", "https://apla-fe.vercel.app");
-      } else {
-        // Someone navigated here directly — just go to login
-        window.location.replace("/login");
-      }
+      // Follow the ?redirect param if provided (sent by Webapp logout),
+      // otherwise just go to Dashboard login.
+      const redirectTo = searchParams.get("redirect");
+      const safeRedirect =
+        redirectTo && redirectTo.startsWith("https://")
+          ? redirectTo
+          : "/login";
+      window.location.replace(safeRedirect);
     };
 
     doLogout();
-  }, []);
+  }, [searchParams]);
 
-  return null;
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <p className="text-sm text-muted-foreground">Signing out…</p>
+    </div>
+  );
+}
+
+export default function LogoutCallbackPage() {
+  return (
+    <Suspense>
+      <LogoutCallbackContent />
+    </Suspense>
+  );
 }
