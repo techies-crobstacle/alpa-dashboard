@@ -635,13 +635,43 @@ export default function AdminProductsPage() {
                           </div>
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                          {product.images?.length ? product.images.map((img, i) => (
-                            <div key={img + i} className="w-32 h-32 rounded border bg-muted overflow-hidden">
-                              <Image src={img} alt={product.title || "Product"} width={120} height={120} className="w-full h-full object-contain" unoptimized />
+                          {/* Featured Image */}
+                          {product.featuredImage && (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Featured</span>
+                              <div className="w-32 h-32 rounded border-2 border-primary/40 bg-muted overflow-hidden">
+                                <Image src={product.featuredImage} alt="Featured" width={128} height={128} className="w-full h-full object-cover" unoptimized
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                              </div>
                             </div>
-                          )) : (
-                            <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center">
+                          )}
+                          {/* Gallery Images */}
+                          {(() => {
+                            const featImg = product.featuredImage || null;
+                            const rawGallery: string[] = [
+                              ...(Array.isArray(product.galleryImages) ? product.galleryImages : []),
+                              ...(Array.isArray(product.images) ? product.images : []),
+                            ];
+                            const gallery = [...new Set(rawGallery)].filter((img) => img !== featImg);
+                            return gallery.length > 0 ? (
+                              <div className="flex flex-col gap-1 w-full">
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Gallery ({gallery.length})</span>
+                                <div className="flex flex-wrap gap-2">
+                                  {gallery.map((img, i) => (
+                                    <div key={img + i} className="w-28 h-28 rounded border bg-muted overflow-hidden">
+                                      <Image src={img} alt={`Gallery ${i + 1}`} width={112} height={112} className="w-full h-full object-cover" unoptimized
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null;
+                          })()}
+                          {/* Empty state */}
+                          {!product.featuredImage && !product.galleryImages?.length && !product.images?.length && (
+                            <div className="w-32 h-32 rounded border bg-muted flex flex-col items-center justify-center gap-1">
                               <LucideImage className="h-8 w-8 opacity-30" />
+                              <span className="text-[10px] text-muted-foreground">No images</span>
                             </div>
                           )}
                         </div>
