@@ -1,4 +1,7 @@
 "use client";
+// Tell Next.js to render this route with no layout wrapper —
+// it runs inside a hidden iframe so no chrome is needed.
+export const dynamic = "force-dynamic";
 
 import { useEffect } from "react";
 

@@ -148,7 +148,10 @@ const getNotificationIcon = (type: string) => {
 				}, 2000);
 
 				function handler(e: MessageEvent) {
-					if (e.data === "alpa-logout-done") {
+					if (
+						e.origin === "https://apla-fe.vercel.app" &&
+						e.data === "alpa-logout-done"
+					) {
 						clearTimeout(timer);
 						window.removeEventListener("message", handler);
 						if (document.body.contains(iframe)) document.body.removeChild(iframe);
