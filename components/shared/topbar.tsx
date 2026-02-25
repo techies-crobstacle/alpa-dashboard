@@ -169,7 +169,7 @@ const getNotificationIcon = (type: string) => {
 				//    The ?redirect param tells the Webapp where to send the user afterwards.
 				window.location.href =
 					"https://apla-fe.vercel.app/logout-callback?redirect=" +
-					encodeURIComponent("https://apla-fe.vercel.app/");
+					encodeURIComponent("https://apla-fe.vercel.app");
 			}
 		};
 
