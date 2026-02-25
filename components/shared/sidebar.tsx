@@ -224,18 +224,6 @@ const baseSidebarGroups = [
 		],
 	},
 
-	{
-		title: "Role",
-		items: [
-			{
-				// The title will be set dynamically in the component based on the user's role
-				title: "",
-				href: "/dashboard/role",
-				icon: Users,
-				badge: null,
-			},
-		],
-	},
 ];
 
 interface SidebarProps {
@@ -291,8 +279,8 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 			if (["/dashboard/customer/orders", "/dashboard/customer/wishList"].includes(item.href)) {
 				return role === "CUSTOMER";
 			}
-			// Role page: visible to all roles
-			if (["/dashboard/role", "/dashboard/settings","/dashboard/customer/profile"].includes(item.href)) {
+			// Settings and profile: visible to all roles
+			if (["/dashboard/settings","/dashboard/customer/profile"].includes(item.href)) {
 				return true;
 			}
 			// Users, Analytics, Settings, Dashboard: visible to admin and seller
@@ -302,13 +290,6 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 			// Default: visible to all
 			return true;
 		});
-		// If this is the Role group, set the title to the user's role
-		if (group.title === "Role" && filteredItems.length > 0) {
-			filteredItems = filteredItems.map((item) => ({
-				...item,
-				title: role ? `Role: ${role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()}` : "Role: Unknown",
-			}));
-		}
 		return { ...group, items: filteredItems };
 	});
 
