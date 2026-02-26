@@ -132,44 +132,45 @@ const getNotificationIcon = (type: string) => {
 			}
 		}, []);
 
-		const handleLogout = async () => {
+		const handleLogout = () => {
 			if (typeof window !== "undefined") {
-				// 1. Invalidate the server-side session
 				const token =
 					localStorage.getItem("alpa_token") ||
 					localStorage.getItem("auth_token");
-				try {
-					await fetch(
-						`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/auth/logout`,
-						{
-							method: "POST",
-							credentials: "include",
-							headers: {
-								"Content-Type": "application/json",
-								...(token ? { Authorization: `Bearer ${token}` } : {}),
-							},
-						}
-					);
-				} catch (_) {
-					// Best-effort — always continue to clear local state
-				}
 
-				// 2. Clear Dashboard localStorage
+				// 1. Clear Dashboard localStorage & sessionStorage immediately —
+				//    do this BEFORE the backend call so a cold Render server
+				//    (which can hang for 30 s+) never blocks the logout flow.
 				localStorage.removeItem("alpa_token");
 				localStorage.removeItem("auth_token");
 				localStorage.removeItem("user_data");
 				localStorage.removeItem("user");
+				try { sessionStorage.clear(); } catch (_) { /* ignore */ }
 
-				// 3. Clear Dashboard cookies
+				// 2. Clear Dashboard cookies
 				document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
 				document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
 				document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
+				// 3. Fire-and-forget backend token invalidation — no await so it
+				//    never blocks the redirect regardless of server response time.
+				fetch(
+					`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/auth/logout`,
+					{
+						method: "POST",
+						credentials: "include",
+						headers: {
+							"Content-Type": "application/json",
+							...(token ? { Authorization: `Bearer ${token}` } : {}),
+						},
+					}
+				).catch(() => { /* best-effort */ });
+
 				// 4. Redirect to Webapp's logout-callback so it also clears its session.
-				//    The ?redirect param tells the Webapp where to send the user afterwards.
-				window.location.href =
+				window.location.replace(
 					"https://apla-fe.vercel.app/logout-callback?redirect=" +
-					encodeURIComponent("https://apla-fe.vercel.app");
+					encodeURIComponent("https://apla-fe.vercel.app")
+				);
 			}
 		};
 
