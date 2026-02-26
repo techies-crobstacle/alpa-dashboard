@@ -12,31 +12,20 @@ function LogoutCallbackContent() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const doLogout = async () => {
-      // Invalidate the server-side session
+    const doLogout = () => {
       const token =
         localStorage.getItem("alpa_token") ||
         localStorage.getItem("auth_token");
-      try {
-        await fetch(`${API_BASE_URL}/api/auth/logout`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-      } catch (_) {
-        // Best-effort — always continue to clear local state
-      }
 
-      // Clear ALL Dashboard session keys
+      // 1. Clear ALL Dashboard session keys immediately — before the backend
+      //    call so a cold Render server never blocks the logout flow.
       localStorage.removeItem("alpa_token");
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user");
       localStorage.removeItem("user_data");
+      try { sessionStorage.clear(); } catch (_) { /* ignore */ }
 
-      // Clear cookies
+      // 2. Clear cookies
       document.cookie =
         "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
       document.cookie =
@@ -44,8 +33,18 @@ function LogoutCallbackContent() {
       document.cookie =
         "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-      // Follow the ?redirect param if provided (sent by Webapp logout),
-      // otherwise just go to Dashboard login.
+      // 3. Fire-and-forget backend token invalidation — no await.
+      fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }).catch(() => { /* best-effort */ });
+
+      // 4. Follow the ?redirect param if provided (sent by Webapp logout),
+      //    otherwise just go to Dashboard login.
       const redirectTo = searchParams.get("redirect");
       const safeRedirect =
         redirectTo && redirectTo.startsWith("https://")

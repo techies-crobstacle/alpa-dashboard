@@ -52,6 +52,7 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
     // Handle auth errors globally (but NOT for login endpoint)
     if (isAuthError(response.status) && !endpoint.includes('/login')) {
       console.error(`[API] Authentication error (${response.status}) on ${endpoint}`);
+      const expiredToken = localStorage.getItem("auth_token") || localStorage.getItem("alpa_token");
       localStorage.removeItem("auth_token");
       localStorage.removeItem("alpa_token");
       localStorage.removeItem("user");
@@ -61,17 +62,21 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
       document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
       document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-      // Use iframe to silently clear the Webapp session, then navigate — same
-      // pattern as handleLogout to avoid the intermittent "still logged in" bug.
+      // Fire-and-forget — never block navigation on a cold Render server
+      fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(expiredToken ? { Authorization: `Bearer ${expiredToken}` } : {}),
+        },
+      }).catch(() => { /* best-effort */ });
+
       if (typeof window !== "undefined") {
-        const iframe = document.createElement("iframe");
-        iframe.style.cssText = "display:none;width:0;height:0;border:0;position:absolute;";
-        iframe.src = "https://apla-fe.vercel.app/logout-callback";
-        document.body.appendChild(iframe);
-        setTimeout(() => {
-          try { document.body.removeChild(iframe); } catch (_) { /* ignore */ }
-          window.location.replace("https://apla-fe.vercel.app");
-        }, 2000);
+        window.location.replace(
+          "https://apla-fe.vercel.app/logout-callback?redirect=" +
+          encodeURIComponent("https://apla-fe.vercel.app")
+        );
       }
       throw new Error("Session expired. Please login again.");
     }

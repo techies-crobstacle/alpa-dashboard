@@ -132,57 +132,45 @@ const getNotificationIcon = (type: string) => {
 			}
 		}, []);
 
-		const handleLogout = async () => {
+		const handleLogout = () => {
 			if (typeof window !== "undefined") {
-				// 1. Invalidate the server-side session
 				const token =
 					localStorage.getItem("alpa_token") ||
 					localStorage.getItem("auth_token");
-				try {
-					await fetch(
-						`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/auth/logout`,
-						{
-							method: "POST",
-							credentials: "include",
-							headers: {
-								"Content-Type": "application/json",
-								...(token ? { Authorization: `Bearer ${token}` } : {}),
-							},
-						}
-					);
-				} catch (_) {
-					// Best-effort — always continue to clear local state
-				}
 
-				// 2. Clear Dashboard localStorage & sessionStorage
+				// 1. Clear Dashboard localStorage & sessionStorage immediately —
+				//    do this BEFORE the backend call so a cold Render server
+				//    (which can hang for 30 s+) never blocks the logout flow.
 				localStorage.removeItem("alpa_token");
 				localStorage.removeItem("auth_token");
 				localStorage.removeItem("user_data");
 				localStorage.removeItem("user");
 				try { sessionStorage.clear(); } catch (_) { /* ignore */ }
 
-				// 3. Clear Dashboard cookies
+				// 2. Clear Dashboard cookies
 				document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
 				document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
 				document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-				// 4. Silently trigger the Webapp's logout-callback in a hidden iframe so it
-				//    clears its own localStorage/cookies without racing against a top-level
-				//    page navigation. This is the fix for the intermittent "still logged in
-				//    on the webapp" bug: previously a full redirect meant the webapp JS ran
-				//    only if the page loaded & executed fully before any interruption.
-				const logoutIframe = document.createElement("iframe");
-				logoutIframe.style.cssText = "display:none;width:0;height:0;border:0;position:absolute;";
-				logoutIframe.src = "https://apla-fe.vercel.app/logout-callback";
-				document.body.appendChild(logoutIframe);
+				// 3. Fire-and-forget backend token invalidation — no await so it
+				//    never blocks the redirect regardless of server response time.
+				fetch(
+					`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/auth/logout`,
+					{
+						method: "POST",
+						credentials: "include",
+						headers: {
+							"Content-Type": "application/json",
+							...(token ? { Authorization: `Bearer ${token}` } : {}),
+						},
+					}
+				).catch(() => { /* best-effort */ });
 
-				// 5. After 2 s (giving the iframe time to run its cleanup), navigate the
-				//    main window to the Webapp. This fires regardless of whether the iframe
-				//    succeeded, so the user always ends up on the right page.
-				setTimeout(() => {
-					try { document.body.removeChild(logoutIframe); } catch (_) { /* ignore */ }
-					window.location.replace("https://apla-fe.vercel.app");
-				}, 2000);
+				// 4. Redirect to Webapp's logout-callback so it also clears its session.
+				window.location.replace(
+					"https://apla-fe.vercel.app/logout-callback?redirect=" +
+					encodeURIComponent("https://apla-fe.vercel.app")
+				);
 			}
 		};
 
