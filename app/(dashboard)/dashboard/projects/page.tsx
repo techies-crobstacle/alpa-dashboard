@@ -16,7 +16,7 @@ import { apiClient } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 // --- CONFIGURATION ---
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
 // --- HELPER: Get Auth Token ---
 const getAuthToken = () => {

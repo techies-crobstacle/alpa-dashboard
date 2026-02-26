@@ -140,7 +140,7 @@ const getNotificationIcon = (type: string) => {
 					localStorage.getItem("auth_token");
 				try {
 					await fetch(
-						`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/auth/logout`,
+						`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/auth/logout`,
 						{
 							method: "POST",
 							credentials: "include",

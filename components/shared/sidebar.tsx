@@ -12,15 +12,21 @@ import {
 	FolderKanban,
 	ChevronLeft,
 	ChevronRight,
-	
 	Database,
-	
 	LogIn,
 	AlertCircle,
 	ListOrdered,
-	icons,
 	Heart,
 	MessageSquare,
+	User,
+	Store,
+	Package,
+	Tag,
+	Ticket,
+	Truck,
+	Percent,
+	ShoppingCart,
+	ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -31,7 +37,7 @@ const baseSidebarGroups = [
 			{
 				title: "Profile",
 				href: "/dashboard/customer/profile",
-				icon: ListOrdered,
+				icon: User,
 				badge: null,
 			},
 			{
@@ -73,7 +79,7 @@ const baseSidebarGroups = [
 			{
 				title: "Orders",
 				href: "/dashboard/admin/orders",
-				icon: ListOrdered,
+				icon: ShoppingCart,
 				badge: "3",
 			},
 			// {
@@ -91,51 +97,49 @@ const baseSidebarGroups = [
 			{
 				title: "Sellers",
 				href: "/dashboard/admin/sellers",
-				icon: Users,
+				icon: Store,
 				badge: "12",
 			},
 			{
 				title: "Products",
 				href: "/dashboard/products",
-				icon: FolderKanban,
+				icon: Package,
 				badge: null,
 			},
 			{
 				title: "Products",
 				href: "/dashboard/admin/products",
-				icon: FolderKanban,
+				icon: Package,
 				badge: null,
 			},
 			{
 				title: "Categories",
 				href: "/dashboard/admin/categories",
-				icon: FolderKanban,
+				icon: Tag,
 				badge: null,
 			},
 			{
 				title: "Categories",
 				href: "/dashboard/categories",
-				icon: FolderKanban,
+				icon: Tag,
 				badge: null,
 			},
-
-			
 			{
 				title: "Coupons",
 				href: "/dashboard/admin/coupon",
-				icon: FolderKanban,
+				icon: Ticket,
 				badge: null,
 			},
 			{
 				title: "Shipping",
 				href: "/dashboard/admin/shipping",
-				icon: ListOrdered,
+				icon: Truck,
 				badge: null,
 			},
 			{
 				title: "GST",
 				href: "/dashboard/admin/gst",
-				icon: ListOrdered,
+				icon: Percent,
 				badge: null,
 			},
 			{
@@ -147,7 +151,7 @@ const baseSidebarGroups = [
 			{
 				title: "Orders",
 				href: "/dashboard/orders",
-				icon: ListOrdered,
+				icon: ShoppingCart,
 				badge: "3",
 			},
 			
@@ -168,7 +172,7 @@ const baseSidebarGroups = [
 			{
 				title: "My Orders",
 				href: "/dashboard/customer/orders",
-				icon: ListOrdered,
+				icon: ClipboardList,
 				badge: null,
 			},
 			{

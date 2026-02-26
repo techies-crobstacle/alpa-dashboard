@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
 function LogoutCallbackContent() {
   const searchParams = useSearchParams();

@@ -6,7 +6,7 @@ import { Loader2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
 type Stage = "exchanging" | "success";
 

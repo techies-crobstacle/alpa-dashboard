@@ -12,7 +12,7 @@ import { Plus, Percent, Trash2, Loader2, X, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
 const getAuthToken = () => {
   if (typeof window === "undefined") {
