@@ -21,6 +21,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -171,10 +172,44 @@ export default function SingleSellerPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Button onClick={() => router.back()} variant="ghost" size="sm">
-          <ArrowLeft className="h-4 w-4 mr-2" /> Back
-        </Button>
-        <div className="p-8 text-center">Loading seller details...</div>
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-9 w-20 rounded-md" />
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-56" />
+              <Skeleton className="h-4 w-36" />
+            </div>
+          </div>
+          <Skeleton className="h-6 w-20 rounded-full" />
+        </div>
+        {/* Action buttons skeleton */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-36 rounded-md" />
+              <Skeleton className="h-10 w-32 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+        {/* Info cards skeleton */}
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-5 w-48" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, j) => (
+                  <div key={j} className="space-y-1">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     );
   }

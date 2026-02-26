@@ -26,7 +26,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LogIn, Mail, Lock, Loader2, Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -435,23 +434,31 @@ export default function LoginPage() {
       <CardFooter className="flex flex-col gap-4">
         {!showOTP && (
           <>
-            <div className="text-center text-sm">
-              <Link
-                href="/forgot-password"
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                Forgot your password?
-              </Link>
+            <div className="relative w-full flex items-center gap-2">
+              <div className="flex-1 border-t border-border" />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">or continue with</span>
+              <div className="flex-1 border-t border-border" />
             </div>
-            <div className="text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/register"
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                Sign up
-              </Link>
-            </div>
+            <a
+              href={`https://alpa-be.onrender.com/api/auth/saml/login`}
+              className="w-full"
+            >
+              <Button type="button" variant="outline" className="w-full gap-2">
+                <svg
+                  className="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Sign in with SSO
+              </Button>
+            </a>
           </>
         )}
       </CardFooter>
