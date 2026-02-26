@@ -154,22 +154,35 @@ const getNotificationIcon = (type: string) => {
 					// Best-effort — always continue to clear local state
 				}
 
-				// 2. Clear Dashboard localStorage
+				// 2. Clear Dashboard localStorage & sessionStorage
 				localStorage.removeItem("alpa_token");
 				localStorage.removeItem("auth_token");
 				localStorage.removeItem("user_data");
 				localStorage.removeItem("user");
+				try { sessionStorage.clear(); } catch (_) { /* ignore */ }
 
 				// 3. Clear Dashboard cookies
 				document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
 				document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
 				document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-				// 4. Redirect to Webapp's logout-callback so it also clears its session.
-				//    The ?redirect param tells the Webapp where to send the user afterwards.
-				window.location.href =
-					"https://apla-fe.vercel.app/logout-callback?redirect=" +
-					encodeURIComponent("https://apla-fe.vercel.app");
+				// 4. Silently trigger the Webapp's logout-callback in a hidden iframe so it
+				//    clears its own localStorage/cookies without racing against a top-level
+				//    page navigation. This is the fix for the intermittent "still logged in
+				//    on the webapp" bug: previously a full redirect meant the webapp JS ran
+				//    only if the page loaded & executed fully before any interruption.
+				const logoutIframe = document.createElement("iframe");
+				logoutIframe.style.cssText = "display:none;width:0;height:0;border:0;position:absolute;";
+				logoutIframe.src = "https://apla-fe.vercel.app/logout-callback";
+				document.body.appendChild(logoutIframe);
+
+				// 5. After 2 s (giving the iframe time to run its cleanup), navigate the
+				//    main window to the Webapp. This fires regardless of whether the iframe
+				//    succeeded, so the user always ends up on the right page.
+				setTimeout(() => {
+					try { document.body.removeChild(logoutIframe); } catch (_) { /* ignore */ }
+					window.location.replace("https://apla-fe.vercel.app");
+				}, 2000);
 			}
 		};
 

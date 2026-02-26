@@ -56,15 +56,22 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
       localStorage.removeItem("alpa_token");
       localStorage.removeItem("user");
       localStorage.removeItem("user_data");
+      try { sessionStorage.clear(); } catch (_) { /* ignore */ }
       document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
       document.cookie = "userRole=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax";
       document.cookie = "alpa_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-      // Redirect through Webapp logout-callback so it also clears its session
+      // Use iframe to silently clear the Webapp session, then navigate — same
+      // pattern as handleLogout to avoid the intermittent "still logged in" bug.
       if (typeof window !== "undefined") {
-        window.location.href =
-          "https://apla-fe.vercel.app/logout-callback?redirect=" +
-          encodeURIComponent("https://apla-fe.vercel.app");
+        const iframe = document.createElement("iframe");
+        iframe.style.cssText = "display:none;width:0;height:0;border:0;position:absolute;";
+        iframe.src = "https://apla-fe.vercel.app/logout-callback";
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+          try { document.body.removeChild(iframe); } catch (_) { /* ignore */ }
+          window.location.replace("https://apla-fe.vercel.app");
+        }, 2000);
       }
       throw new Error("Session expired. Please login again.");
     }
