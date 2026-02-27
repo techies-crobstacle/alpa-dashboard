@@ -14,7 +14,7 @@
  
 // import { toast } from "sonner";
 
-// const BASE_URL = "http://127.0.0.1:5000";
+// const BASE_URL = "https://alpa-be.onrender.com";
 
 // // --- API HELPERS ---
 // const getAuthHeaders = () => {
@@ -434,7 +434,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
  
 import { toast } from "sonner";
 
-const BASE_URL = "http://127.0.0.1:5000";
+const BASE_URL = "https://alpa-be.onrender.com";
 
 // --- API HELPERS ---
 const getAuthHeaders = () => {
