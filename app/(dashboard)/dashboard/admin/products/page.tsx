@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Image as LucideImage } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -550,7 +551,36 @@ export default function AdminProductsPage() {
 
       {/* Product list */}
       {(activeView === "approved" ? loading : loadingPending) ? (
-        <div className="flex items-center justify-center min-h-[200px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        <div className="overflow-x-auto rounded-lg border bg-background">
+            <table className="min-w-full divide-y divide-muted">
+              <thead className="bg-muted/50">
+                <tr>
+                  {["Image", "Title", "Category", "Price", "Stock", "Status", "Actions"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-muted">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3"><Skeleton className="h-12 w-12 rounded" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-12" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <Skeleton className="h-8 w-16 rounded-md" />
+                        <Skeleton className="h-8 w-20 rounded-md" />
+                        <Skeleton className="h-8 w-14 rounded-md" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
       ) : currentProducts.length === 0 ? (
         <Card className="col-span-full text-center py-12">No {activeView === "approved" ? "products" : "pending products"} found.</Card>
       ) : layout === "table" ? (

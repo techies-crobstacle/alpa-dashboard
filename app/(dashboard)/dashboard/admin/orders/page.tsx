@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
+import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -60,6 +62,19 @@ export default function AdminOrdersPage() {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isSellerDropdownOpen, setIsSellerDropdownOpen] = useState(false);
+  const sellerDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (sellerDropdownRef.current && !sellerDropdownRef.current.contains(e.target as Node)) {
+        setIsSellerDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     fetchSellers();
@@ -156,7 +171,7 @@ export default function AdminOrdersPage() {
     setDownloadingInvoiceId(orderId);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${orderId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/orders/invoice/${orderId}`, {
         method: "GET",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -236,7 +251,70 @@ export default function AdminOrdersPage() {
     return pages;
   };
 
-  if (loadingSellers) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (loadingSellers) return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header skeleton */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <div className="flex gap-2 items-end">
+          <div className="space-y-1">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-10 w-[250px] rounded-md" />
+          </div>
+          <Skeleton className="h-9 w-28 rounded-md" />
+          <Skeleton className="h-9 w-32 rounded-md" />
+        </div>
+      </div>
+      {/* Order card skeletons */}
+      <div className="grid gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="overflow-hidden">
+            <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+              <Skeleton className="h-9 w-24 rounded-md" />
+            </div>
+            <CardContent className="p-6">
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-6 w-28 rounded-full" />
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-9 w-full rounded-md mt-2" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -245,22 +323,60 @@ export default function AdminOrdersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">View and manage orders by seller.</p>
         </div>
-        <div className="flex flex-col md:flex-row gap-2 md:items-center w-full md:w-auto md:justify-end justify-between">
-          <div className="min-w-[250px]">
+        <div className="flex flex-col md:flex-row gap-4 md:items-end w-full md:w-auto md:justify-end justify-between">
+          {/* Seller Dropdown */}
+          <div className="min-w-[260px] relative" ref={sellerDropdownRef}>
             <label className="block mb-1 font-medium">Select Seller</label>
-            <select
-              className="border rounded px-3 py-2 w-full"
-              value={selectedSeller}
-              onChange={e => setSelectedSeller(e.target.value)}
-              disabled={loadingSellers}
+            <div
+              className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm hover:border-primary/50 cursor-pointer"
+              onClick={() => setIsSellerDropdownOpen((v) => !v)}
             >
-              {sellers.map(seller => (
-                <option key={seller.id} value={seller.id}>
-                  {seller.name} ({seller.email})
-                </option>
-              ))}
-            </select>
+              <span className={selectedSeller ? "text-foreground font-medium" : "text-muted-foreground"}>
+                {selectedSeller ? (() => {
+                  const s = sellers.find((s) => s.id === selectedSeller);
+                  if (!s) return "Select a seller";
+                  return (
+                    <span className="flex items-center gap-2">
+                      {s.name}
+                      <span className="text-xs text-muted-foreground font-normal">{s.email}</span>
+                    </span>
+                  );
+                })() : "Select a seller"}
+              </span>
+              <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", isSellerDropdownOpen && "rotate-180")} />
+            </div>
+
+            {isSellerDropdownOpen && (
+              <div className="absolute z-[60] left-0 w-full mt-1 bg-background rounded-lg border shadow-xl p-1 min-w-[380px] animate-in fade-in zoom-in-95">
+                <div className="max-h-[300px] overflow-y-auto">
+                  {sellers.length === 0 ? (
+                    <div className="py-4 text-center text-sm text-muted-foreground">No sellers found.</div>
+                  ) : sellers.map((seller) => (
+                    <div
+                      key={seller.id}
+                      className={cn(
+                        "flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
+                        selectedSeller === seller.id && "bg-primary/5 text-primary font-medium"
+                      )}
+                      onClick={(e) => { e.stopPropagation(); setSelectedSeller(seller.id); setIsSellerDropdownOpen(false); }}
+                    >
+                      <div className={cn(
+                        "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-primary transition-all",
+                        selectedSeller === seller.id ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50"
+                      )}>
+                        {selectedSeller === seller.id && <Check className="h-3 w-3" />}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium truncate">{seller.name}</span>
+                        <span className="text-xs text-muted-foreground truncate">{seller.email}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
           <div className="flex gap-2 items-end">
             <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
             <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
@@ -270,8 +386,47 @@ export default function AdminOrdersPage() {
 
       <div className="grid gap-4">
         {loading ? (
-          <div className="flex items-center justify-center min-h-[200px]">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="grid gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="overflow-hidden">
+                <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-6 w-24 rounded-full" />
+                  </div>
+                  <Skeleton className="h-9 w-24 rounded-md" />
+                </div>
+                <CardContent className="p-6">
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-2/3" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-6 w-28 rounded-full" />
+                      <Skeleton className="h-9 w-full rounded-md mt-2" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : orders.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
@@ -703,9 +858,10 @@ export default function AdminOrdersPage() {
               <div className="space-y-2">
                 <Label>Estimated Delivery Date</Label>
                 <Input 
-                  placeholder="e.g. 23 December 2025" 
+                  type="date"
                   value={estimatedDelivery}
                   onChange={handleEstimatedDeliveryChange}
+                  min={new Date().toISOString().split("T")[0]}
                 />
               </div>
               <div className="flex gap-2 pt-4">

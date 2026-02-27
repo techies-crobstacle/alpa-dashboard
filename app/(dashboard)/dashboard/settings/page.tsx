@@ -323,7 +323,7 @@ export default function SettingsPage() {
 								<FormItem>
 									<FormLabel>Name</FormLabel>
 									<FormControl>
-										<Input placeholder="John Doe" {...field} disabled={!isEditing} />
+										<Input placeholder="Your name" {...field} disabled={!isEditing} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -350,7 +350,7 @@ export default function SettingsPage() {
 							<FormItem>
 								<FormLabel>Email</FormLabel>
 								<FormControl>
-									<Input placeholder="john.doe@example.com" {...field} disabled />
+									<Input placeholder="Your email" {...field} disabled />
 								</FormControl>
 								<FormMessage />
 							</FormItem>

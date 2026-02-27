@@ -15,7 +15,7 @@ export default function UserListCard() {
       setLoading(true);
       try {
         const token = typeof window !== "undefined" ? (localStorage.getItem("alpa_token") || localStorage.getItem("auth_token")) : null;
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/users/all`;
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/users/all`;
         
         console.log("📍 UserListCard fetching from:", apiUrl);
         console.log("🔍 Token exists:", !!token);

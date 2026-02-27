@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api";
 import { decodeJWT } from "@/lib/jwt";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 type User = {
@@ -99,7 +100,68 @@ export default function UsersPage() {
   }, []);
 
   if (loading) {
-    return <div className="p-8">Loading users...</div>;
+    return (
+      <div className="space-y-6">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-28 rounded-md" />
+        </div>
+
+        {/* Filter bar skeleton */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-wrap gap-3 items-center">
+              <Skeleton className="h-10 w-64 rounded-md" />
+              <Skeleton className="h-10 w-36 rounded-md" />
+              <Skeleton className="h-10 w-36 rounded-md" />
+              <Skeleton className="h-10 w-36 rounded-md" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Table skeleton */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {["User", "Role", "Phone", "Status", "Joined", "Actions"].map((h) => (
+                    <TableHead key={h}>{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-1">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-44" />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
   if (error) {
     return <div className="p-8 text-red-600">{error}</div>;
@@ -287,7 +349,7 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell className="text-right flex gap-2 justify-end">
                     <Button variant="outline" size="sm" onClick={() => {/* TODO: handle edit user */}}>
-                      Edit
+                      Inactive
                     </Button>
                     <Button variant="destructive" size="sm" onClick={() => {/* TODO: handle delete user */}}>
                       Delete

@@ -14,7 +14,7 @@
  
 // import { toast } from "sonner";
 
-// const BASE_URL = "https://alpa-be.onrender.com";
+// const BASE_URL = "http://127.0.0.1:5000";
 
 // // --- API HELPERS ---
 // const getAuthHeaders = () => {
@@ -428,12 +428,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
  
 import { toast } from "sonner";
 
-const BASE_URL = "https://alpa-be.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 // --- API HELPERS ---
 const getAuthHeaders = () => {
@@ -609,7 +610,69 @@ export default function OrdersPage() {
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (loading) return (
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header skeleton */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-40" />
+          <Skeleton className="h-4 w-72" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-28 rounded-md" />
+          <Skeleton className="h-9 w-32 rounded-md" />
+        </div>
+      </div>
+
+      {/* Order card skeletons */}
+      <div className="grid gap-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Card key={i} className="overflow-hidden">
+            {/* Card header row */}
+            <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-1.5">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="space-y-1.5 text-right">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+              <Skeleton className="h-9 w-24 rounded-md" />
+            </div>
+            {/* Card body */}
+            <CardContent className="p-6">
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-6 w-28 rounded-full" />
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-9 w-full rounded-md mt-2" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 
   // Helper to render shipping address safely
   function renderShippingAddress(address: any) {
