@@ -307,12 +307,12 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 			{/* Logo */}
 			<div className={cn("flex h-16 items-center border-b justify-between", isCollapsed ? "px-2 justify-center" : "px-6")}>
 				{!isCollapsed && (
-					<Link href="/dashboard" className="flex items-center py-4 gap-3 group">
+					<div className="flex items-center py-4 gap-3 group">
 						<img src="/navbarLogo.png" alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-primary p-1" />
 						<span className="text-xl font-bold group-hover:text-primary transition-colors">
 							Dashboard
 						</span>
-					</Link>
+					</div>
 				)}
 				<Button
 					variant="ghost"

@@ -285,6 +285,8 @@ const OrdersLoadingSkeleton = () => {
               <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Total</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Tracking</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Invoice</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Invoice</th>
               <th className="px-4 py-3 text-left text-sm font-medium">View</th>
             </tr>
           </thead>
@@ -296,6 +298,7 @@ const OrdersLoadingSkeleton = () => {
                 <td className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-8 w-24 rounded-md" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-8 w-24 rounded-md" /></td>
               </tr>
             ))}
@@ -500,6 +503,22 @@ const CustomerOrdersPage = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={downloadingInvoiceId === order.id}
+                        onClick={() => handleDownloadInvoice(order.id)}
+                        className="gap-1"
+                      >
+                        {downloadingInvoiceId === order.id ? (
+                          <Loader2 className="animate-spin h-4 w-4" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
+                        Invoice
+                      </Button>
+                    </td>
+                    <td className="px-4 py-3">
                       <Button variant="outline" size="sm" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
                         {expandedOrderId === order.id ? <><Eye className="h-4 w-4" /> Hide <ChevronUp className="h-4 w-4" /></> : <><Eye className="h-4 w-4" /> View <ChevronDown className="h-4 w-4" /></>}
                       </Button>
@@ -507,7 +526,7 @@ const CustomerOrdersPage = () => {
                   </tr>
                   {expandedOrderId === order.id && (
                     <tr>
-                      <td colSpan={6} className="bg-muted/40 p-0">
+                      <td colSpan={7} className="bg-muted/40 p-0">
                         <div className="p-6 space-y-6">
                           {/* Progress Tracker */}
                           <Card>
@@ -596,26 +615,24 @@ const CustomerOrdersPage = () => {
                               )}
 
                               {/* Download Invoice Button */}
-                              {typeof order.status === 'string' && order.status.toLowerCase() === "delivered" && (
-                                <Button
-                                  variant="default"
-                                  disabled={downloadingInvoiceId === order.id}
-                                  onClick={() => handleDownloadInvoice(order.id)}
-                                  className="mt-4"
-                                >
-                                  {downloadingInvoiceId === order.id ? (
-                                    <>
-                                      <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                                      Downloading...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Download className="h-4 w-4 mr-2" />
-                                      Download Invoice
-                                    </>
-                                  )}
-                                </Button>
-                              )}
+                              <Button
+                                variant="default"
+                                disabled={downloadingInvoiceId === order.id}
+                                onClick={() => handleDownloadInvoice(order.id)}
+                                className="mt-4 ml-4"
+                              >
+                                {downloadingInvoiceId === order.id ? (
+                                  <>
+                                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                                    Downloading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice
+                                  </>
+                                )}
+                              </Button>
                             </CardContent>
                           </Card>
 

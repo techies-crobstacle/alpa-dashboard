@@ -7,25 +7,26 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Percent, Plus, X, Trash2, RefreshCw, Tag, Pencil } from "lucide-react";
+import { Plus, X, Trash2, RefreshCw, Pencil } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface Coupon {
   id?: string;
   code: string;
-  discountType: "percentage" | "flat";
+  discountType: "percentage" | "fixed";
   discountValue: number;
-  maxDiscount: number;
-  minCartValue: number;
   expiresAt: string;
-  usageLimit: number;
-  usagePerUser: number;
+
   usageCount?: number;
-  isActive: boolean;
   createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
+  isActive: boolean;
+  usageLimit: number | null;
+  usedCount?: number;
+  usagePerUser: number | null;
+  minCartValue: number | null;
+  maxDiscount: number | null;
 }
 
 const emptyForm = {
@@ -41,7 +42,17 @@ const emptyForm = {
 };
 
 export default function CouponPage() {
-  const [form, setForm] = useState(emptyForm);
+  // Form state
+  const [code, setCode] = useState("");
+  const [discountType, setDiscountType] = useState<"percentage" | "fixed">("percentage");
+  const [discountValue, setDiscountValue] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [usageLimit, setUsageLimit] = useState("");
+  const [usagePerUser, setUsagePerUser] = useState("");
+  const [minCartValue, setMinCartValue] = useState("");
+  const [maxDiscount, setMaxDiscount] = useState("");
+  const [isActive, setIsActive] = useState(true);
+
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
@@ -53,6 +64,8 @@ export default function CouponPage() {
       setLoading(true);
       const response = await api.get('/api/admin/coupons');
       console.log('Coupons API Response:', response);
+
+      // Handle different response structures
       const couponsData = response.coupons || response.data || response || [];
       setCoupons(Array.isArray(couponsData) ? couponsData : []);
     } catch (error) {
@@ -69,64 +82,89 @@ export default function CouponPage() {
     fetchCoupons();
   }, []);
 
-  const handleChange = (field: keyof typeof emptyForm, value: string | boolean) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+  const resetForm = () => {
+    setCode("");
+    setDiscountType("percentage");
+    setDiscountValue("");
+    setExpiry("");
+    setUsageLimit("");
+    setUsagePerUser("");
+    setMinCartValue("");
+    setMaxDiscount("");
+    setIsActive(true);
   };
 
-  const handleGenerate = async (e: React.FormEvent) => {
+  const handleOpenEdit = (coupon: Coupon) => {
+    setEditingCoupon(coupon);
+    setCode(coupon.code);
+    setDiscountType(coupon.discountType);
+    setDiscountValue(String(coupon.discountValue));
+    setExpiry(coupon.expiresAt ? coupon.expiresAt.split('T')[0] : "");
+    setUsageLimit(coupon.usageLimit !== null ? String(coupon.usageLimit) : "");
+    setUsagePerUser(coupon.usagePerUser !== null ? String(coupon.usagePerUser) : "");
+    setMinCartValue(coupon.minCartValue !== null ? String(coupon.minCartValue) : "");
+    setMaxDiscount(coupon.maxDiscount !== null ? String(coupon.maxDiscount) : "");
+    setIsActive(coupon.isActive);
+    setShowModal(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const discountVal = Number(form.discountValue);
-    const maxDiscountVal = Number(form.maxDiscount);
-    const minCartVal = Number(form.minCartValue);
-    const usageLimitVal = Number(form.usageLimit);
-    const usagePerUserVal = Number(form.usagePerUser);
-
-    if (!form.code || !form.discountValue || !form.expiry) {
+    if (!code || !discountValue || !expiry) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
-    if (form.discountType === "percentage" && (discountVal <= 0 || discountVal > 100)) {
-      toast.error("Percentage discount must be between 1 and 100.");
+    const parsedValue = Number(discountValue);
+    if (isNaN(parsedValue) || parsedValue <= 0) {
+      toast.error("Discount value must be a positive number.");
       return;
     }
-
-    if (form.discountType === "flat" && discountVal <= 0) {
-      toast.error("Flat discount must be greater than 0.");
+    if (discountType === "percentage" && parsedValue > 100) {
+      toast.error("Percentage discount cannot exceed 100.");
       return;
     }
 
     setSubmitting(true);
 
+    const isEdit = editingCoupon !== null;
+
     try {
-      const payload = {
-        code: form.code.toUpperCase(),
-        discountType: form.discountType,
-        discountValue: discountVal,
-        maxDiscount: maxDiscountVal || 0,
-        minCartValue: minCartVal || 0,
-        expiresAt: new Date(form.expiry + 'T23:59:59Z').toISOString(),
-        usageLimit: usageLimitVal || 0,
-        usagePerUser: usagePerUserVal || 1,
-        isActive: form.isActive,
+      const expiryDate = new Date(expiry + 'T23:59:59Z').toISOString();
+
+      const payload: Record<string, unknown> = {
+        code: code.toUpperCase(),
+        discountType,
+        discountValue: parsedValue,
+        expiresAt: expiryDate,
+        isActive,
+        usageLimit: usageLimit !== "" ? Number(usageLimit) : null,
+        usagePerUser: usagePerUser !== "" ? Number(usagePerUser) : null,
+        minCartValue: minCartValue !== "" ? Number(minCartValue) : null,
+        maxDiscount: maxDiscount !== "" ? Number(maxDiscount) : null,
       };
 
-      console.log("Creating coupon with payload:", payload);
-      const response = await api.post('/api/admin/coupons', payload);
-      console.log("Coupon creation response:", response);
+      if (isEdit) {
+        await api.put(`/api/admin/coupons/${editingCoupon!.id}`, payload);
+        toast.success("Coupon updated successfully!", {
+          description: `Coupon ${code.toUpperCase()} has been updated.`,
+        });
+      } else {
+        await api.post('/api/admin/coupons', payload);
+        toast.success("Coupon created successfully!", {
+          description: `Coupon ${code.toUpperCase()} has been generated.`,
+        });
+      }
 
-      toast.success("Coupon created successfully!", {
-        description: `Coupon ${form.code.toUpperCase()} has been generated.`,
-      });
-
-      setForm(emptyForm);
+      resetForm();
+      setEditingCoupon(null);
       setShowModal(false);
       await fetchCoupons();
     } catch (error: any) {
-      console.error("Coupon creation error:", error);
+      console.error(isEdit ? "Coupon update error:" : "Coupon creation error:", error);
 
-      let errorMessage = "Failed to create coupon";
+      let errorMessage = isEdit ? "Failed to update coupon" : "Failed to create coupon";
       let errorDescription = "Please try again later.";
 
       if (error.message?.includes("already exists")) {
@@ -143,92 +181,29 @@ export default function CouponPage() {
     }
   };
 
-  const handleEditOpen = (coupon: Coupon) => {
-    setEditingCoupon(coupon);
-    setForm({
-      code: coupon.code,
-      discountType: coupon.discountType,
-      discountValue: String(coupon.discountValue),
-      maxDiscount: coupon.maxDiscount ? String(coupon.maxDiscount) : "",
-      minCartValue: coupon.minCartValue ? String(coupon.minCartValue) : "",
-      expiry: coupon.expiresAt ? coupon.expiresAt.split('T')[0] : "",
-      usageLimit: coupon.usageLimit ? String(coupon.usageLimit) : "",
-      usagePerUser: coupon.usagePerUser ? String(coupon.usagePerUser) : "",
-      isActive: coupon.isActive,
+  const confirmDelete = (couponId: string, couponCode: string) => {
+    toast(`Delete coupon "${couponCode}"?`, {
+      description: "This action cannot be undone.",
+      duration: 8000,
+      action: {
+        label: "Yes, Delete",
+        onClick: () => performDelete(couponId, couponCode),
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
     });
-    setShowModal(true);
   };
 
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingCoupon(null);
-    setForm(emptyForm);
-  };
-
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCoupon?.id) return;
-
-    const discountVal = Number(form.discountValue);
-    const maxDiscountVal = Number(form.maxDiscount);
-    const minCartVal = Number(form.minCartValue);
-    const usageLimitVal = Number(form.usageLimit);
-    const usagePerUserVal = Number(form.usagePerUser);
-
-    if (!form.discountValue || !form.expiry) {
-      toast.error("Please fill in all required fields.");
-      return;
-    }
-
-    if (form.discountType === "percentage" && (discountVal <= 0 || discountVal > 100)) {
-      toast.error("Percentage discount must be between 1 and 100.");
-      return;
-    }
-
-    if (form.discountType === "flat" && discountVal <= 0) {
-      toast.error("Flat discount must be greater than 0.");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const payload = {
-        discountType: form.discountType,
-        discountValue: discountVal,
-        maxDiscount: maxDiscountVal || 0,
-        minCartValue: minCartVal || 0,
-        expiresAt: new Date(form.expiry + 'T23:59:59Z').toISOString(),
-        usageLimit: usageLimitVal || 0,
-        usagePerUser: usagePerUserVal || 1,
-        isActive: form.isActive,
-      };
-
-      console.log("Updating coupon with payload:", payload);
-      const response = await api.put(`/api/admin/coupons/${editingCoupon.id}`, payload);
-      console.log("Coupon update response:", response);
-
-      toast.success("Coupon updated successfully!", {
-        description: `Coupon ${editingCoupon.code} has been updated.`,
-      });
-
-      handleCloseModal();
-      await fetchCoupons();
-    } catch (error: any) {
-      console.error("Coupon update error:", error);
-      toast.error("Failed to update coupon", {
-        description: error.message || "Please try again later.",
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (couponId: string, couponCode: string) => {
+  const performDelete = async (couponId: string, couponCode: string) => {
     try {
       await api.delete(`/api/admin/coupons/${couponId}`, { reason: "" });
+
       toast.success("Coupon deleted successfully!", {
         description: `Coupon ${couponCode} has been removed.`,
       });
+
       await fetchCoupons();
     } catch (error) {
       console.error("Failed to delete coupon:", error);
@@ -256,14 +231,14 @@ export default function CouponPage() {
 
   const formatDiscount = (coupon: Coupon) => {
     if (coupon.discountType === "percentage") {
-      return (
-        <div className="flex items-center gap-1">
-          <span className="font-semibold">{coupon.discountValue}</span>
-          <Percent className="w-3 h-3 text-muted-foreground" />
-        </div>
-      );
+      return `${coupon.discountValue}%`;
     }
-    return <span className="font-semibold">${coupon.discountValue}</span>;
+    return `$${coupon.discountValue.toFixed(2)}`;
+  };
+
+  const formatOptional = (value: number | null | undefined, prefix = "") => {
+    if (value === null || value === undefined) return <span className="text-muted-foreground text-xs">—</span>;
+    return `${prefix}${value}`;
   };
 
   return (
@@ -284,174 +259,242 @@ export default function CouponPage() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button className="gap-2 w-full md:w-auto" onClick={() => { setEditingCoupon(null); setForm(emptyForm); setShowModal(true); }}>
+          <Button className="gap-2 w-full md:w-auto" onClick={() => { resetForm(); setEditingCoupon(null); setShowModal(true); }}>
             <Plus className="w-4 h-4" /> Generate Coupon
           </Button>
         </div>
       </div>
 
-      {/* Modal for creating / editing coupon */}
+      {/* Modal for create / edit coupon */}
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50 p-4">
-          <Card className="w-full max-w-lg p-6 rounded-lg shadow-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                {editingCoupon ? <Pencil className="w-5 h-5" /> : <Tag className="w-5 h-5" />}
-                <h2 className="text-lg font-semibold">{editingCoupon ? `Edit Coupon — ${editingCoupon.code}` : "Generate Coupon"}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-xl bg-background rounded-2xl shadow-2xl border border-border overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40">
+              <div>
+                <h2 className="text-base font-semibold tracking-tight">
+                  {editingCoupon ? "Edit Coupon" : "Create New Coupon"}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {editingCoupon ? `Editing ${editingCoupon.code}` : "Fill in the details to generate a new coupon."}
+                </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={handleCloseModal}>
-                <X className="w-5 h-5" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => { setShowModal(false); setEditingCoupon(null); resetForm(); }}
+              >
+                <X className="w-4 h-4" />
               </Button>
             </div>
-            <form className="space-y-4" onSubmit={editingCoupon ? handleUpdate : handleGenerate}>
-              {/* Coupon Code */}
-              <div>
-                <Label htmlFor="code">Coupon Code <span className="text-red-500">*</span></Label>
-                <Input
-                  id="code"
-                  placeholder="E.g. SAVE20"
-                  value={form.code}
-                  onChange={e => handleChange("code", e.target.value.toUpperCase())}
-                  maxLength={20}
-                  required
-                  disabled={!!editingCoupon}
-                />
-                {editingCoupon && (
-                  <p className="text-xs text-muted-foreground mt-1">Coupon code cannot be changed.</p>
-                )}
-              </div>
 
-              {/* Discount Type + Value */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="discountType">Discount Type <span className="text-red-500">*</span></Label>
-                  <Select
-                    value={form.discountType}
-                    onValueChange={val => handleChange("discountType", val)}
-                  >
-                    <SelectTrigger id="discountType">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="percentage">Percentage (%)</SelectItem>
-                      <SelectItem value="flat">Flat ($)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="discountValue">
-                    Discount Value <span className="text-red-500">*</span>
+            <form onSubmit={handleSubmit}>
+              <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+
+                {/* Coupon Code */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="code" className="text-sm font-medium">
+                    Coupon Code <span className="text-red-500">*</span>
                   </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="discountValue"
-                      type="number"
-                      placeholder={form.discountType === "percentage" ? "E.g. 20" : "E.g. 100"}
-                      value={form.discountValue}
-                      onChange={e => handleChange("discountValue", e.target.value)}
-                      min={1}
-                      max={form.discountType === "percentage" ? 100 : undefined}
+                  <Input
+                    id="code"
+                    placeholder="E.g. SAVE20"
+                    value={code}
+                    onChange={e => setCode(e.target.value.toUpperCase())}
+                    maxLength={20}
+                    disabled={!!editingCoupon}
+                    className={`font-mono tracking-widest uppercase h-10 ${editingCoupon ? "bg-muted text-muted-foreground" : ""}`}
+                    required
+                  />
+                  {editingCoupon && (
+                    <p className="text-xs text-muted-foreground">Code cannot be changed after creation.</p>
+                  )}
+                </div>
 
-                      required
-                    />
-                    {form.discountType === "percentage" ? (
-                      <Percent className="w-4 h-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <span className="text-muted-foreground text-sm shrink-0">$</span>
-                    )}
+                {/* Discount Type + Value */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="discountType" className="text-sm font-medium">
+                      Discount Type <span className="text-red-500">*</span>
+                    </Label>
+                    <Select value={discountType} onValueChange={(v) => setDiscountType(v as "percentage" | "fixed")}>
+                      <SelectTrigger id="discountType" className="h-10">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Percentage (%)</SelectItem>
+                        <SelectItem value="fixed">Fixed ($)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="discountValue" className="text-sm font-medium">
+                      Value <span className="text-red-500">*</span>
+                      {discountType === "percentage" && (
+                        <span className="text-muted-foreground font-normal ml-1">(max 100)</span>
+                      )}
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="discountValue"
+                        type="number"
+                        placeholder={discountType === "percentage" ? "20" : "10.00"}
+                        value={discountValue}
+                        onChange={e => setDiscountValue(e.target.value)}
+                        min={0.01}
+                        max={discountType === "percentage" ? 100 : undefined}
+                        step={discountType === "fixed" ? "0.01" : "1"}
+                        className="h-10 pr-8"
+                        required
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
+                        {discountType === "percentage" ? "%" : "$"}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Max Discount + Min Cart Value */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="maxDiscount">Max Discount ($)</Label>
-                  <Input
-                    id="maxDiscount"
-                    type="number"
-                    placeholder="E.g. 500"
-                    value={form.maxDiscount}
-                    onChange={e => handleChange("maxDiscount", e.target.value)}
-                    min={0}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="minCartValue">Min Cart Value ($)</Label>
-                  <Input
-                    id="minCartValue"
-                    type="number"
-                    placeholder="E.g. 500"
-                    value={form.minCartValue}
-                    onChange={e => handleChange("minCartValue", e.target.value)}
-                    min={0}
-                  />
-                </div>
-              </div>
-
-              {/* Usage Limit + Per User */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="usageLimit">Usage Limit</Label>
-                  <Input
-                    id="usageLimit"
-                    type="number"
-                    placeholder="E.g. 1000"
-                    value={form.usageLimit}
-                    onChange={e => handleChange("usageLimit", e.target.value)}
-                    min={0}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="usagePerUser">Usage Per User</Label>
-                  <Input
-                    id="usagePerUser"
-                    type="number"
-                    placeholder="E.g. 1"
-                    value={form.usagePerUser}
-                    onChange={e => handleChange("usagePerUser", e.target.value)}
-                    min={1}
-                  />
-                </div>
-              </div>
-
-              {/* Expiry Date + Status */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="expiry">Expiry Date <span className="text-red-500">*</span></Label>
+                {/* Expiry Date */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="expiry" className="text-sm font-medium">
+                    Expiry Date <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="expiry"
                     type="date"
-                    value={form.expiry}
-                    onChange={e => handleChange("expiry", e.target.value)}
+                    value={expiry}
+                    onChange={e => setExpiry(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
+                    className="h-10"
                     required
                   />
                 </div>
-                <div>
-                  <Label htmlFor="isActive">Status</Label>
-                  <Select
-                    value={form.isActive ? "true" : "false"}
-                    onValueChange={val => handleChange("isActive", val === "true")}
-                  >
-                    <SelectTrigger id="isActive">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">Active</SelectItem>
-                      <SelectItem value="false">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+                {/* Divider: Optional */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-dashed border-border" />
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-background px-3 text-xs text-muted-foreground font-medium uppercase tracking-widest">
+                      Optional
+                    </span>
+                  </div>
                 </div>
+
+                {/* Usage Limits */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="usageLimit" className="text-sm font-medium">Total Usage Limit</Label>
+                    <Input
+                      id="usageLimit"
+                      type="number"
+                      placeholder="Unlimited"
+                      value={usageLimit}
+                      onChange={e => setUsageLimit(e.target.value)}
+                      min={1}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="usagePerUser" className="text-sm font-medium">Per-User Limit</Label>
+                    <Input
+                      id="usagePerUser"
+                      type="number"
+                      placeholder="Unlimited"
+                      value={usagePerUser}
+                      onChange={e => setUsagePerUser(e.target.value)}
+                      min={1}
+                      className="h-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Min Cart + Max Discount */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="minCartValue" className="text-sm font-medium">Min Cart Value ($)</Label>
+                    <div className="relative">
+                      <Input
+                        id="minCartValue"
+                        type="number"
+                        placeholder="No minimum"
+                        value={minCartValue}
+                        onChange={e => setMinCartValue(e.target.value)}
+                        min={0}
+                        step="0.01"
+                        className="h-10 pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">$</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="maxDiscount" className="text-sm font-medium">
+                      Max Discount Cap ($)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="maxDiscount"
+                        type="number"
+                        placeholder={discountType === "fixed" ? "N/A" : "No cap"}
+                        value={maxDiscount}
+                        onChange={e => setMaxDiscount(e.target.value)}
+                        min={0}
+                        step="0.01"
+                        disabled={discountType === "fixed"}
+                        className="h-10 pr-8 disabled:opacity-50"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">$</span>
+                    </div>
+                    {discountType === "fixed" && (
+                      <p className="text-xs text-muted-foreground">Not applicable for fixed discounts.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Active Status Toggle */}
+                <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium">{editingCoupon ? "Coupon Status" : "Active on Creation"}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isActive ? "Coupon is usable by customers." : "Coupon is disabled and cannot be used."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isActive}
+                    onClick={() => setIsActive(v => !v)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${isActive ? "bg-green-500" : "bg-muted-foreground/30"}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md transform transition-transform duration-200 ${isActive ? "translate-x-5" : "translate-x-0"}`}
+                    />
+                  </button>
+                </div>
+
               </div>
 
-              <Button type="submit" className="w-full mt-2" disabled={submitting}>
-                {submitting
-                  ? editingCoupon ? "Updating..." : "Creating..."
-                  : editingCoupon ? "Update Coupon" : "Create Coupon"}
-              </Button>
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/20">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => { setShowModal(false); setEditingCoupon(null); resetForm(); }}
+                  className="min-w-[90px]"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting} className="min-w-[120px]">
+                  {submitting
+                    ? (editingCoupon ? "Saving..." : "Creating...")
+                    : (editingCoupon ? "Save Changes" : "Create Coupon")}
+                </Button>
+              </div>
             </form>
-          </Card>
+          </div>
         </div>
       )}
 
@@ -464,25 +507,26 @@ export default function CouponPage() {
               <TableHead>Coupon Code</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Discount</TableHead>
-              <TableHead>Max Discount</TableHead>
-              <TableHead>Min Cart</TableHead>
-              <TableHead>Usage</TableHead>
-              <TableHead>Expires At</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Usage</TableHead>
+              <TableHead>Per User</TableHead>
+              <TableHead>Min Cart</TableHead>
+              <TableHead>Max Discount</TableHead>
+              <TableHead>Expires At</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-2" />
                   Loading coupons...
                 </TableCell>
               </TableRow>
             ) : coupons.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   No coupons found. Create your first coupon to get started.
                 </TableCell>
               </TableRow>
@@ -496,49 +540,52 @@ export default function CouponPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-xs capitalize">
+                    <Badge variant="outline" className="capitalize text-xs">
                       {coupon.discountType}
                     </Badge>
                   </TableCell>
-                  <TableCell>{formatDiscount(coupon)}</TableCell>
                   <TableCell>
-                    {coupon.maxDiscount ? `$${coupon.maxDiscount}` : <span className="text-muted-foreground">—</span>}
+                    <span className="font-semibold">{formatDiscount(coupon)}</span>
                   </TableCell>
                   <TableCell>
-                    {coupon.minCartValue ? `$${coupon.minCartValue}` : <span className="text-muted-foreground">—</span>}
+                    {isExpired(coupon.expiresAt) ? (
+                      <Badge variant="destructive" className="text-xs">Expired</Badge>
+                    ) : coupon.isActive ? (
+                      <Badge className="text-xs bg-green-500 hover:bg-green-600">Active</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <span className="text-sm">
-                      {coupon.usageCount ?? 0}
-                      {coupon.usageLimit ? ` / ${coupon.usageLimit}` : ""}
+                      {coupon.usedCount ?? 0}
+                      {coupon.usageLimit !== null && coupon.usageLimit !== undefined
+                        ? ` / ${coupon.usageLimit}`
+                        : " / ∞"}
                     </span>
                   </TableCell>
+                  <TableCell>{formatOptional(coupon.usagePerUser)}</TableCell>
+                  <TableCell>{formatOptional(coupon.minCartValue, "$")}</TableCell>
+                  <TableCell>{formatOptional(coupon.maxDiscount, "$")}</TableCell>
                   <TableCell>{formatDate(coupon.expiresAt)}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={!coupon.isActive || isExpired(coupon.expiresAt) ? "destructive" : "default"}
-                      className="text-xs"
-                    >
-                      {isExpired(coupon.expiresAt) ? "Expired" : coupon.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEditOpen(coupon)}
+                        onClick={() => handleOpenEdit(coupon)}
                         className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        disabled={!coupon.id}
+                        title="Edit coupon"
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => coupon.id && handleDelete(coupon.id, coupon.code)}
+                        onClick={() => coupon.id && confirmDelete(coupon.id, coupon.code)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         disabled={!coupon.id}
+                        title="Delete coupon"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
