@@ -215,16 +215,180 @@ export default function AdminOrdersPage() {
     return String(val);
   };
 
-  // Helper to render shipping address safely
-  function renderShippingAddress(address: any) {
-    if (!address) return "N/A";
-    if (typeof address === "string") return address;
-    if (typeof address === "object") {
-      const { address: addrText, street, suburb, postcode, fullAddress, orderSummary } = address;
-      const parts = [fullAddress, addrText, street, suburb, postcode, orderSummary].filter(p => p && typeof p === 'string');
-      return parts.length > 0 ? parts.join(", ") : JSON.stringify(address);
+  function renderOrderDetails(order: Order) {
+    // Parse address object
+    let addr: Record<string, any> = {};
+    const raw = order.shippingAddress;
+    if (raw && typeof raw === "object") addr = raw;
+    else if (typeof raw === "string") { try { addr = JSON.parse(raw); } catch { addr = { address: raw }; } }
+
+    const summary = addr.orderSummary ?? {};
+    const sm = summary.shippingMethod ?? {};
+
+    // Address fields to display
+    const addrFields: [string, string][] = [
+      ["firstName", "First Name"],
+      ["lastName", "Last Name"],
+      ["addressLine", "Address Line"],
+      ["address", "Address"],
+      ["street", "Street"],
+      ["suburb", "Suburb"],
+      ["city", "City"],
+      ["state", "State"],
+      ["country", "Country"],
+      ["zipCode", "ZIP Code"],
+      ["zipcode", "ZIP Code"],
+      ["postcode", "Postcode"],
+      ["phone", "Phone"],
+      ["email", "Email"],
+    ];
+
+    // Merge firstName + lastName into one row; track seen labels to avoid duplicates
+    const nameVal = [addr.firstName, addr.lastName].filter(Boolean).join(" ");
+    const addressRows: { label: string; value: string }[] = [];
+    const seenLabels = new Set<string>();
+    if (nameVal) { addressRows.push({ label: "Name", value: nameVal }); seenLabels.add("First Name"); seenLabels.add("Last Name"); }
+    for (const [key, label] of addrFields) {
+      if (key === "firstName" || key === "lastName") continue;
+      if (seenLabels.has(label)) continue;
+      const val = addr[key];
+      if (val != null && typeof val === "string" && val.trim() !== "") {
+        addressRows.push({ label, value: val });
+        seenLabels.add(label);
+      }
     }
-    return String(address);
+
+    return (
+      <div className="p-5 space-y-4 border-t bg-muted/20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+          {/* Order Info */}
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b">
+              <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Info</span>
+            </div>
+            <div className="divide-y text-sm">
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-muted-foreground">Order ID</span>
+                <span className="font-mono text-xs font-medium">{String(order.id ?? "").slice(-10).toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-muted-foreground">Status</span>
+                <Badge variant={order.status === "delivered" ? "default" : order.status === "cancelled" ? "destructive" : "secondary"} className="text-xs h-5">
+                  {renderValue(order.status).toUpperCase()}
+                </Badge>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-muted-foreground">Date</span>
+                <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "N/A"}</span>
+              </div>
+              <div className="flex justify-between px-4 py-2.5">
+                <span className="text-muted-foreground">Payment</span>
+                <span className="font-medium capitalize">{renderValue(order.paymentMethod)}</span>
+              </div>
+              {order.trackingNumber && (
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-muted-foreground">Tracking</span>
+                  <span className="font-mono text-xs font-medium">{renderValue(order.trackingNumber)}</span>
+                </div>
+              )}
+              {order.estimatedDelivery && (
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-muted-foreground">Est. Delivery</span>
+                  <span className="font-medium">{renderValue(order.estimatedDelivery)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Shipping Address */}
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shipping Address</span>
+            </div>
+            {addressRows.length > 0 ? (
+              <div className="divide-y text-sm">
+                {addressRows.map(({ label, value }, i) => (
+                  <div key={i} className="flex justify-between px-4 py-2.5 gap-4">
+                    <span className="text-muted-foreground shrink-0">{label}</span>
+                    <span className="font-medium text-right">{value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-4 text-sm text-muted-foreground">No address on file.</div>
+            )}
+          </div>
+
+          {/* Order Totals — receipt style */}
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Totals</span>
+            </div>
+            <div className="px-4 py-3 space-y-2 text-sm">
+              {summary.subtotal != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>${summary.subtotal}</span>
+                </div>
+              )}
+              {summary.shippingCost != null && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    Shipping{sm.name ? ` · ${sm.name}` : ""}
+                    {sm.estimatedDays && <span className="text-xs block text-muted-foreground/70">{sm.estimatedDays}</span>}
+                  </span>
+                  <span>${summary.shippingCost}</span>
+                </div>
+              )}
+              {summary.discountAmount != null && Number(summary.discountAmount) > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount{summary.couponCode ? ` (${summary.couponCode})` : ""}</span>
+                  <span>− ${summary.discountAmount}</span>
+                </div>
+              )}
+              {summary.gstAmount != null && Number(summary.gstAmount) > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">GST {summary.gstPercentage ? `(${summary.gstPercentage}%)` : ""}</span>
+                  <span>${summary.gstAmount}</span>
+                </div>
+              )}
+              <div className="border-t pt-2 mt-1 flex justify-between font-bold text-base">
+                <span>Grand Total</span>
+                <span>${order.totalAmount}</span>
+                {/* <span>${summary.grandTotal ?? renderValue(order.totalAmount)}</span> */}
+              </div>
+              {summary.couponCode && Number(summary.discountAmount) === 0 && (
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Coupon applied</span>
+                  <span className="font-mono">{summary.couponCode}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Invoice button */}
+        {order.status && order.status.toLowerCase() !== "pending" && (
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={downloadingInvoiceId === order.id}
+              onClick={() => handleDownloadInvoice(order.id)}
+              className="gap-2"
+            >
+              {downloadingInvoiceId === order.id
+                ? <><Loader2 className="animate-spin h-4 w-4" />Downloading...</>
+                : <><Download className="h-4 w-4" />Download Invoice</>}
+            </Button>
+          </div>
+        )}
+      </div>
+    );
   }
 
   const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
@@ -481,7 +645,7 @@ export default function AdminOrdersPage() {
                           <span>{item.product?.title || item.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
                         </div>
                       ))}
-                      <p className="font-bold pt-2 border-t flex items-center gap-1"><DollarSign className="h-3 w-3" /> Total: ${order.totalAmount}</p>
+                      {/* <p className="font-bold pt-2 border-t flex items-center gap-1"><DollarSign className="h-3 w-3" /> Total: ${order.totalAmount}</p> */}
                     </div>
                   </div>
 
@@ -521,67 +685,7 @@ export default function AdminOrdersPage() {
                     )}
                   </div>
                 </div>
-                {expandedOrderId === order.id && (
-                  <div className="mt-6 border-t pt-4 space-y-4 bg-muted/40 rounded p-4 text-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="flex items-center gap-2 font-medium"><Hash className="h-4 w-4" /><strong>Order ID:</strong> {renderValue(order.id)}</div>
-                      <div className="flex items-center gap-2 font-medium"><ClipboardList className="h-4 w-4" /><strong>Status:</strong> {renderValue(order.status).toUpperCase()}</div>
-                      <div className="flex items-center gap-2 font-medium"><Calendar className="h-4 w-4" /><strong>Created At:</strong> {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}</div>
-                      <div className="flex items-center gap-2 font-medium"><DollarSign className="h-4 w-4" /><strong>Total Amount:</strong> ${renderValue(order.totalAmount)}</div>
-                      <div className="flex items-center gap-2 font-medium"><CreditCard className="h-4 w-4" /><strong>Payment Method:</strong> {renderValue(order.paymentMethod)}</div>
-                      <div className="flex items-center gap-2 font-medium"><Truck className="h-4 w-4" /><strong>Tracking Number:</strong> {renderValue(order.trackingNumber || 'N/A')}</div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1"><MapPin className="h-4 w-4" /><strong>Shipping Address:</strong></div>
-                        <p className="ml-6 font-medium">{renderShippingAddress(order.shippingAddress)}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div><strong className="text-muted-foreground mr-1">City:</strong> <span className="font-medium">{renderValue(order.shippingCity)}</span></div>
-                        <div><strong className="text-muted-foreground mr-1">State:</strong> <span className="font-medium">{renderValue(order.shippingState)}</span></div>
-                        <div><strong className="text-muted-foreground mr-1">Postcode:</strong> <span className="font-medium">{renderValue(order.shippingPostcode)}</span></div>
-                        <div><strong className="text-muted-foreground mr-1">Phone:</strong> <span className="font-medium">{renderValue(order.shippingPhone)}</span></div>
-                      </div>
-                    </div>
-
-                    {/* Download Invoice Button */}
-                    {order.status && order.status.toLowerCase() !== 'pending' && (
-                      <div className="mt-4 pt-2 border-t">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          disabled={downloadingInvoiceId === order.id}
-                          onClick={() => handleDownloadInvoice(order.id)}
-                          className="gap-2"
-                        >
-                          {downloadingInvoiceId === order.id ? (
-                            <>
-                              <Loader2 className="animate-spin h-4 w-4" />
-                              Downloading...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="h-4 w-4" />
-                              Download Invoice
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    )}
-                    
-                    <div className="border-t pt-4">
-                      <div className="flex items-center gap-2 mb-2 font-medium"><ClipboardList className="h-4 w-4" /><strong>Items:</strong></div>
-                      <ul className="list-disc ml-8 space-y-1">
-                        {order.items?.map((item, i) => (
-                          <li key={i}>
-                            <span className="font-medium">{renderValue(item.product?.title || item.title)}</span> x {renderValue(item.quantity)} @ ${renderValue((item as any).price)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
+                {expandedOrderId === order.id && renderOrderDetails(order)}
               </CardContent>
             </Card>
           ))
@@ -647,99 +751,39 @@ export default function AdminOrdersPage() {
                     </TableRow>
                     {expandedOrderId === order.id && (
                       <TableRow>
-                        <TableCell colSpan={8} className="bg-muted/40 p-0">
-                          <div className="p-6 space-y-4 text-sm">
-                            <div className="grid md:grid-cols-2 gap-6">
-                              {/* Order Details */}
-                              <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div><strong className="text-muted-foreground mr-1">Order ID:</strong> <span className="font-medium">{renderValue(order.id)}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">Status:</strong> <span className="font-medium">{renderValue(order.status).toUpperCase()}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">Created At:</strong> <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">Total Amount:</strong> <span className="font-medium">${renderValue(order.totalAmount)}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">Payment:</strong> <span className="font-medium">{renderValue(order.paymentMethod)}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">Tracking:</strong> <span className="font-medium">{renderValue(order.trackingNumber || 'N/A')}</span></div>
-                                </div>
-                                <div className="border-t pt-3">
-                                  <strong className="text-muted-foreground">Shipping Address:</strong>
-                                  <p className="font-medium">{renderShippingAddress(order.shippingAddress)}</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                  <div><strong className="text-muted-foreground mr-1">City:</strong> <span className="font-medium">{renderValue(order.shippingCity)}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">State:</strong> <span className="font-medium">{renderValue(order.shippingState)}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">Postcode:</strong> <span className="font-medium">{renderValue(order.shippingPostcode)}</span></div>
-                                  <div><strong className="text-muted-foreground mr-1">Phone:</strong> <span className="font-medium">{renderValue(order.shippingPhone)}</span></div>
-                                </div>
+                        <TableCell colSpan={8} className="p-0">
+                          <div className="grid md:grid-cols-[1fr_230px]">
+                            <div>{renderOrderDetails(order)}</div>
+                            {/* Management sidebar */}
+                            <div className="border-l p-5 space-y-4 bg-muted/20">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Management</p>
+                              {/* Status Update */}
+                              <div className="space-y-1.5">
+                                <Label className="text-xs text-muted-foreground">Update Status</Label>
+                                <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "confirmed"}>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue>
+                                      {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Confirmed"}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                                    <SelectItem value="processing">Processing</SelectItem>
+                                    <SelectItem value="shipped">Shipped</SelectItem>
+                                    <SelectItem value="delivered">Delivered</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
-                              
-                              {/* Management Section */}
-                              <div className="space-y-4 border-l pl-6">
-                                {/* Download Invoice Button */}
-                                {order.status && order.status.toLowerCase() !== 'pending' && (
-                                  <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Invoice</Label>
-                                    <Button
-                                      variant="default"
-                                      size="sm"
-                                      disabled={downloadingInvoiceId === order.id}
-                                      onClick={() => handleDownloadInvoice(order.id)}
-                                      className="w-full gap-2"
-                                    >
-                                      {downloadingInvoiceId === order.id ? (
-                                        <>
-                                          <Loader2 className="animate-spin h-4 w-4" />
-                                          Downloading...
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Download className="h-4 w-4" />
-                                          Download Invoice
-                                        </>
-                                      )}
-                                    </Button>
-                                  </div>
-                                )}
-                                {/* Status Update */}
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">Update Status</Label>
-                                  <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "confirmed"}>
-                                    <SelectTrigger className="w-full">
-                                      <SelectValue>
-                                        {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Confirmed"}
-                                      </SelectValue>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                                      <SelectItem value="processing">Processing</SelectItem>
-                                      <SelectItem value="shipped">Shipped</SelectItem>
-                                      <SelectItem value="delivered">Delivered</SelectItem>
-                                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                              {/* Tracking */}
+                              {!order.trackingNumber && (
+                                <div className="space-y-1.5">
+                                  <Label className="text-xs text-muted-foreground">Tracking</Label>
+                                  <Button variant="outline" className="w-full gap-2" onClick={() => setActiveTrackingOrder(order)}>
+                                    <Truck className="h-4 w-4" /> Add Tracking
+                                  </Button>
                                 </div>
-                                
-                                {/* Tracking Management */}
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">Tracking Management</Label>
-                                  {!order.trackingNumber && (
-                                    <Button variant="outline" className="w-full gap-2" onClick={() => setActiveTrackingOrder(order)}>
-                                      <Truck className="h-4 w-4" /> Add Tracking
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Items List */}
-                            <div className="space-y-2 border-t pt-4">
-                              <strong className="font-medium">Order Items:</strong>
-                              <ul className="list-disc ml-6 space-y-1">
-                                {order.items?.map((item, i) => (
-                                  <li key={i}>
-                                    <span className="font-medium">{renderValue(item.product?.title || item.title)}</span> x {renderValue(item.quantity)} @ ${renderValue((item as any).price)}
-                                  </li>
-                                ))}
-                              </ul>
+                              )}
                             </div>
                           </div>
                         </TableCell>
