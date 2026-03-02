@@ -370,7 +370,7 @@ export default function DashboardPage() {
 
 	// Fetch SLA data when seller is selected
 	useEffect(() => {
-		if (selectedSeller && (userRole === "admin" || userRole === "ADMIN")) {
+		if (selectedSeller && userRole?.toLowerCase()?.includes("admin")) {
 			console.log(`Selected seller changed to: ${selectedSeller}`);
 			fetchSlaData(selectedSeller);
 		}

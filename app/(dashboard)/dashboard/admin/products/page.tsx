@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Package, DollarSign, Edit, PowerOff, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle } from "lucide-react";
+import { Package, DollarSign, Edit, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,11 +89,16 @@ export default function AdminProductsPage() {
   const [loadingSellers, setLoadingSellers] = useState(true);
   const [layout, setLayout] = useState<"table" | "card">("table");
 
-  const [activeView, setActiveView] = useState<"approved" | "pending">("approved");
+  const [activeView, setActiveView] = useState<"all" | "approved" | "pending" | "rejected">("approved");
   const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+  const [rejectedProducts, setRejectedProducts] = useState<Product[]>([]);
+  const [loadingRejected, setLoadingRejected] = useState(false);
 
   const allPendingRef = useRef<Product[]>([]);
+  const allRejectedRef = useRef<Product[]>([]);
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -230,18 +235,65 @@ export default function AdminProductsPage() {
     setLoadingPending(false);
   };
 
+  // ── fetch all products (all statuses) ─────────────────────────────────────
+  const fetchAllProducts = async (sellerId: string) => {
+    setLoadingAll(true);
+    try {
+      const res = await api.get(`/api/admin/sellers/${sellerId}/products/all`);
+      let data: Product[] = [];
+      if (res?.success && res?.products) data = res.products;
+      else if (Array.isArray(res)) data = res;
+      else if (res?.data) data = res.data;
+      setAllProducts(data);
+    } catch (err: any) {
+      toast.error(`Failed to load all products: ${err?.message || "Unknown error"}`);
+      setAllProducts([]);
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
+  // ── fetch rejected products ────────────────────────────────────────────────
+  const refreshRejected = async (currentSellers: Seller[]): Promise<Product[]> => {
+    try {
+      const res = await api.get("/api/admin/products/rejected");
+      let all: Product[] = [];
+      if (res?.success && res?.products) all = res.products;
+      else if (Array.isArray(res)) all = res;
+      else if (res?.data) all = res.data;
+      allRejectedRef.current = all;
+      return all;
+    } catch (err) {
+      console.error("Failed to fetch rejected products:", err);
+      return allRejectedRef.current;
+    }
+  };
+
+  const applyRejectedFilter = (sellerId: string) => {
+    setLoadingRejected(true);
+    setRejectedProducts(allRejectedRef.current.filter((p) => productBelongsTo(p, sellerId)));
+    setLoadingRejected(false);
+  };
+
   useEffect(() => { fetchSellers(); }, []); // eslint-disable-line
 
+  // Pre-load rejected when sellers are loaded
   useEffect(() => {
-    if (!selectedSeller) { setProducts([]); setPendingProducts([]); return; }
+    if (sellers.length > 0) refreshRejected(sellers);
+  }, [sellers.length]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!selectedSeller) { setProducts([]); setPendingProducts([]); setAllProducts([]); setRejectedProducts([]); return; }
     if (activeView === "approved") fetchProducts(selectedSeller);
-    else applyPendingFilter(selectedSeller);
+    else if (activeView === "pending") applyPendingFilter(selectedSeller);
+    else if (activeView === "all") fetchAllProducts(selectedSeller);
+    else if (activeView === "rejected") applyRejectedFilter(selectedSeller);
     setCurrentPage(1);
   }, [selectedSeller, activeView]); // eslint-disable-line
 
   // ── edit modal ─────────────────────────────────────────────────────────────
   const openEditModal = async (productId: string) => {
-    if (activeView !== "approved") { toast.error("Approve the product first before editing."); return; }
+    if (activeView !== "approved" && activeView !== "all") { toast.error("Approve the product first before editing."); return; }
     setEditProductId(productId);
     setEditSubmitting(false);
     editGalleryAccumRef.current = [];
@@ -413,6 +465,8 @@ export default function AdminProductsPage() {
       setRejectReason("");
       const fresh = await refreshPending(sellersRef.current);
       setPendingProducts(fresh.filter((p) => productBelongsTo(p, selectedSeller)));
+      await refreshRejected(sellersRef.current);
+      if (activeView === "rejected") applyRejectedFilter(selectedSeller);
     } catch (err: any) {
       toast.error(err.message || "Failed to reject product");
     } finally {
@@ -420,7 +474,11 @@ export default function AdminProductsPage() {
     }
   };
 
-  const currentProducts = activeView === "approved" ? products : pendingProducts;
+  const currentProducts =
+    activeView === "approved" ? products :
+    activeView === "pending" ? pendingProducts :
+    activeView === "all" ? allProducts :
+    rejectedProducts;
 
   const totalPages = Math.max(1, Math.ceil(currentProducts.length / itemsPerPage));
   const paginatedProducts = currentProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -525,20 +583,38 @@ export default function AdminProductsPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b">
+        <Button variant={activeView === "all" ? "default" : "ghost"} onClick={() => setActiveView("all")} className="rounded-b-none">
+          All ({allProducts.length})
+        </Button>
         <Button variant={activeView === "approved" ? "default" : "ghost"} onClick={() => setActiveView("approved")} className="rounded-b-none">
-          Approved Products ({products.length})
+          Approved ({products.length})
         </Button>
         <Button variant={activeView === "pending" ? "default" : "ghost"} onClick={() => setActiveView("pending")} className="rounded-b-none">
-          Pending Products ({sellers.find((s) => s.id === selectedSeller)?.pendingCount ?? pendingProducts.length})
+          Pending ({sellers.find((s) => s.id === selectedSeller)?.pendingCount ?? pendingProducts.length})
+        </Button>
+        <Button variant={activeView === "rejected" ? "default" : "ghost"} onClick={() => setActiveView("rejected")} className="rounded-b-none text-red-500 hover:text-red-600">
+          Rejected ({rejectedProducts.length})
         </Button>
       </div>
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          { label: activeView === "approved" ? "Total Products" : "Pending Products", value: activeView === "approved" ? totalProducts : pendingProducts.length, icon: <Package className="h-4 w-4 text-muted-foreground" /> },
-          { label: activeView === "approved" ? "Total Stock" : "Pending Stock", value: activeView === "approved" ? totalStock : pendingProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0), icon: <Package className="h-4 w-4 text-muted-foreground" /> },
-          { label: activeView === "approved" ? "Estimated Revenue" : "Potential Revenue", value: "$" + (activeView === "approved" ? totalRevenue : pendingProducts.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0)).toLocaleString(), icon: <DollarSign className="h-4 w-4 text-muted-foreground" /> },
+          {
+            label: activeView === "approved" ? "Total Products" : activeView === "pending" ? "Pending Products" : activeView === "all" ? "All Products" : "Rejected Products",
+            value: activeView === "approved" ? totalProducts : activeView === "pending" ? pendingProducts.length : activeView === "all" ? allProducts.length : rejectedProducts.length,
+            icon: <Package className="h-4 w-4 text-muted-foreground" />
+          },
+          {
+            label: activeView === "approved" ? "Total Stock" : activeView === "pending" ? "Pending Stock" : activeView === "all" ? "Total Stock" : "Rejected Stock",
+            value: activeView === "approved" ? totalStock : activeView === "pending" ? pendingProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0) : activeView === "all" ? allProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0) : rejectedProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0),
+            icon: <Package className="h-4 w-4 text-muted-foreground" />
+          },
+          {
+            label: activeView === "approved" ? "Estimated Revenue" : "Potential Revenue",
+            value: "$" + currentProducts.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0).toLocaleString(),
+            icon: <DollarSign className="h-4 w-4 text-muted-foreground" />
+          },
         ].map((c) => (
           <Card key={c.label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -550,7 +626,7 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Product list */}
-      {(activeView === "approved" ? loading : loadingPending) ? (
+      {(activeView === "approved" ? loading : activeView === "pending" ? loadingPending : activeView === "all" ? loadingAll : loadingRejected) ? (
         <div className="overflow-x-auto rounded-lg border bg-background">
             <table className="min-w-full divide-y divide-muted">
               <thead className="bg-muted/50">
@@ -582,7 +658,7 @@ export default function AdminProductsPage() {
             </table>
           </div>
       ) : currentProducts.length === 0 ? (
-        <Card className="col-span-full text-center py-12">No {activeView === "approved" ? "products" : "pending products"} found.</Card>
+        <Card className="col-span-full text-center py-12">No {activeView === "approved" ? "approved" : activeView === "pending" ? "pending" : activeView === "rejected" ? "rejected" : ""} products found.</Card>
       ) : layout === "table" ? (
 
         /* TABLE VIEW */
@@ -615,31 +691,50 @@ export default function AdminProductsPage() {
                     <td className="px-4 py-2 text-primary font-bold">${product.price}</td>
                     <td className="px-4 py-2">{product.stock}</td>
                     <td className="px-4 py-2">
-                      <Badge variant={activeView === "pending" || product.status !== "ACTIVE" ? "secondary" : "default"}>
-                        {activeView === "pending" ? "PENDING" : product.status || "Active"}
+                      <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"}>
+                        {product.status || "Active"}
                       </Badge>
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex gap-1 items-center">
-                        {activeView === "approved" ? (
+                        {(activeView === "approved" || (activeView === "all" && product.status !== "PENDING" && product.status !== "REJECTED")) ? (
                           <>
-                            <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" />Edit</Button>
-                            {product.status === "INACTIVE" ? (
-                              <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleActivate(product.id)}><CheckCircle className="h-3 w-3" />Activate</Button>
-                            ) : (
-                              <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700" onClick={() => handleInactivate(product.id)}><PowerOff className="h-3 w-3" />Inactive</Button>
-                            )}
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditModal(product.id)} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
+                            <Button variant="outline" size="icon" className="h-8 w-8"
+                              onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                              title={expandedProductId === product.id ? "Hide" : "View"}>
+                              {expandedProductId === product.id ? <X className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            </Button>
+                            <div className="flex items-center gap-1.5 px-2">
+                              <Switch
+                                checked={product.status !== "INACTIVE"}
+                                onCheckedChange={(checked) =>
+                                  checked ? handleActivate(product.id) : handleInactivate(product.id)
+                                }
+                              />
+                              <span className={`text-xs font-medium ${product.status === "INACTIVE" ? "text-red-500" : "text-green-600"}`}>
+                                {product.status === "INACTIVE" ? "Inactive" : "Active"}
+                              </span>
+                            </div>
                           </>
-                        ) : (
+                        ) : (activeView === "pending" || (activeView === "all" && product.status === "PENDING")) ? (
                           <>
                             <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
                             <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openRejectModal(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
+                            <Button variant="outline" size="icon" className="h-8 w-8"
+                              onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                              title={expandedProductId === product.id ? "Hide" : "View"}>
+                              {expandedProductId === product.id ? <X className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            </Button>
                           </>
+                        ) : (
+                          /* rejected view or all+rejected status: view only */
+                          <Button variant="outline" size="icon" className="h-8 w-8"
+                            onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                            title={expandedProductId === product.id ? "Hide" : "View"}>
+                            {expandedProductId === product.id ? <X className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          </Button>
                         )}
-                        <Button variant="outline" size="sm" className="gap-1"
-                          onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}>
-                          {expandedProductId === product.id ? <><X className="h-3 w-3" />Hide</> : <><Eye className="h-3 w-3" />View</>}
-                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -729,8 +824,8 @@ export default function AdminProductsPage() {
                   <div className="flex h-full items-center justify-center"><LucideImage className="h-12 w-12 text-muted-foreground/50" /></div>
                 )}
                 <Badge className="absolute top-2 right-2"
-                  variant={activeView === "pending" ? "secondary" : product.status === "ACTIVE" ? "default" : "secondary"}>
-                  {activeView === "pending" ? "PENDING" : product.status || "Active"}
+                  variant={product.status === "ACTIVE" ? "default" : "secondary"}>
+                  {product.status || "Active"}
                 </Badge>
               </div>
               <CardHeader className="pb-3">
@@ -747,20 +842,29 @@ export default function AdminProductsPage() {
                   <span className="font-semibold">{product.stock} units</span>
                 </div>
                 <div className="flex gap-2 pt-2">
-                  {activeView === "approved" ? (
+                  {(activeView === "approved" || (activeView === "all" && product.status !== "PENDING" && product.status !== "REJECTED")) ? (
                     <>
-                      <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" />Edit</Button>
-                      {product.status === "INACTIVE" ? (
-                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleActivate(product.id)}><CheckCircle className="h-3 w-3" />Activate</Button>
-                      ) : (
-                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700" onClick={() => handleInactivate(product.id)}><PowerOff className="h-3 w-3" />Inactive</Button>
-                      )}
+                      <div className="flex items-center justify-center gap-2 flex-1 py-1 px-2 rounded-md border border-border">
+                        <Switch
+                          checked={product.status !== "INACTIVE"}
+                          onCheckedChange={(checked) =>
+                            checked ? handleActivate(product.id) : handleInactivate(product.id)
+                          }
+                        />
+                        <span className={`text-xs font-medium ${product.status === "INACTIVE" ? "text-red-500" : "text-green-600"}`}>
+                          {product.status === "INACTIVE" ? "Inactive" : "Active"}
+                        </span>
+                      </div>
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditModal(product.id)} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
                     </>
-                  ) : (
+                  ) : (activeView === "pending" || (activeView === "all" && product.status === "PENDING")) ? (
                     <>
                       <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
                       <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openRejectModal(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
                     </>
+                  ) : (
+                    /* rejected view: no actions */
+                    <p className="text-xs text-muted-foreground italic w-full text-center py-1">No actions available</p>
                   )}
                 </div>
               </CardContent>
@@ -770,7 +874,7 @@ export default function AdminProductsPage() {
       )}
 
       {/* Pagination */}
-      {!((activeView === "approved" ? loading : loadingPending)) && currentProducts.length > 0 && (
+      {!((activeView === "approved" ? loading : activeView === "pending" ? loadingPending : activeView === "all" ? loadingAll : loadingRejected)) && currentProducts.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
           {/* Left: count info + per-page */}
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
