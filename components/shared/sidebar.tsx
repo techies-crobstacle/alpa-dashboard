@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 
 const baseSidebarGroups = [
 	{
-		title: "General",
+		// title: "General",
 		items: [
 			{
 				title: "Profile",
@@ -74,7 +74,7 @@ const baseSidebarGroups = [
 		],
 	},
 	{
-		title: "Pages",
+		// title: "Pages",
 		items: [
 			{
 				title: "Orders",
@@ -82,12 +82,7 @@ const baseSidebarGroups = [
 				icon: ShoppingCart,
 				badge: "3",
 			},
-			// {
-			// 	title: "Report",
-			// 	href: "/dashboard/report",
-			// 	icon: Users,
-			// 	badge: "12",
-			// },
+			
 			{
 				title: "Users",
 				href: "/dashboard/users",
@@ -181,6 +176,12 @@ const baseSidebarGroups = [
 				icon: Heart,
 				badge: null,
 			},
+			{
+				title: "Commissions",
+				href: "/dashboard/admin/commissions",
+				icon: Users,
+				badge: "12",
+			},
 
 			// {
 			// 	title: "Error Pages",
@@ -268,7 +269,7 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if (["/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard","/dashboard/admin/feedback"].includes(item.href)) {
+			if ([ "/dashboard/admin/commissions", "/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard","/dashboard/admin/feedback"].includes(item.href)) {
 				return role === "ADMIN";
 			}
 			// Seller and customer can see /dashboard/orders
@@ -332,14 +333,14 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 			{/* Navigation Groups (Scrollable) */}
 		<nav className={cn(
 			"flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent",
-			isCollapsed ? "px-2 py-4 space-y-4" : "p-6 space-y-8"
+			isCollapsed ? "px-2 py-4 space-y-1" : "px-4 py-4 space-y-1"
 		)}>
-				{sidebarGroups.map((group) =>
-					group.items.length > 0 ? (
-						<div key={group.title} className="space-y-3">
-							{/* Group Title */}
-							{!isCollapsed && (
-								<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 mb-4">
+{sidebarGroups.map((group, idx) =>
+				group.items.length > 0 ? (
+					<div key={group.title ?? idx} className="space-y-1">
+						{/* Group Title — only rendered when a title exists */}
+						{!isCollapsed && group.title && (
+							<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 pt-4 pb-1">
 									{group.title}
 								</h3>
 							)}
