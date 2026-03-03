@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Sidebar } from "@/components/shared/sidebar";
 import Topbar from "@/components/shared/topbar";
+import { WelcomeBanner } from "@/components/shared/welcome-banner";
 
 
 const LoadingDashboard = dynamic(() => import("@/components/shared/loading-dashboard").then(m => m.LoadingDashboard), { ssr: false });
@@ -61,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 			{/* Main Content */}
 			<div className="flex-1 overflow-auto relative min-w-0">
 				<Topbar />
+				<WelcomeBanner />
 				<main className="p-8">
 					{globalLoading ? (
 						<LoadingDashboard />

@@ -1,20 +1,30 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, Check } from "lucide-react";
+import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import {
+  getAllowedTransitions,
+  getRequiredFields,
+  validateStatusUpdate,
+  getStatusLabel,
+  getStatusBadgeVariant,
+  isTerminalStatus,
+} from "@/lib/orderStatusRules";
 
 type Seller = {
   id: string;
@@ -41,6 +51,7 @@ type Order = {
   trackingNumber?: any;
   estimatedDelivery?: any;
   paymentMethod?: any;
+  statusReason?: any;
   shippingAddress?: any;
   shippingCity?: any;
   shippingState?: any;
@@ -48,17 +59,170 @@ type Order = {
   shippingPhone?: any;
 };
 
+// ─── Status Update Modal ──────────────────────────────────────────────────────
+
+interface StatusModalProps {
+  order: Order | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [estimatedDelivery, setEstimatedDelivery] = useState("");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [apiError, setApiError] = useState("");
+
+  if (!order) return null;
+
+  const allowedTransitions = getAllowedTransitions(order.status);
+  const requiredFields = getRequiredFields(selectedStatus);
+  const needsTracking = requiredFields.includes("trackingNumber");
+  const needsReason = requiredFields.includes("reason");
+  const terminal = isTerminalStatus(order.status);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationErrors([]);
+    setApiError("");
+    const payload: Record<string, string> = {
+      status: selectedStatus,
+      ...(trackingNumber && { trackingNumber }),
+      ...(estimatedDelivery && { estimatedDelivery }),
+      ...(reason && { reason }),
+      ...(notes && { notes }),
+    };
+    const { valid, errors } = validateStatusUpdate(selectedStatus, payload);
+    if (!valid) { setValidationErrors(errors); return; }
+    setLoading(true);
+    try {
+      await api.put(`/api/seller/orders/update-status/${order.id}`, payload);
+      // If shipping, persist tracking info via the dedicated tracking endpoint
+      if (selectedStatus === "SHIPPED" && trackingNumber && estimatedDelivery) {
+        await api.put(`/api/seller/orders/tracking/${order.id}`, {
+          trackingNumber,
+          estimatedDelivery,
+        });
+      }
+      toast.success(`Order updated to ${getStatusLabel(selectedStatus)}`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      const msg = err?.message || "Failed to update status";
+      setApiError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-lg">Update Order Status</CardTitle>
+              <CardDescription className="mt-0.5">
+                Order #{typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+            <span className="text-muted-foreground">Current Status</span>
+            <Badge variant={getStatusBadgeVariant(order.status)}>{getStatusLabel(order.status)}</Badge>
+          </div>
+          {terminal ? (
+            <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">This order is in a terminal status and cannot be updated further.</p>
+            </div>
+          ) : allowedTransitions.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No status transitions available.</p>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>New Status <span className="text-destructive">*</span></Label>
+                <Select value={selectedStatus} onValueChange={(v) => { setSelectedStatus(v); setValidationErrors([]); }}>
+                  <SelectTrigger><SelectValue placeholder="— Select new status —" /></SelectTrigger>
+                  <SelectContent>
+                    {allowedTransitions.map((s) => (
+                      <SelectItem key={s} value={s}>{getStatusLabel(s)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {needsTracking && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Tracking Number <span className="text-destructive">*</span></Label>
+                    <Input placeholder="e.g. TRK12345" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Estimated Delivery Date <span className="text-destructive">*</span></Label>
+                    <Input type="date" value={estimatedDelivery} onChange={(e) => setEstimatedDelivery(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+                  </div>
+                </>
+              )}
+              {needsReason && (
+                <div className="space-y-1.5">
+                  <Label>Reason <span className="text-destructive">*</span></Label>
+                  <Textarea placeholder="Provide a reason for this status change..." value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="resize-none" />
+                </div>
+              )}
+              {selectedStatus && (
+                <div className="space-y-1.5">
+                  <Label>Notes <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                  <Textarea placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="resize-none" />
+                </div>
+              )}
+              {validationErrors.length > 0 && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
+                  {validationErrors.map((err, i) => (
+                    <p key={i} className="text-sm text-destructive flex items-start gap-1.5"><span className="mt-0.5">•</span><span>{err}</span></p>
+                  ))}
+                </div>
+              )}
+              {apiError && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  <p className="text-sm text-destructive">{apiError}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+                <Button type="submit" className="flex-1" disabled={!selectedStatus || loading}>
+                  {loading ? <><Loader2 className="animate-spin h-4 w-4 mr-2" />Updating...</> : "Update Status"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
 export default function AdminOrdersPage() {
+  const router = useRouter();
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<string>("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingSellers, setLoadingSellers] = useState(true);
+  const [activeStatusOrder, setActiveStatusOrder] = useState<Order | null>(null);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingNumber, setTrackingNumber] = useState<string>("");
   const [estimatedDelivery, setEstimatedDelivery] = useState<string>("");
-  const [layout, setLayout] = useState<'table' | 'card'>('card');
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [layout, setLayout] = useState<'table' | 'card'>('table');
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -122,20 +286,11 @@ export default function AdminOrdersPage() {
     }
   };
 
-  // 2. UPDATE Status
-  const updateStatus = async (orderId: string, newStatus: string) => {
-    try {
-      await api.put(`/api/seller/orders/update-status/${orderId}`, { status: newStatus });
-      toast.success(`Order marked as ${newStatus}`);
-      fetchOrders(selectedSeller);
-    } catch {
-      toast.error("Failed to update status");
-    }
-  };
-
   // Add tracking update logic for admin using seller endpoints
   const submitTracking = async () => {
     if (!activeTrackingOrder) return;
+    const { valid, errors } = validateStatusUpdate("SHIPPED", { trackingNumber, estimatedDelivery: estimatedDelivery });
+    if (!valid) { toast.error(errors[0]); return; }
     try {
       await api.put(`/api/seller/orders/tracking/${activeTrackingOrder.id}`, { 
         trackingNumber, 
@@ -215,188 +370,20 @@ export default function AdminOrdersPage() {
     return String(val);
   };
 
-  function renderOrderDetails(order: Order) {
-    // Parse address object
-    let addr: Record<string, any> = {};
-    const raw = order.shippingAddress;
-    if (raw && typeof raw === "object") addr = raw;
-    else if (typeof raw === "string") { try { addr = JSON.parse(raw); } catch { addr = { address: raw }; } }
+  const fmtDate = (val: any) => {
+    if (!val) return "N/A";
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  };
 
-    const summary = addr.orderSummary ?? {};
-    const sm = summary.shippingMethod ?? {};
 
-    // Address fields to display
-    const addrFields: [string, string][] = [
-      ["firstName", "First Name"],
-      ["lastName", "Last Name"],
-      ["addressLine", "Address Line"],
-      ["address", "Address"],
-      ["street", "Street"],
-      ["suburb", "Suburb"],
-      ["city", "City"],
-      ["state", "State"],
-      ["country", "Country"],
-      ["zipCode", "ZIP Code"],
-      ["zipcode", "ZIP Code"],
-      ["postcode", "Postcode"],
-      ["phone", "Phone"],
-      ["email", "Email"],
-    ];
-
-    // Merge firstName + lastName into one row; track seen labels to avoid duplicates
-    const nameVal = [addr.firstName, addr.lastName].filter(Boolean).join(" ");
-    const addressRows: { label: string; value: string }[] = [];
-    const seenLabels = new Set<string>();
-    if (nameVal) { addressRows.push({ label: "Name", value: nameVal }); seenLabels.add("First Name"); seenLabels.add("Last Name"); }
-    for (const [key, label] of addrFields) {
-      if (key === "firstName" || key === "lastName") continue;
-      if (seenLabels.has(label)) continue;
-      const val = addr[key];
-      if (val != null && typeof val === "string" && val.trim() !== "") {
-        addressRows.push({ label, value: val });
-        seenLabels.add(label);
-      }
-    }
-
-    return (
-      <div className="p-5 space-y-4 border-t bg-muted/20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-          {/* Order Info */}
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b">
-              <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Info</span>
-            </div>
-            <div className="divide-y text-sm">
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-muted-foreground">Order ID</span>
-                <span className="font-mono text-xs font-medium">{String(order.id ?? "").slice(-10).toUpperCase()}</span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-muted-foreground">Status</span>
-                <Badge variant={order.status === "delivered" ? "default" : order.status === "cancelled" ? "destructive" : "secondary"} className="text-xs h-5">
-                  {renderValue(order.status).toUpperCase()}
-                </Badge>
-              </div>
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-muted-foreground">Date</span>
-                <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "N/A"}</span>
-              </div>
-              <div className="flex justify-between px-4 py-2.5">
-                <span className="text-muted-foreground">Payment</span>
-                <span className="font-medium capitalize">{renderValue(order.paymentMethod)}</span>
-              </div>
-              {order.trackingNumber && (
-                <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-muted-foreground">Tracking</span>
-                  <span className="font-mono text-xs font-medium">{renderValue(order.trackingNumber)}</span>
-                </div>
-              )}
-              {order.estimatedDelivery && (
-                <div className="flex justify-between px-4 py-2.5">
-                  <span className="text-muted-foreground">Est. Delivery</span>
-                  <span className="font-medium">{renderValue(order.estimatedDelivery)}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Shipping Address */}
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b">
-              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shipping Address</span>
-            </div>
-            {addressRows.length > 0 ? (
-              <div className="divide-y text-sm">
-                {addressRows.map(({ label, value }, i) => (
-                  <div key={i} className="flex justify-between px-4 py-2.5 gap-4">
-                    <span className="text-muted-foreground shrink-0">{label}</span>
-                    <span className="font-medium text-right">{value}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="px-4 py-4 text-sm text-muted-foreground">No address on file.</div>
-            )}
-          </div>
-
-          {/* Order Totals — receipt style */}
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b">
-              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Totals</span>
-            </div>
-            <div className="px-4 py-3 space-y-2 text-sm">
-              {summary.subtotal != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span>${summary.subtotal}</span>
-                </div>
-              )}
-              {summary.shippingCost != null && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Shipping{sm.name ? ` · ${sm.name}` : ""}
-                    {sm.estimatedDays && <span className="text-xs block text-muted-foreground/70">{sm.estimatedDays}</span>}
-                  </span>
-                  <span>${summary.shippingCost}</span>
-                </div>
-              )}
-              {summary.discountAmount != null && Number(summary.discountAmount) > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Discount{summary.couponCode ? ` (${summary.couponCode})` : ""}</span>
-                  <span>− ${summary.discountAmount}</span>
-                </div>
-              )}
-              {summary.gstAmount != null && Number(summary.gstAmount) > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">GST {summary.gstPercentage ? `(${summary.gstPercentage}%)` : ""}</span>
-                  <span>${summary.gstAmount}</span>
-                </div>
-              )}
-              <div className="border-t pt-2 mt-1 flex justify-between font-bold text-base">
-                <span>Grand Total</span>
-                <span>${order.totalAmount}</span>
-                {/* <span>${summary.grandTotal ?? renderValue(order.totalAmount)}</span> */}
-              </div>
-              {summary.couponCode && Number(summary.discountAmount) === 0 && (
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Coupon applied</span>
-                  <span className="font-mono">{summary.couponCode}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Invoice button */}
-        {order.status && order.status.toLowerCase() !== "pending" && (
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={downloadingInvoiceId === order.id}
-              onClick={() => handleDownloadInvoice(order.id)}
-              className="gap-2"
-            >
-              {downloadingInvoiceId === order.id
-                ? <><Loader2 className="animate-spin h-4 w-4" />Downloading...</>
-                : <><Download className="h-4 w-4" />Download Invoice</>}
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
   const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.min(Math.max(1, page), totalPages));
-    setExpandedOrderId(null);
   };
 
   const getPaginationPages = () => {
@@ -617,10 +604,8 @@ export default function AdminOrdersPage() {
                   </Badge>
                 </div>
                 <div>
-                  <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
-                    <Eye className="h-4 w-4" />
-                    {expandedOrderId === order.id ? "Hide" : "View"}
-                    {expandedOrderId === order.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => router.push(`/dashboard/admin/orders/${order.id}?sellerId=${selectedSeller}`)}>
+                    <Eye className="h-4 w-4" /> View
                   </Button>
                 </div>
               </div>
@@ -652,20 +637,16 @@ export default function AdminOrdersPage() {
                   {/* Actions: Update Status */}
                   <div className="space-y-3">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Management</Label>
-                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={order.status || "confirmed"}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : "Confirmed"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="delivered">Delivered</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {isTerminalStatus(order.status) ? (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg text-sm text-muted-foreground">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                        <span>Terminal — no further changes.</span>
+                      </div>
+                    ) : (
+                      <Button variant="outline" className="w-full gap-2" onClick={() => setActiveStatusOrder(order)}>
+                        <ClipboardList className="h-4 w-4" /> Update Status
+                      </Button>
+                    )}
                   </div>
 
                   {/* Actions: Tracking */}
@@ -676,16 +657,17 @@ export default function AdminOrdersPage() {
                           <p className="flex items-center gap-2 text-blue-700 font-medium">
                             <Truck className="h-4 w-4" /> {order.trackingNumber}
                           </p>
-                          <p className="text-blue-600/80 text-xs mt-1">Est: {order.estimatedDelivery}</p>
+                          <p className="text-blue-600/80 text-xs mt-1">Est: {fmtDate(order.estimatedDelivery)}</p>
                        </div>
-                    ) : (
+                    ) : !isTerminalStatus(order.status) ? (
                       <Button variant="outline" className="w-full gap-2" onClick={() => setActiveTrackingOrder(order)}>
                         <Truck className="h-4 w-4" /> Add Tracking
                       </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No tracking info.</p>
                     )}
                   </div>
                 </div>
-                {expandedOrderId === order.id && renderOrderDetails(order)}
               </CardContent>
             </Card>
           ))
@@ -706,8 +688,7 @@ export default function AdminOrdersPage() {
               </TableHeader>
               <TableBody>
                 {paginatedOrders.map((order) => (
-                  <Fragment key={order.id}>
-                    <TableRow>
+                  <TableRow key={order.id}>
                       <TableCell>#{order.id?.slice(-6)?.toUpperCase?.()}</TableCell>
                       <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}</TableCell>
                       <TableCell>{order.customerName || "Guest"}</TableCell>
@@ -737,59 +718,25 @@ export default function AdminOrdersPage() {
                         {order.trackingNumber ? (
                           <div className="flex flex-col">
                             <span className="font-medium">{order.trackingNumber}</span>
-                            <span className="text-xs text-muted-foreground">Est: {order.estimatedDelivery}</span>
+                            <span className="text-xs text-muted-foreground">Est: {fmtDate(order.estimatedDelivery)}</span>
                           </div>
                         ) : (
                           <span className="text-muted-foreground">No tracking</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
-                          {expandedOrderId === order.id ? "Hide" : "View"}
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          {!isTerminalStatus(order.status) && (
+                            <Button variant="outline" size="sm" onClick={() => setActiveStatusOrder(order)}>
+                              Update
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/admin/orders/${order.id}?sellerId=${selectedSeller}`)}>
+                            <Eye className="h-4 w-4 mr-1" /> View
+                          </Button>
+                        </div>
                       </TableCell>
-                    </TableRow>
-                    {expandedOrderId === order.id && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="p-0">
-                          <div className="grid md:grid-cols-[1fr_230px]">
-                            <div>{renderOrderDetails(order)}</div>
-                            {/* Management sidebar */}
-                            <div className="border-l p-5 space-y-4 bg-muted/20">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Management</p>
-                              {/* Status Update */}
-                              <div className="space-y-1.5">
-                                <Label className="text-xs text-muted-foreground">Update Status</Label>
-                                <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "confirmed"}>
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue>
-                                      {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Confirmed"}
-                                    </SelectValue>
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                                    <SelectItem value="processing">Processing</SelectItem>
-                                    <SelectItem value="shipped">Shipped</SelectItem>
-                                    <SelectItem value="delivered">Delivered</SelectItem>
-                                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              {/* Tracking */}
-                              {!order.trackingNumber && (
-                                <div className="space-y-1.5">
-                                  <Label className="text-xs text-muted-foreground">Tracking</Label>
-                                  <Button variant="outline" className="w-full gap-2" onClick={() => setActiveTrackingOrder(order)}>
-                                    <Truck className="h-4 w-4" /> Add Tracking
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
@@ -874,6 +821,15 @@ export default function AdminOrdersPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Status Update Modal */}
+      {activeStatusOrder && (
+        <StatusUpdateModal
+          order={activeStatusOrder}
+          onClose={() => setActiveStatusOrder(null)}
+          onSuccess={() => fetchOrders(selectedSeller)}
+        />
       )}
 
       {/* Tracking Modal */}
