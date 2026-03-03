@@ -59,13 +59,10 @@ const getNotificationIcon = (type: string) => {
 		const fetchNotifications = async () => {
 			try {
 				setNotificationsLoading(true);
-				const response = await api.get('/api/notifications?limit=4', {
-					headers: {
-						Authorization: ""
-					}
-				});
-				setNotifications(response.notifications || []);
-				setUnreadCount(response.unreadCount || 0);
+				const response = await api.get('/api/notifications?limit=4');
+				console.log('[Topbar] Notifications response:', response);
+				setNotifications(response?.notifications || response?.data || []);
+				setUnreadCount(response?.unreadCount ?? response?.unread ?? 0);
 			} catch (error) {
 				console.error('Failed to fetch notifications:', error);
 				// Set fallback data on error
@@ -80,11 +77,7 @@ const getNotificationIcon = (type: string) => {
 		const fetchProfileData = async () => {
 			try {
 				setIsLoading(true);
-				const data = await api.get('/api/profile', {
-					headers: {
-						Authorization: ""
-					}
-				});
+				const data = await api.get('/api/profile');
 				console.log('Profile API Response:', data); // Debug log
 				
 				const profile = data.profile || data;

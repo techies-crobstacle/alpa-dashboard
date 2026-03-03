@@ -150,6 +150,8 @@ type Notification = {
 };
 
 type NotificationsResponse = {
+  unread: number;
+  data: Notification[];
   success: boolean;
   notifications: Notification[];
   unreadCount: number;
@@ -220,14 +222,11 @@ export default function UserListCard() {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const response: NotificationsResponse = await api.get("/api/notifications", {
-        headers: {
-          Authorization: "",
-        },
-      });
-      setNotifications(response.notifications || []);
-      setUnreadCount(response.unreadCount || 0);
-      setPagination(response.pagination || { page: 1, limit: 20, total: 0 });
+      const response: NotificationsResponse = await api.get("/api/notifications");
+      console.log('[UserListCard] Notifications response:', response);
+      setNotifications(response?.notifications || response?.data || []);
+      setUnreadCount(response?.unreadCount ?? response?.unread ?? 0);
+      setPagination(response?.pagination || { page: 1, limit: 20, total: 0 });
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
       toast.error("Failed to load notifications");
