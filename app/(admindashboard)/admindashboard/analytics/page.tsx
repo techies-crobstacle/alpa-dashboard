@@ -53,7 +53,7 @@ const AnalyticsPage = () => {
 
 			console.log("🔍 Fetching analytics with token:", token ? `${token.slice(0, 20)}...` : "NO TOKEN");
 
-			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/admin/sales/analytics`;
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/admin/sales/analytics`;
 			console.log("📍 Analytics API URL:", url);
 
 			const response = await fetch(url, {
@@ -101,7 +101,7 @@ const AnalyticsPage = () => {
 				throw new Error("No authentication token found");
 			}
 
-			const url = `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/admin/sales/export`;
+			const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/admin/sales/export`;
 			
 			const response = await fetch(url, {
 				method: "GET",
@@ -145,7 +145,7 @@ const AnalyticsPage = () => {
 		setChartLoading(true);
 		try {
 			const endpoint = `/api/admin/analytics/revenue-chart?period=${tf}`;
-			console.log("📊 Fetching chart:", `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}${endpoint}`);
+			console.log("📊 Fetching chart:", `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}${endpoint}`);
 
 			const json = await api.get(endpoint);
 

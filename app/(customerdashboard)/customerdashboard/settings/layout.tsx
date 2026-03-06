@@ -48,36 +48,6 @@ function SettingsSidebarNav({
 
 import { Separator } from "@/components/ui/separator";
 
-<<<<<<< HEAD:app/(dashboard)/dashboard/settings/layout.tsx
-const sidebarNavItems = [
-	{
-		title: "Profile",
-		href: "/dashboard/settings",
-	},
-	{
-		title: "Account",
-		href: "/dashboard/settings/account",
-	},
-	// {
-	// 	title: "Appearance",
-	// 	href: "/dashboard/settings/appearance",
-	// },
-	{
-		title: "Notifications",
-		href: "/dashboard/settings/notifications",
-	},
-	// {
-	// 	title: "Display",
-	// 	href: "/dashboard/settings/display",
-	// },
-	// {
-	// 	title: "API Keys",
-	// 	href: "/dashboard/settings/api-keys",
-	// },
-];
-
-=======
->>>>>>> b4cc0a718fae061f358e4acce43a707a11648dfe:app/(customerdashboard)/customerdashboard/settings/layout.tsx
 interface SettingsLayoutProps {
 	children: React.ReactNode;
 }

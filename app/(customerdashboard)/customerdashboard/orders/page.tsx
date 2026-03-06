@@ -7,7 +7,7 @@
 // import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp } from "lucide-react";
 // import Image from "next/image";
 
-// const BASE_URL = "https://alpa-be.onrender.com";
+// const BASE_URL = "http://127.0.0.1:5000";
 
 // function getAuthHeaders() {
 //   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -168,7 +168,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
 
-const BASE_URL = "https://alpa-be.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 function getAuthHeaders() {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
