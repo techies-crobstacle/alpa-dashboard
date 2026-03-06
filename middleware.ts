@@ -97,10 +97,30 @@ export function middleware(request: NextRequest) {
 
   // If user is authenticated (has token and role)
   if (token && userRole) {
-    // If trying to access public routes (login, register, etc.), redirect to dashboard
+    // If trying to access public routes (login, register, etc.), redirect to their dashboard
     if (isPublicRoute) {
-      return NextResponse.redirect(new URL(`/dashboard/role`, request.url));
+      const dest =
+        userRole === "ADMIN"    ? "/admindashboard" :
+        userRole === "SELLER"   ? "/sellerdashboard" :
+        "/customerdashboard/profile";
+      return NextResponse.redirect(new URL(dest, request.url));
     }
+
+    // Role-based route guard — redirect immediately if visiting the wrong dashboard
+    // This prevents client-side flicker; the redirect happens before any page renders.
+    const wrongDashboard =
+      (pathname.startsWith("/admindashboard")    && userRole !== "ADMIN")   ||
+      (pathname.startsWith("/sellerdashboard")   && userRole !== "SELLER")  ||
+      (pathname.startsWith("/customerdashboard") && userRole !== "CUSTOMER");
+
+    if (wrongDashboard) {
+      const correctDest =
+        userRole === "ADMIN"    ? "/admindashboard" :
+        userRole === "SELLER"   ? "/sellerdashboard" :
+        "/customerdashboard/profile";
+      return NextResponse.redirect(new URL(correctDest, request.url));
+    }
+
     // Allow access to all other routes when authenticated
     return NextResponse.next();
   }
@@ -112,8 +132,12 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Redirect to login for dashboard routes only
-    if (pathname.startsWith("/dashboard")) {
+    // Redirect to login for any role-specific dashboard route
+    if (
+      pathname.startsWith("/admindashboard") ||
+      pathname.startsWith("/sellerdashboard") ||
+      pathname.startsWith("/customerdashboard")
+    ) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
@@ -128,6 +152,8 @@ export const config = {
     "/forgot-password",
     "/verify-email",
     "/setup-2fa",
-    "/dashboard/:path*",
+    "/admindashboard/:path*",
+    "/sellerdashboard/:path*",
+    "/customerdashboard/:path*",
   ],
 };

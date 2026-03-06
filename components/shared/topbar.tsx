@@ -53,7 +53,18 @@ const getNotificationIcon = (type: string) => {
 		const [notifications, setNotifications] = useState<Notification[]>([]);
 		const [unreadCount, setUnreadCount] = useState(0);
 		const [notificationsLoading, setNotificationsLoading] = useState(false);
+		const [role, setRole] = useState<string | null>(null);
 		const router = useRouter();
+
+		// Derive role-aware dashboard paths
+		const settingsHref =
+			role === "ADMIN" ? "/admindashboard/settings" :
+			role === "CUSTOMER" ? "/customerdashboard/settings" :
+			"/sellerdashboard/settings";
+		const profileHref =
+			role === "ADMIN" ? "/admindashboard/profile" :
+			role === "CUSTOMER" ? "/customerdashboard/profile" :
+			"/sellerdashboard/profile";
 
 		// Fetch notifications from API
 		const fetchNotifications = async () => {
@@ -77,6 +88,13 @@ const getNotificationIcon = (type: string) => {
 		const fetchProfileData = async () => {
 			try {
 				setIsLoading(true);
+				// Set role from JWT early so navigation links are immediately correct
+				const tokenForRole = localStorage.getItem("alpa_token");
+				const decodedForRole = tokenForRole ? decodeJWT(tokenForRole) : null;
+				type WithRole = { role?: string };
+				const wr = (decodedForRole && typeof decodedForRole === 'object') ? decodedForRole as WithRole : {};
+				if (typeof wr.role === 'string') setRole(wr.role);
+
 				const data = await api.get('/api/profile');
 				console.log('Profile API Response:', data); // Debug log
 				
@@ -96,6 +114,9 @@ const getNotificationIcon = (type: string) => {
 				// Fallback to JWT data if API fails
 				const token = localStorage.getItem("alpa_token");
 				const decoded = token ? decodeJWT(token) : null;
+				type WithRole = { role?: string };
+				const wr = (decoded && typeof decoded === 'object') ? decoded as WithRole : {};
+				if (typeof wr.role === 'string') setRole(wr.role);
 				let name = "Unknown";
 				let email = "";
 				
@@ -268,7 +289,7 @@ const getNotificationIcon = (type: string) => {
 							
 							<DropdownMenuSeparator />
 							<DropdownMenuItem className="p-3 cursor-pointer text-primary hover:bg-muted rounded-md transition-colors">
-								<Link href="/dashboard/settings/notifications"><span className="flex items-center gap-2">View all notifications</span></Link>
+								<Link href={`${settingsHref}/notifications`}><span className="flex items-center gap-2">View all notifications</span></Link>
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
@@ -310,12 +331,12 @@ const getNotificationIcon = (type: string) => {
 							</DropdownMenuLabel>
 							<DropdownMenuSeparator className="my-2" />
 							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<Link href="/dashboard/settings" className="flex items-center gap-2 w-full">
-									<span>👤 Profile</span>
-								</Link>
-							</DropdownMenuItem>
-							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<Link href="/dashboard/settings" className="flex items-center gap-2 w-full">
+							<Link href={profileHref} className="flex items-center gap-2 w-full">
+								<span>👤 Profile</span>
+							</Link>
+						</DropdownMenuItem>
+						<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
+							<Link href={settingsHref} className="flex items-center gap-2 w-full">
 									<span>⚙️ Settings</span>
 								</Link>
 							</DropdownMenuItem>

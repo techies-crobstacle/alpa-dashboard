@@ -140,11 +140,11 @@ export default function LoginPage() {
 
     setTimeout(() => {
       if (role === "ADMIN" || role === "admin") {
-        router.push("/dashboard/admin/dashboard");
+        router.push("/admindashboard");
       } else if (role === "SELLER" || role === "seller") {
-        router.push("/dashboard");
+        router.push("/sellerdashboard");
       } else {
-        router.push("/dashboard/customer/profile");
+        router.push("/customerdashboard/profile");
       }
       // Force a hard refresh to ensure middleware picks up the cookies
       router.refresh();

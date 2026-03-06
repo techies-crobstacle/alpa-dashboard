@@ -26,7 +26,7 @@ function LoginCallbackContent() {
 
   useEffect(() => {
     const ticket = searchParams.get("ticket");
-    const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+    const redirectTo = searchParams.get("redirectTo");
 
     // ── Validate params ──────────────────────────────────────────────────────
     if (!ticket) {
@@ -35,7 +35,7 @@ function LoginCallbackContent() {
     }
 
     // Only allow internal paths — block open redirects
-    const safePath = redirectTo.startsWith("/") ? redirectTo : "/dashboard";
+    const safePath = redirectTo && redirectTo.startsWith("/") ? redirectTo : null;
 
     // ── Exchange the ticket for a real token ─────────────────────────────────
     const exchangeTicket = async () => {
@@ -77,9 +77,16 @@ function LoginCallbackContent() {
           description: "Redirecting you to your destination…",
         });
 
+        // Determine destination: use explicit redirectTo, or derive from role
+        const roleDest =
+          data.role === "ADMIN"  || data.role === "admin"   ? "/admindashboard" :
+          data.role === "SELLER" || data.role === "seller"  ? "/sellerdashboard" :
+          "/customerdashboard/profile";
+        const dest = safePath ?? roleDest;
+
         // Small delay so the success state is visible, then navigate
         setTimeout(() => {
-          router.replace(safePath);
+          router.replace(dest);
           router.refresh();
         }, 800);
       } catch (err) {
