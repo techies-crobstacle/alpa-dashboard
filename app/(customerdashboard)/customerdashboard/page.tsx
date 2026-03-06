@@ -106,7 +106,7 @@ export default function CustomerDashboardPage() {
 	const firstName = profile?.name?.split(" ")[0] ?? "there";
 
 	return (
-		<div className="p-6 space-y-8 max-w-6xl mx-auto">
+		<div className="p-6 space-y-8 mx-auto w-full">
 			{/* Welcome Header */}
 			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 				<div>

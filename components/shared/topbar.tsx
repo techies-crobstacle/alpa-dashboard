@@ -1,12 +1,11 @@
 "use client";
 import Link from "next/link";
-import { Bell, Search, ShoppingCart, Package, DollarSign, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut } from "lucide-react";
+import { Bell, ShoppingCart, Package, DollarSign, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
 import { api } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -65,6 +64,10 @@ const getNotificationIcon = (type: string) => {
 			role === "ADMIN" ? "/admindashboard/profile" :
 			role === "CUSTOMER" ? "/customerdashboard/profile" :
 			"/sellerdashboard/profile";
+		const notificationsHref =
+			role === "ADMIN" ? "/admindashboard/notifications" :
+			role === "CUSTOMER" ? "/customerdashboard/notifications" :
+			"/sellerdashboard/notifications";
 
 		// Fetch notifications from API
 		const fetchNotifications = async () => {
@@ -189,18 +192,7 @@ const getNotificationIcon = (type: string) => {
 		};
 
 		return (
-			<div className="flex h-16 items-center justify-between border-b px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-				{/* Search */}
-				<div className="flex items-center max-w-2xl flex-1">
-					<div className="relative w-full max-w-lg">
-						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-						<Input
-							type="search"
-							placeholder="Search anything..."
-							className="pl-10 pr-4 py-2 h-10 bg-muted/50 border-0 focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all duration-200"
-						/>
-					</div>
-				</div>
+			<div className="flex h-16 items-center justify-end border-b px-6 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
 
 				{/* Right Section */}
 				<div className="flex items-center gap-3">
@@ -289,7 +281,7 @@ const getNotificationIcon = (type: string) => {
 							
 							<DropdownMenuSeparator />
 							<DropdownMenuItem className="p-3 cursor-pointer text-primary hover:bg-muted rounded-md transition-colors">
-								<Link href={`${settingsHref}/notifications`}><span className="flex items-center gap-2">View all notifications</span></Link>
+								<Link href={notificationsHref}><span className="flex items-center gap-2">View all notifications</span></Link>
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>

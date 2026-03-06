@@ -22,6 +22,7 @@ import {
 	Percent,
 	ShoppingCart,
 	ClipboardList,
+	Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -39,8 +40,9 @@ const adminSidebarItems = [
 	{ title: "GST",         href: "/admindashboard/gst",          icon: Percent,         badge: null },
 	{ title: "Commissions", href: "/admindashboard/commissions",  icon: Users,           badge: null },
 	{ title: "Feedback",    href: "/admindashboard/feedback",     icon: MessageSquare,   badge: null },
-	{ title: "Profile",     href: "/admindashboard/profile",      icon: User,            badge: null },
-	{ title: "Settings",    href: "/admindashboard/settings",     icon: Settings,        badge: null },
+	{ title: "Profile",        href: "/admindashboard/profile",        icon: User,            badge: null },
+	{ title: "Notifications",  href: "/admindashboard/notifications", icon: Bell,            badge: null },
+	{ title: "Settings",       href: "/admindashboard/settings",      icon: Settings,        badge: null },
 ];
 
 // ─── Seller navigation ────────────────────────────────────────────────────────
@@ -50,8 +52,9 @@ const sellerSidebarItems = [
 	{ title: "Products",   href: "/sellerdashboard/products",   icon: Package,         badge: null },
 	{ title: "Categories", href: "/sellerdashboard/categories", icon: Tag,             badge: null },
 	{ title: "Orders",     href: "/sellerdashboard/orders",     icon: ShoppingCart,    badge: null },
-	{ title: "Profile",    href: "/sellerdashboard/profile",    icon: User,            badge: null },
-	{ title: "Settings",   href: "/sellerdashboard/settings",   icon: Settings,        badge: null },
+	{ title: "Profile",       href: "/sellerdashboard/profile",        icon: User,    badge: null },
+	{ title: "Notifications", href: "/sellerdashboard/notifications",  icon: Bell,    badge: null },
+	{ title: "Settings",      href: "/sellerdashboard/settings",       icon: Settings, badge: null },
 ];
 
 // ─── Customer navigation ──────────────────────────────────────────────────────
@@ -59,8 +62,9 @@ const customerSidebarItems = [
 	{ title: "Dashboard",   href: "/customerdashboard",           icon: LayoutDashboard, badge: null },
 	{ title: "My Orders",   href: "/customerdashboard/orders",    icon: ClipboardList, badge: null },
 	{ title: "My Wishlist", href: "/customerdashboard/wishList",  icon: Heart,         badge: null },
-	{ title: "Profile",     href: "/customerdashboard/profile",   icon: User,          badge: null },
-	{ title: "Settings",    href: "/customerdashboard/settings",  icon: Settings,      badge: null },
+	{ title: "Profile",        href: "/customerdashboard/profile",        icon: User,         badge: null },
+	{ title: "Notifications",  href: "/customerdashboard/notifications",  icon: Bell,         badge: null },
+	{ title: "Settings",       href: "/customerdashboard/settings",       icon: Settings,     badge: null },
 ];
 
 interface SidebarProps {

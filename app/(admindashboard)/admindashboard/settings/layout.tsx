@@ -59,10 +59,8 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 	const s = `${dashBase}/settings`;
 
 	const sidebarNavItems = [
-		{ title: "Profile",       href: s },
-		{ title: "Account",       href: `${s}/account` },
-		{ title: "Appearance",    href: `${s}/appearance` },
-		{ title: "Notifications", href: `${s}/notifications` },
+		{ title: "Edit Profile",     href: s },
+		{ title: "Change Password",  href: `${s}/account` },
 	];
 
 	return (

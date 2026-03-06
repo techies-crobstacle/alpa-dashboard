@@ -227,7 +227,7 @@ export const checkWishlistStatus = async (productId: string): Promise<boolean> =
 
 const WishlistLoadingSkeleton = () => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header Skeleton */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
@@ -484,7 +484,7 @@ export default function WishlistPage() {
 
   // Main render
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
