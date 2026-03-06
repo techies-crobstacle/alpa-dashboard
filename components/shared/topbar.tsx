@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Bell, Search, ShoppingCart, Package, DollarSign, UserCheck, AlertCircle } from "lucide-react";
+import { Bell, Search, ShoppingCart, Package, DollarSign, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
@@ -332,23 +332,23 @@ const getNotificationIcon = (type: string) => {
 							<DropdownMenuSeparator className="my-2" />
 							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
 							<Link href={profileHref} className="flex items-center gap-2 w-full">
-								<span>👤 Profile</span>
+								<User className="h-4 w-4" /> Profile
 							</Link>
 						</DropdownMenuItem>
 						<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
 							<Link href={settingsHref} className="flex items-center gap-2 w-full">
-									<span>⚙️ Settings</span>
+									<Settings className="h-4 w-4" /> Settings
 								</Link>
 							</DropdownMenuItem>
 							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<span className="flex items-center gap-2">💳 Billing</span>
+								<span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Billing</span>
 							</DropdownMenuItem>
 							<DropdownMenuSeparator className="my-2" />
 							<DropdownMenuItem
-								className="p-3 cursor-pointer text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md transition-colors"
+								className="p-3 cursor-pointer text-destructive hover:bg-destructive/10 rounded-md transition-colors"
 								onClick={handleLogout}
 							>
-								<span className="flex items-center gap-2">🚪 Log out</span>
+								<span className="flex items-center gap-2"><LogOut className="h-4 w-4" /> Log out</span>
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>

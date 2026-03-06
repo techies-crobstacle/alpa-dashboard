@@ -81,7 +81,7 @@ function LoginCallbackContent() {
         const roleDest =
           data.role === "ADMIN"  || data.role === "admin"   ? "/admindashboard" :
           data.role === "SELLER" || data.role === "seller"  ? "/sellerdashboard" :
-          "/customerdashboard/profile";
+          "/customerdashboard";
         const dest = safePath ?? roleDest;
 
         // Small delay so the success state is visible, then navigate

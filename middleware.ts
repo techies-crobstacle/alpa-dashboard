@@ -102,7 +102,7 @@ export function middleware(request: NextRequest) {
       const dest =
         userRole === "ADMIN"    ? "/admindashboard" :
         userRole === "SELLER"   ? "/sellerdashboard" :
-        "/customerdashboard/profile";
+        "/customerdashboard";
       return NextResponse.redirect(new URL(dest, request.url));
     }
 
@@ -117,7 +117,7 @@ export function middleware(request: NextRequest) {
       const correctDest =
         userRole === "ADMIN"    ? "/admindashboard" :
         userRole === "SELLER"   ? "/sellerdashboard" :
-        "/customerdashboard/profile";
+        "/customerdashboard";
       return NextResponse.redirect(new URL(correctDest, request.url));
     }
 

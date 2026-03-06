@@ -144,7 +144,7 @@ export default function LoginPage() {
       } else if (role === "SELLER" || role === "seller") {
         router.push("/sellerdashboard");
       } else {
-        router.push("/customerdashboard/profile");
+        router.push("/customerdashboard");
       }
       // Force a hard refresh to ensure middleware picks up the cookies
       router.refresh();

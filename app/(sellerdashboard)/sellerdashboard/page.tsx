@@ -464,7 +464,7 @@ export default function DashboardPage() {
             `Unauthorized - Your role is: ${payload.role}. Seller or admin access required.`,
           );
           setChecking(false);
-          setTimeout(() => router.push("/customerdashboard/profile"), 300);
+          setTimeout(() => router.push("/customerdashboard"), 300);
           return;
         }
 
