@@ -310,33 +310,55 @@ function ProjectsPage() {
     }
   };
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!confirm("Are you sure you want to delete this product? This action cannot be undone.")) return;
-    
-    try {
-      console.log('Starting product deletion for ID:', productId);
-      await deleteProduct(productId);
-      toast.success("Product deleted successfully!");
-      loadProducts();
-    } catch (error) {
-      console.error('Product deletion failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
-      // Check for specific database constraint errors
-      if (errorMessage.includes('Foreign key constraint') || errorMessage.includes('order_items_productId_fkey')) {
-        toast.error('Cannot delete product: It has associated orders', {
-          description: 'Products with existing orders cannot be deleted to maintain data integrity.'
-        });
-      } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
-        toast.error('Authentication error. Please log out and log back in.');
-      } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
-        toast.error('You do not have permission to delete this product.');
-      } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
-        toast.error('Product not found. It may have already been deleted.');
-      } else {
-        toast.error(`Delete failed: ${errorMessage}`);
-      }
-    }
+  const handleDeleteProduct = (productId: string) => {
+    toast("Delete this product?", {
+      description: "This action cannot be undone.",
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          try {
+            console.log('Starting product deletion for ID:', productId);
+            await deleteProduct(productId);
+            toast.success("Product deleted successfully!");
+            loadProducts();
+          } catch (error) {
+            console.error('Product deletion failed:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+
+            // Backend deletes the product successfully but then crashes on a
+            // post-delete count update — treat these as a successful deletion.
+            const isBackendCountBug =
+              errorMessage.toLowerCase().includes('newcount') ||
+              errorMessage.toLowerCase().includes('count is not defined');
+
+            if (isBackendCountBug) {
+              toast.success("Product deleted successfully!");
+              loadProducts();
+              return;
+            }
+
+            // Check for specific database constraint errors
+            if (errorMessage.includes('Foreign key constraint') || errorMessage.includes('order_items_productId_fkey')) {
+              toast.error('Cannot delete product: It has associated orders', {
+                description: 'Products with existing orders cannot be deleted to maintain data integrity.'
+              });
+            } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+              toast.error('Authentication error. Please log out and log back in.');
+            } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+              toast.error('You do not have permission to delete this product.');
+            } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+              toast.error('Product not found. It may have already been deleted.');
+            } else {
+              toast.error(`Delete failed: ${errorMessage}`);
+            }
+          }
+        },
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
+    });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

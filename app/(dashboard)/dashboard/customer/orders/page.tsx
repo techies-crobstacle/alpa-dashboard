@@ -160,10 +160,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp, Package, CheckCircle2, XCircle, Download } from "lucide-react";
+import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp, Package, CheckCircle2, XCircle, Download, AlertTriangle, X } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
 
 const BASE_URL = "http://127.0.0.1:5000";
 
@@ -196,18 +199,21 @@ type Order = {
   shippingPostcode?: any;
   shippingPhone?: any;
   shippingAddressLine?: any;
+  statusReason?: any;
 };
 
 const OrderProgressTracker = ({ status }: { status: any }) => {
   const statuses = ['confirmed', 'processing', 'shipped', 'delivered'];
   const statusStr = typeof status === 'string' ? status.toLowerCase() : '';
   const isCancelled = statusStr === 'cancelled';
-  
+  const isRefund = statusStr === 'refund' || statusStr === 'partial_refund';
+
   const getStatusIndex = (orderStatus: string) => {
     return statuses.indexOf(orderStatus);
   };
 
-  const currentIndex = getStatusIndex(statusStr);
+  // For refund states, show as fully delivered + refund indicator
+  const currentIndex = isRefund ? statuses.length - 1 : getStatusIndex(statusStr);
 
   if (isCancelled) {
     return (
@@ -218,6 +224,40 @@ const OrderProgressTracker = ({ status }: { status: any }) => {
               <XCircle className="h-6 w-6 text-destructive-foreground" />
             </div>
             <span className="text-sm font-medium">Cancelled</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRefund) {
+    return (
+      <div className="w-full py-6 space-y-4">
+        <div className="flex items-center justify-between relative">
+          <div className="absolute top-6 left-0 right-0 h-1 bg-primary -z-10 mx-6" />
+          {statuses.map((statusName) => {
+            let icon = null;
+            if (statusName === 'confirmed') icon = <ClipboardList className="h-6 w-6" />;
+            else if (statusName === 'processing') icon = <Package className="h-6 w-6" />;
+            else if (statusName === 'shipped') icon = <Truck className="h-6 w-6" />;
+            else if (statusName === 'delivered') icon = <CheckCircle2 className="h-6 w-6" />;
+            return (
+              <div key={statusName} className="flex flex-col items-center flex-1">
+                <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2">
+                  {icon}
+                </div>
+                <span className="text-sm font-medium">{statusName.charAt(0).toUpperCase() + statusName.slice(1)}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+              {statusStr === 'partial_refund' ? 'Partial Refund Processed' : 'Refund Processed'}
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">This order has been refunded and is now closed.</p>
           </div>
         </div>
       </div>
@@ -261,6 +301,170 @@ const OrderProgressTracker = ({ status }: { status: any }) => {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+};
+
+// --- Cancel Order Modal (requires mandatory reason) ---
+const CancelOrderModal = ({
+  order,
+  onClose,
+  onSuccess,
+}: {
+  order: Order;
+  onClose: () => void;
+  onSuccess: () => void;
+}) => {
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleCancel = async () => {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason for cancellation.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.put(`/api/orders/cancel/${order.id}`, { reason });
+      toast.success("Order cancelled successfully.");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel order.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-background rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <XCircle className="h-5 w-5 text-destructive" /> Cancel Order
+          </h2>
+          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Order <strong>#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : order.id}</strong>
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="cancelReason">
+            Reason for cancellation <span className="text-destructive">*</span>
+          </Label>
+          <Textarea
+            id="cancelReason"
+            placeholder="Please explain why you want to cancel this order..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+          />
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={onClose} disabled={loading}>Back</Button>
+          <Button variant="destructive" onClick={handleCancel} disabled={loading || !reason.trim()}>
+            {loading && <Loader2 className="animate-spin h-4 w-4 mr-2" />} Confirm Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Refund Request Modal ---
+const RefundRequestModal = ({
+  order,
+  onClose,
+  onSuccess,
+}: {
+  order: Order;
+  onClose: () => void;
+  onSuccess: () => void;
+}) => {
+  const [requestType, setRequestType] = useState<"FULL_REFUND" | "PARTIAL_REFUND">("FULL_REFUND");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason for the refund request.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post(`/api/orders/refund-request/${order.id}`, { requestType, reason });
+      toast.success("Refund request submitted successfully.");
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit refund request.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-background rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" /> Request Refund
+          </h2>
+          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Order <strong>#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : order.id}</strong>
+        </p>
+        <div className="space-y-2">
+          <Label>Refund Type <span className="text-destructive">*</span></Label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setRequestType("FULL_REFUND")}
+              className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                requestType === "FULL_REFUND"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-muted-foreground/30 hover:border-primary"
+              }`}
+            >
+              Full Refund
+            </button>
+            <button
+              type="button"
+              onClick={() => setRequestType("PARTIAL_REFUND")}
+              className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                requestType === "PARTIAL_REFUND"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-muted-foreground/30 hover:border-primary"
+              }`}
+            >
+              Partial Refund
+            </button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="refundReason">
+            Reason <span className="text-destructive">*</span>
+          </Label>
+          <Textarea
+            id="refundReason"
+            placeholder="Describe the issue and reason for refund..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+          />
+        </div>
+        <div className="space-y-1 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+          <p className="font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Note</p>
+          <p>This will create a support ticket. Our team will review your request within 2-3 business days. The order status will be updated after review.</p>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <Button variant="outline" onClick={onClose} disabled={loading}>Back</Button>
+          <Button onClick={handleSubmit} disabled={loading || !reason.trim()}>
+            {loading && <Loader2 className="animate-spin h-4 w-4 mr-2" />} Submit Request
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -315,6 +519,8 @@ const CustomerOrdersPage = () => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  const [cancelModalOrder, setCancelModalOrder] = useState<Order | null>(null);
+  const [refundModalOrder, setRefundModalOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -393,25 +599,14 @@ const CustomerOrdersPage = () => {
     return String(val);
   };
 
-  const handleCancelOrder = async (orderId: string) => {
-    setCancellingOrderId(orderId);
-    try {
-      await api.put(`/api/orders/cancel/${orderId}`);
-      toast.success("Order cancelled successfully.");
-      fetchOrders();
-    } catch (err: any) {
-      // Log the error for debugging
-      console.error('Cancel order error:', err);
-      if (err.response) {
-        const errorText = await err.response.text();
-        toast.error(`API Error: ${errorText}`);
-      } else {
-        toast.error(err.message || "Failed to cancel order.");
-      }
-    } finally {
-      setCancellingOrderId(null);
-    }
+  const fmtDate = (val: any) => {
+    if (!val) return "N/A";
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   };
+
+  // Cancel is now handled by CancelOrderModal (mandatory reason required)
 
   const handleDownloadInvoice = async (orderId: string) => {
     setDownloadingInvoiceId(orderId);
@@ -464,6 +659,9 @@ const CustomerOrdersPage = () => {
           <h1 className="text-3xl font-bold tracking-tight">My Orders</h1>
           <p className="text-muted-foreground">View your order history and track your shipments.</p>
         </div>
+        <Button variant="outline" onClick={() => window.location.href = '/dashboard/customer/returnPolicy'}>
+          <ClipboardList className="h-4 w-4 mr-2" /> My Refund Requests
+        </Button>
       </div>
       {orders.length === 0 ? (
         <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
@@ -496,7 +694,7 @@ const CustomerOrdersPage = () => {
                       {order.trackingNumber ? (
                         <div className="flex flex-col">
                           <span className="font-medium flex items-center gap-1"><Truck className="h-4 w-4" /> {renderValue(order.trackingNumber)}</span>
-                          <span className="text-xs text-muted-foreground">Est: {renderValue(order.estimatedDelivery)}</span>
+                          <span className="text-xs text-muted-foreground">Est: {fmtDate(order.estimatedDelivery)}</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">No tracking</span>
@@ -567,7 +765,7 @@ const CustomerOrdersPage = () => {
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Estimated Delivery</span>
-                                  <p className="font-medium">{order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</p>
+                                  <p className="font-medium">{fmtDate(order.estimatedDelivery)}</p>
                                 </div>
                               </div>
 
@@ -601,16 +799,25 @@ const CustomerOrdersPage = () => {
                                   </div>
                                 );
                               })()}
-                              {/* Cancel Order Button */}
+                              {/* Cancel Order Button (opens modal with mandatory reason) */}
                               {typeof order.status === 'string' && order.status.toLowerCase() === "confirmed" && (
                                 <Button
                                   variant="destructive"
-                                  disabled={cancellingOrderId === order.id}
-                                  onClick={() => handleCancelOrder(order.id)}
+                                  onClick={() => setCancelModalOrder(order)}
                                   className="mt-4"
                                 >
-                                  {cancellingOrderId === order.id && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
                                   Cancel Order
+                                </Button>
+                              )}
+
+                              {/* Request Refund Button (DELIVERED orders only) */}
+                              {typeof order.status === 'string' && order.status.toLowerCase() === "delivered" && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setRefundModalOrder(order)}
+                                  className="mt-4 ml-2"
+                                >
+                                  <DollarSign className="h-4 w-4 mr-2" /> Request Refund
                                 </Button>
                               )}
 
@@ -676,6 +883,20 @@ const CustomerOrdersPage = () => {
             </tbody>
           </table>
         </div>
+      )}
+      {cancelModalOrder && (
+        <CancelOrderModal
+          order={cancelModalOrder}
+          onClose={() => setCancelModalOrder(null)}
+          onSuccess={fetchOrders}
+        />
+      )}
+      {refundModalOrder && (
+        <RefundRequestModal
+          order={refundModalOrder}
+          onClose={() => setRefundModalOrder(null)}
+          onSuccess={fetchOrders}
+        />
       )}
     </div>
   );

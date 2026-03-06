@@ -426,13 +426,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
  
 import { toast } from "sonner";
+import {
+  getAllowedTransitions,
+  getRequiredFields,
+  validateStatusUpdate,
+  getStatusLabel,
+  getStatusBadgeVariant,
+  isTerminalStatus,
+} from "@/lib/orderStatusRules";
 
 const BASE_URL = "http://127.0.0.1:5000";
 
@@ -460,6 +469,7 @@ type Order = {
   createdAt: any;
   customerName?: any;
   status: any;
+  statusReason?: any;
   items?: OrderItem[];
   totalAmount: any;
   trackingNumber?: any;
@@ -472,13 +482,172 @@ type Order = {
   shippingPhone?: any;
 };
 
+// ─── Status Update Modal ──────────────────────────────────────────────────────
+
+interface StatusModalProps {
+  order: Order | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [estimatedDelivery, setEstimatedDelivery] = useState("");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [apiError, setApiError] = useState("");
+
+  if (!order) return null;
+  const allowedTransitions = getAllowedTransitions(order.status);
+  const requiredFields = getRequiredFields(selectedStatus);
+  const needsTracking = requiredFields.includes("trackingNumber");
+  const needsReason = requiredFields.includes("reason");
+  const terminal = isTerminalStatus(order.status);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setValidationErrors([]);
+    setApiError("");
+    const payload: Record<string, string> = {
+      status: selectedStatus,
+      ...(trackingNumber && { trackingNumber }),
+      ...(estimatedDelivery && { estimatedDelivery }),
+      ...(reason && { reason }),
+      ...(notes && { notes }),
+    };
+    const { valid, errors } = validateStatusUpdate(selectedStatus, payload);
+    if (!valid) { setValidationErrors(errors); return; }
+    setLoading(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const authHeaders = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      const res = await fetch(`${BASE_URL}/api/seller/orders/update-status/${order.id}`, {
+        method: "PUT",
+        headers: authHeaders,
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Failed to update status");
+      }
+      // If shipping, persist tracking info via the dedicated tracking endpoint
+      if (selectedStatus === "SHIPPED" && trackingNumber && estimatedDelivery) {
+        await fetch(`${BASE_URL}/api/seller/orders/tracking/${order.id}`, {
+          method: "PUT",
+          headers: authHeaders,
+          body: JSON.stringify({ trackingNumber, estimatedDelivery }),
+        });
+      }
+      toast.success(`Order updated to ${getStatusLabel(selectedStatus)}`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      const msg = err?.message || "Failed to update status";
+      setApiError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-lg">Update Order Status</CardTitle>
+              <CardDescription className="mt-0.5">
+                Order #{typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}
+              </CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+            <span className="text-muted-foreground">Current Status</span>
+            <Badge variant={getStatusBadgeVariant(order.status)}>{getStatusLabel(order.status)}</Badge>
+          </div>
+          {terminal ? (
+            <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">This order is in a terminal status and cannot be updated further.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>New Status <span className="text-destructive">*</span></Label>
+                <Select value={selectedStatus} onValueChange={(v) => { setSelectedStatus(v); setValidationErrors([]); }}>
+                  <SelectTrigger><SelectValue placeholder="— Select new status —" /></SelectTrigger>
+                  <SelectContent>
+                    {allowedTransitions.map((s) => (
+                      <SelectItem key={s} value={s}>{getStatusLabel(s)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {needsTracking && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Tracking Number <span className="text-destructive">*</span></Label>
+                    <Input placeholder="e.g. TRK12345" value={trackingNumber} onChange={(e) => setTrackingNumber(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Estimated Delivery Date <span className="text-destructive">*</span></Label>
+                    <Input type="date" value={estimatedDelivery} onChange={(e) => setEstimatedDelivery(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+                  </div>
+                </>
+              )}
+              {needsReason && (
+                <div className="space-y-1.5">
+                  <Label>Reason <span className="text-destructive">*</span></Label>
+                  <Textarea placeholder="Provide a reason for this status change..." value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="resize-none" />
+                </div>
+              )}
+              {selectedStatus && (
+                <div className="space-y-1.5">
+                  <Label>Notes <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                  <Textarea placeholder="Additional notes..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="resize-none" />
+                </div>
+              )}
+              {validationErrors.length > 0 && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
+                  {validationErrors.map((err, i) => (
+                    <p key={i} className="text-sm text-destructive flex items-start gap-1.5"><span>•</span><span>{err}</span></p>
+                  ))}
+                </div>
+              )}
+              {apiError && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  <p className="text-sm text-destructive">{apiError}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+                <Button type="submit" className="flex-1" disabled={!selectedStatus || loading}>
+                  {loading ? <><Loader2 className="animate-spin h-4 w-4 mr-2" />Updating...</> : "Update Status"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
     // Only declare expandedOrderId once at the top of the component
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeStatusOrder, setActiveStatusOrder] = useState<Order | null>(null);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
-  const [layout, setLayout] = useState<'table' | 'card'>("card");
+  const [layout, setLayout] = useState<'table' | 'card'>("table");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -488,6 +657,13 @@ export default function OrdersPage() {
     if (val === null || val === undefined) return "N/A";
     if (typeof val === "object") return JSON.stringify(val);
     return String(val);
+  };
+
+  const fmtDate = (val: any) => {
+    if (!val) return "N/A";
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   };
 
   const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
@@ -532,25 +708,13 @@ export default function OrdersPage() {
     }
   };
 
-  // 2. UPDATE Status
-  const updateStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const res = await fetch(`${BASE_URL}/api/seller/orders/update-status/${orderId}`, {
-        method: "PUT",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success(`Order marked as ${newStatus}`);
-      fetchOrders();
-    } catch {
-      toast.error("Failed to update status");
-    }
-  };
+  // 2. UPDATE Status — replaced by StatusUpdateModal
 
   // 3. ADD Tracking
   const submitTracking = async () => {
     if (!activeTrackingOrder) return;
+    const { valid, errors } = validateStatusUpdate("SHIPPED", { trackingNumber: trackingData.trackingNumber, estimatedDelivery: trackingData.estimatedDelivery });
+    if (!valid) { toast.error(errors[0]); return; }
     try {
       const res = await fetch(`${BASE_URL}/api/seller/orders/tracking/${activeTrackingOrder.id}`, {
         method: "PUT",
@@ -728,7 +892,7 @@ export default function OrdersPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "N/A"}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span className="font-medium">{renderValue(order.paymentMethod)}</span></div>
             {order.trackingNumber && <div className="flex justify-between"><span className="text-muted-foreground">Tracking</span><span className="font-medium">{order.trackingNumber}</span></div>}
-            {order.estimatedDelivery && <div className="flex justify-between"><span className="text-muted-foreground">Est. Delivery</span><span className="font-medium">{order.estimatedDelivery}</span></div>}
+            {order.estimatedDelivery && <div className="flex justify-between"><span className="text-muted-foreground">Est. Delivery</span><span className="font-medium">{fmtDate(order.estimatedDelivery)}</span></div>}
           </CardContent>
         </Card>
 
@@ -865,20 +1029,16 @@ export default function OrdersPage() {
                   {/* Actions: Update Status */}
                   <div className="space-y-3">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Management</Label>
-                    <Select onValueChange={(val) => updateStatus(order.id, val)} defaultValue={renderValue(order.status) || "confirmed"}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {order.status ? renderValue(order.status).charAt(0).toUpperCase() + renderValue(order.status).slice(1) : "Confirmed"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="delivered">Delivered</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {isTerminalStatus(order.status) ? (
+                      <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg text-sm text-muted-foreground">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                        <span>Terminal — no further changes.</span>
+                      </div>
+                    ) : (
+                      <Button variant="outline" className="w-full gap-2" onClick={() => setActiveStatusOrder(order)}>
+                        <ClipboardList className="h-4 w-4" /> Update Status
+                      </Button>
+                    )}
                   </div>
                   {/* Actions: Tracking */}
                   <div className="space-y-3">
@@ -888,12 +1048,14 @@ export default function OrdersPage() {
                           <p className="flex items-center gap-2 text-blue-700 font-medium">
                             <Truck className="h-4 w-4" /> {renderValue(order.trackingNumber)}
                           </p>
-                          <p className="text-blue-600/80 text-xs mt-1">Est: {renderValue(order.estimatedDelivery)}</p>
+                          <p className="text-blue-600/80 text-xs mt-1">Est: {fmtDate(order.estimatedDelivery)}</p>
                        </div>
-                    ) : (
+                    ) : !isTerminalStatus(order.status) ? (
                       <Button variant="outline" className="w-full gap-2" onClick={() => setActiveTrackingOrder(order)}>
                         <Truck className="h-4 w-4" /> Add Tracking
                       </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No tracking info.</p>
                     )}
                   </div>
                 </div>
@@ -950,7 +1112,7 @@ export default function OrdersPage() {
                       {order.trackingNumber ? (
                         <div className="flex flex-col">
                           <span className="font-medium">{order.trackingNumber}</span>
-                          <span className="text-xs text-muted-foreground">Est: {order.estimatedDelivery}</span>
+                          <span className="text-xs text-muted-foreground">Est: {fmtDate(order.estimatedDelivery)}</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">No tracking</span>
@@ -1015,6 +1177,15 @@ export default function OrdersPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Status Update Modal */}
+      {activeStatusOrder && (
+        <StatusUpdateModal
+          order={activeStatusOrder}
+          onClose={() => setActiveStatusOrder(null)}
+          onSuccess={fetchOrders}
+        />
       )}
 
       {/* Tracking Modal */}
