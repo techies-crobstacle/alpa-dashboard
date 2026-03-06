@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // --- CONFIGURATION ---
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
 
 // --- HELPER: Get Auth Token ---
 const getAuthToken = () => {
@@ -388,7 +388,13 @@ function ProjectsPage() {
     }
   };
 
-  const openEditModal = async (productId: string) => {
+  const openEditModal = async (productId: string, product?: Product) => {
+    // Check if product is rejected before allowing edit
+    if (product?.status === "REJECTED") {
+      toast.error("Cannot edit rejected products. Please create a new product or resubmit the original.");
+      return;
+    }
+
     setEditProductId(productId);
     setEditSubmitting(false);
     editGalleryAccumRef.current = []; // reset accumulator for fresh edit session
@@ -401,9 +407,19 @@ function ProjectsPage() {
           "Authorization": `Bearer ${token}`,
         },
       });
-      if (!response.ok) throw new Error("Failed to fetch product details");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const statusMsg = response.status === 403 ? "This product cannot be edited (may be rejected or not accessible)." : "Failed to fetch product details";
+        throw new Error(errorData.message || statusMsg);
+      }
       const data = await response.json();
       const prod = data.product || data;
+
+      // Check if returned product is rejected
+      if (prod.status === "REJECTED") {
+        throw new Error("This product has been rejected and cannot be edited. Please create a new product instead.");
+      }
+
       // Deduplicate gallery: merge galleryImages + images, remove featured, remove dupes
       const featuredImg: string | null = prod.featuredImage || null;
       const rawGallery: string[] = [
@@ -431,6 +447,7 @@ function ProjectsPage() {
       });
       setShowEditModal(true);
     } catch (err) {
+      setEditProductId(null); // clear the ID so modal doesn't open
       toast.error((err as Error).message || "Failed to load product");
     }
   };
@@ -689,7 +706,7 @@ function ProjectsPage() {
                     <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
                   </td>
                   <td className="px-4 py-2 flex gap-1">
-                    <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
+                    <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id, product)} disabled={product.status === 'REJECTED'}><Edit className="h-3 w-3" /> Edit</Button>
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -869,7 +886,7 @@ function ProjectsPage() {
                     <span className="font-semibold">{product.stock} units</span>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
+                    <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id, product)} disabled={product.status === 'REJECTED'}><Edit className="h-3 w-3" /> Edit</Button>
                     <Button 
                       variant="outline" 
                       size="sm" 

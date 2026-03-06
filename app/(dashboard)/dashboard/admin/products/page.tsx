@@ -1631,26 +1631,37 @@ export default function AdminProductsPage() {
       }
 
       // ── Gallery images ────────────────────────────────────────────────────
-      // Use the same key "galleryImages" for BOTH existing URLs and new Files.
-      // This matches the Postman tests and ensures the backend doesn't wipe old ones.
+      // Send old and new gallery images in SEPARATE fields so backend can distinguish them.
+      // This prevents the backend from wiping old images when new ones are added.
       
-      // 1. Append existing URLs to keep them
+      // 1. Append existing URLs to keep them (in "existingGalleryImages" field)
       if (editFormData.oldGalleryImages?.length > 0) {
         editFormData.oldGalleryImages.forEach((url) => {
-          form.append("galleryImages", url);
+          form.append("existingGalleryImages", url);
         });
       }
 
-      // 2. Append new File objects
+      // 2. Append new File objects (in "galleryImages" field)
       const galleryFiles = [...editGalleryAccumRef.current];
       if (galleryFiles.length > 0) {
         galleryFiles.forEach((f) => {
           form.append("galleryImages", f);
         });
       }
+      
+      // If NO new files but old images exist, explicitly send them
+      // This ensures the backend knows to KEEP the old images, not delete them
+      if (galleryFiles.length === 0 && editFormData.oldGalleryImages?.length > 0) {
+        form.append("keepExistingGallery", "true");
+      }
 
       // Debug — verify in browser console before sending
-      console.log("[handleEditProduct] galleryImages contents (total):", editFormData.oldGalleryImages.length + galleryFiles.length);
+      console.log("[handleEditProduct] Gallery images summary:", {
+        existingUrls: editFormData.oldGalleryImages.length,
+        newFiles: galleryFiles.length,
+        totalImages: editFormData.oldGalleryImages.length + galleryFiles.length,
+        keepExisting: galleryFiles.length === 0 && editFormData.oldGalleryImages?.length > 0
+      });
       console.log("[handleEditProduct] existing URLs:", editFormData.oldGalleryImages);
       console.log("[handleEditProduct] new files:", galleryFiles.map((f) => f.name));
 
