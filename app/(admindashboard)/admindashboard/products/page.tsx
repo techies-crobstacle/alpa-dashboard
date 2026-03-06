@@ -1233,6 +1233,7 @@
 
 import React from "react";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -1318,6 +1319,8 @@ function PendingPill({ count }: { count: number }) {
 }
 
 export default function AdminProductsPage() {
+  const router = useRouter();
+
   // Redirect to login if not authenticated
   React.useEffect(() => {
     if (typeof document !== "undefined") {
@@ -1940,8 +1943,7 @@ export default function AdminProductsPage() {
             </thead>
             <tbody className="divide-y divide-muted">
               {paginatedProducts.map((product) => (
-                <React.Fragment key={product.id}>
-                  <tr className="hover:bg-muted/20">
+                <tr key={product.id} className="hover:bg-muted/20">
                     <td className="px-4 py-2">
                       {(product.featuredImage || product.images?.length) ? (
                         <Image src={product.featuredImage || product.images![0]} alt={product.title || "Product"} width={48} height={48}
@@ -1965,10 +1967,10 @@ export default function AdminProductsPage() {
                         {(product.status === "ACTIVE" || product.status === "INACTIVE") ? (
                           <>
                             <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditModal(product.id)} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8"
-                              onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
-                              title={expandedProductId === product.id ? "Hide" : "View"}>
-                              {expandedProductId === product.id ? <X className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            <Button variant="outline" size="sm" className="gap-1"
+                              onClick={() => router.push(`/admindashboard/products/${product.id}`)}
+                              title="View">
+                              <Eye className="h-3.5 w-3.5" /> View
                             </Button>
                             <div className="flex items-center gap-1.5 px-2">
                               <Switch
@@ -1986,102 +1988,26 @@ export default function AdminProductsPage() {
                           <>
                             <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
                             <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openRejectModal(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8"
-                              onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
-                              title={expandedProductId === product.id ? "Hide" : "View"}>
-                              {expandedProductId === product.id ? <X className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            <Button variant="outline" size="sm" className="gap-1"
+                              onClick={() => router.push(`/admindashboard/products/${product.id}`)}
+                              title="View">
+                              <Eye className="h-3.5 w-3.5" /> View
                             </Button>
                           </>
                         ) : (
                           /* REJECTED or unknown: view + approve */
                           <>
                             <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8"
-                              onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
-                              title={expandedProductId === product.id ? "Hide" : "View"}>
-                              {expandedProductId === product.id ? <X className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            <Button variant="outline" size="sm" className="gap-1"
+                              onClick={() => router.push(`/admindashboard/products/${product.id}`)}
+                              title="View">
+                              <Eye className="h-3.5 w-3.5" /> View
                             </Button>
                           </>
                         )}
                       </div>
                     </td>
-                  </tr>
-                  {expandedProductId === product.id && (
-                    <tr><td colSpan={7} className="bg-muted/10 p-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <h3 className="font-bold text-lg mb-2">{product.title}</h3>
-                          <p className="mb-2 text-muted-foreground">{product.description}</p>
-                          <div className="mb-2"><strong>Category:</strong> {product.category}</div>
-                          <div className="mb-2"><strong>Price:</strong> ${product.price}</div>
-                          <div className="mb-2"><strong>Stock:</strong> {product.stock}</div>
-                          <div className="mb-2"><strong>Status:</strong> {product.status || "Active"}</div>
-                          <div className="mb-2"><strong>Featured:</strong> {product.featured ? "Yes" : "No"}</div>
-                          <div className="mb-2"><strong>Tags:</strong>{" "}
-                            {product.tags && product.tags.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {(Array.isArray(product.tags) ? product.tags : String(product.tags).split(",")).map((tag, i) => (
-                                  <Badge key={i} variant="secondary" className="text-xs">{String(tag).trim()}</Badge>
-                                ))}
-                              </div>
-                            ) : <span className="text-muted-foreground ml-2">No tags</span>}
-                          </div>
-                          {/* Rejection reason */}
-                          {product.rejectionReason && (
-                            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800 mt-2">
-                              <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <p className="text-xs font-semibold text-red-700 dark:text-red-400">Rejection Reason</p>
-                                <p className="text-sm text-red-600 dark:text-red-300">{product.rejectionReason}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-2 flex-wrap">
-                          {/* Featured Image */}
-                          {product.featuredImage && (
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Featured</span>
-                              <div className="w-32 h-32 rounded border-2 border-primary/40 bg-muted overflow-hidden">
-                                <Image src={product.featuredImage} alt="Featured" width={128} height={128} className="w-full h-full object-cover" unoptimized
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                              </div>
-                            </div>
-                          )}
-                          {/* Gallery Images */}
-                          {(() => {
-                            const featImg = product.featuredImage || null;
-                            const rawGallery: string[] = [
-                              ...(Array.isArray(product.galleryImages) ? product.galleryImages : []),
-                              ...(Array.isArray(product.images) ? product.images : []),
-                            ];
-                            const gallery = [...new Set(rawGallery)].filter((img) => img !== featImg);
-                            return gallery.length > 0 ? (
-                              <div className="flex flex-col gap-1 w-full">
-                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Gallery ({gallery.length})</span>
-                                <div className="flex flex-wrap gap-2">
-                                  {gallery.map((img, i) => (
-                                    <div key={img + i} className="w-28 h-28 rounded border bg-muted overflow-hidden">
-                                      <Image src={img} alt={`Gallery ${i + 1}`} width={112} height={112} className="w-full h-full object-cover" unoptimized
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : null;
-                          })()}
-                          {/* Empty state */}
-                          {!product.featuredImage && !product.galleryImages?.length && !product.images?.length && (
-                            <div className="w-32 h-32 rounded border bg-muted flex flex-col items-center justify-center gap-1">
-                              <LucideImage className="h-8 w-8 opacity-30" />
-                              <span className="text-[10px] text-muted-foreground">No images</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td></tr>
-                  )}
-                </React.Fragment>
+                </tr>
               ))}
             </tbody>
           </table>
