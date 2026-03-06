@@ -27,6 +27,7 @@ import {
 	Percent,
 	ShoppingCart,
 	ClipboardList,
+	ScrollText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -141,6 +142,12 @@ const baseSidebarGroups = [
 				title: "Feedback",
 				href: "/dashboard/admin/feedback",
 				icon: MessageSquare,
+				badge: null,
+			},
+			{
+				title: "Audit Logs",
+				href: "/dashboard/admin/audit-logs",
+				icon: ScrollText,
 				badge: null,
 			},
 			{
@@ -269,7 +276,7 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 		// Deep copy to avoid mutating base
 		let filteredItems = group.items.filter((item) => {
 			// Admin-only pages
-			if ([ "/dashboard/admin/commissions", "/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard","/dashboard/admin/feedback"].includes(item.href)) {
+			if ([ "/dashboard/admin/commissions", "/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard","/dashboard/admin/feedback","/dashboard/admin/audit-logs"].includes(item.href)) {
 				return role === "ADMIN";
 			}
 			// Seller and customer can see /dashboard/orders

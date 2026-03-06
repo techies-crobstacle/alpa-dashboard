@@ -2,6 +2,7 @@
 
 // import React from "react";
 // import { useState, useEffect, useRef } from "react";
+// import { ProductActivityLog } from "@/components/shared/product-activity-log"; // ── Activity Log
 // import { Label } from "@/components/ui/label";
 // import { Textarea } from "@/components/ui/textarea";
 // import { Switch } from "@/components/ui/switch";
@@ -801,6 +802,9 @@
 //                           )}
 //                         </div>
 //                       </div>
+//                       {/* ── Activity Log ──────────────────────────────────────────────── */}
+//                       {/* Uncomment the import at the top + the line below to enable logs: */}
+//                       {/* <ProductActivityLog productId={product.id} productTitle={product.title} /> */}
 //                     </td></tr>
 //                   )}
 //                 </React.Fragment>
