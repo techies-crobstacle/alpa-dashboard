@@ -88,8 +88,7 @@
 //   const [products, setProducts] = useState<Product[]>([]);
 //   const [loading, setLoading] = useState(false);
 //   const [loadingSellers, setLoadingSellers] = useState(true);
-//   const [layout, setLayout] = useState<"table" | "card">("table");
-
+// 
 //   const [activeView, setActiveView] = useState<"all" | "approved" | "pending" | "rejected">("approved");
 //   const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
 //   const [loadingPending, setLoadingPending] = useState(false);
@@ -660,7 +659,7 @@
 //           </div>
 //       ) : currentProducts.length === 0 ? (
 //         <Card className="col-span-full text-center py-12">No {activeView === "approved" ? "approved" : activeView === "pending" ? "pending" : activeView === "rejected" ? "rejected" : ""} products found.</Card>
-//       ) : layout === "table" ? (
+//       ) : (
 
 //         /* TABLE VIEW */
 //         <div className="overflow-x-auto rounded-lg border bg-background">
@@ -1237,7 +1236,7 @@ import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Package, DollarSign, Edit, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Package, DollarSign, Edit, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle, AlertCircle, Trash2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1249,6 +1248,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type Seller = {
   id: string;
@@ -1318,6 +1318,22 @@ function PendingPill({ count }: { count: number }) {
   );
 }
 
+type RecycleBinProduct = {
+  id: string;
+  title: string;
+  price: string;
+  stock: number;
+  category?: string;
+  featuredImage?: string | null;
+  status?: string;
+  deletedAt: string;
+  deletedBy: string | null;
+  deletedByRole: "ADMIN" | "SELLER" | null;
+  seller?: { id: string; name: string; email: string };
+  sellerId?: string;
+  sellerName?: string;
+};
+
 export default function AdminProductsPage() {
   const router = useRouter();
 
@@ -1337,9 +1353,8 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingSellers, setLoadingSellers] = useState(true);
-  const [layout, setLayout] = useState<"table" | "card">("table");
 
-  const [activeView, setActiveView] = useState<"all" | "approved" | "pending" | "rejected" | "inactive">("approved");
+  const [activeView, setActiveView] = useState<"all" | "approved" | "pending" | "rejected" | "inactive" | "recycle-bin">("approved");
   const [pendingProducts, setPendingProducts] = useState<Product[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -1349,6 +1364,16 @@ export default function AdminProductsPage() {
   const [inactiveProducts, setInactiveProducts] = useState<Product[]>([]);
   const [loadingInactive, setLoadingInactive] = useState(false);
   const [tabCounts, setTabCounts] = useState<TabCounts>({ all: 0, pending: 0, approved: 0, rejected: 0, inactive: 0 });
+
+  // Recycle Bin state
+  const [recycleBinProducts, setRecycleBinProducts] = useState<RecycleBinProduct[]>([]);
+  const [loadingRecycleBin, setLoadingRecycleBin] = useState(false);
+
+  // Permanent delete confirm
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RecycleBinProduct | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   const allPendingRef = useRef<Product[]>([]);
   const allRejectedRef = useRef<Product[]>([]);
@@ -1361,6 +1386,7 @@ export default function AdminProductsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [editProductStatus, setEditProductStatus] = useState<string>("");
   const [editFormData, setEditFormData] = useState({
     title: "",
     description: "",
@@ -1386,6 +1412,8 @@ export default function AdminProductsPage() {
   const [editCatSearch, setEditCatSearch] = useState("");
   const editCatDropdownRef = useRef<HTMLDivElement>(null);
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   const editFeaturedImageRef = useRef<HTMLInputElement>(null);
   const editGalleryImagesRef = useRef<HTMLInputElement>(null);
@@ -1504,6 +1532,20 @@ export default function AdminProductsPage() {
   const applyRejectedFilter = (sellerId: string) => fetchTabProducts(sellerId, "rejected");
   const fetchInactiveProducts = (sellerId: string) => fetchTabProducts(sellerId, "inactive");
 
+  const fetchRecycleBin = async (sellerId: string) => {
+    setLoadingRecycleBin(true);
+    try {
+      const qs = sellerId ? `?sellerId=${encodeURIComponent(sellerId)}` : "";
+      const res = await api.get(`/api/admin/products/recycle-bin${qs}`);
+      setRecycleBinProducts(res?.products || []);
+    } catch (err: any) {
+      toast.error(`Failed to load recycle bin: ${err?.message || "Unknown error"}`);
+      setRecycleBinProducts([]);
+    } finally {
+      setLoadingRecycleBin(false);
+    }
+  };
+
   // ── kept for legacy — refreshes rejected cache only, never touches tabCounts
   const refreshRejected = async (currentSellers: Seller[]): Promise<Product[]> => {
     try {
@@ -1536,9 +1578,18 @@ export default function AdminProductsPage() {
     setAllProducts([]);
     setRejectedProducts([]);
     setInactiveProducts([]);
+    setRecycleBinProducts([]);
     setTabCounts({ all: 0, pending: 0, approved: 0, rejected: 0, inactive: 0 });
     fetchedTabsRef.current.add(activeView);
-    fetchTabProducts(selectedSeller, activeView);
+    if (activeView === "recycle-bin") {
+      fetchRecycleBin(selectedSeller);
+    } else {
+      fetchTabProducts(selectedSeller, activeView);
+    }
+    // Always fetch recycle bin count eagerly so the badge shows immediately
+    if (activeView !== "recycle-bin") {
+      fetchRecycleBin(selectedSeller);
+    }
     setCurrentPage(1);
   }, [selectedSeller]); // eslint-disable-line
 
@@ -1551,13 +1602,16 @@ export default function AdminProductsPage() {
       return;
     }
     fetchedTabsRef.current.add(activeView);
-    fetchTabProducts(selectedSeller, activeView);
+    if (activeView === "recycle-bin") {
+      fetchRecycleBin(selectedSeller);
+    } else {
+      fetchTabProducts(selectedSeller, activeView);
+    }
     setCurrentPage(1);
   }, [activeView]); // eslint-disable-line
 
   // ── edit modal ─────────────────────────────────────────────────────────────
   const openEditModal = async (productId: string) => {
-    if (activeView !== "approved" && activeView !== "all") { toast.error("Approve the product first before editing."); return; }
     setEditProductId(productId);
     setEditSubmitting(false);
     editGalleryAccumRef.current = [];
@@ -1603,6 +1657,7 @@ export default function AdminProductsPage() {
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : prod.tags || "",
         artistName: prod.artistName || "",
       });
+      setEditProductStatus(prod.status || "");
 
       setShowEditModal(true);
     } catch (err: any) {
@@ -1661,13 +1716,32 @@ export default function AdminProductsPage() {
       console.log("[handleEditProduct] existing URLs:", editFormData.oldGalleryImages);
       console.log("[handleEditProduct] new files:", galleryFiles.map((f) => f.name));
 
+      const stockNum = Number(editFormData.stock);
+      const wasRejected = editProductStatus === "REJECTED";
+
       await api.put(`/api/products/${editProductId}`, form);
-      toast.success("Product updated successfully!");
+
+      if (wasRejected) {
+        // Auto-approve so the product moves out of REJECTED/PENDING
+        await api.post(`/api/admin/products/approve/${editProductId}`);
+        if (stockNum <= 2) {
+          // Low stock — approve puts it ACTIVE, then deactivate immediately
+          await api.put(`/api/admin/products/deactivate/${editProductId}`);
+          toast.success("Product approved and saved — marked Inactive due to low stock (≤ 2). Update stock to activate.", { duration: 7000 });
+        } else {
+          toast.success("Product approved and is now Active.", { duration: 5000 });
+        }
+      } else {
+        toast.success("Product updated — it is now inactive. Use the toggle to activate it when ready.", { duration: 6000 });
+      }
+
       setShowEditModal(false);
       setEditProductId(null);
+      setEditProductStatus("");
       editGalleryAccumRef.current = [];
-      fetchedTabsRef.current = new Set([activeViewRef.current]);
-      fetchProducts(selectedSeller);
+      // Clear all tab caches so every tab re-fetches on next view (product may have moved tabs)
+      fetchedTabsRef.current = new Set();
+      fetchTabProducts(selectedSellerRef.current, activeViewRef.current);
     } catch (err: any) {
       toast.error(err.message || "Failed to update product");
     } finally {
@@ -1740,15 +1814,63 @@ export default function AdminProductsPage() {
     }
   };
 
+  // ── Recycle Bin actions ───────────────────────────────────────────────────
+  const handleRestoreFromBin = async (product: RecycleBinProduct) => {
+    setRestoringId(product.id);
+    try {
+      await api.post(`/api/admin/products/${product.id}/restore`);
+      toast.success(`"${product.title}" restored. Set it to Active when ready.`);
+      fetchRecycleBin(selectedSeller);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to restore product");
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const openDeleteConfirm = (product: RecycleBinProduct) => {
+    setDeleteTarget(product);
+    setDeleteReason("");
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteSubmitting(true);
+    try {
+      await apiClient(`/api/admin/products/${deleteTarget.id}/permanent`, {
+        method: "DELETE",
+        body: deleteReason.trim() ? JSON.stringify({ reason: deleteReason.trim() }) : undefined,
+      });
+      toast.success(`"${deleteTarget.title}" permanently deleted.`);
+      setDeleteTarget(null);
+      setDeleteReason("");
+      fetchRecycleBin(selectedSeller);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to permanently delete product");
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   const currentProducts =
     activeView === "approved" ? products :
     activeView === "pending" ? pendingProducts :
     activeView === "all" ? allProducts :
     activeView === "rejected" ? rejectedProducts :
-    inactiveProducts;
+    activeView === "inactive" ? inactiveProducts :
+    []; // recycle-bin handled separately
 
-  const totalPages = Math.max(1, Math.ceil(currentProducts.length / itemsPerPage));
-  const paginatedProducts = currentProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const rbTotalPages = Math.max(1, Math.ceil(recycleBinProducts.length / itemsPerPage));
+  const rbPaginatedProducts = recycleBinProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const categories = Array.from(new Set(currentProducts.map(p => p.category).filter(Boolean)));
+  const filteredCurrentProducts = currentProducts.filter(p =>
+    (search ? (p.title?.toLowerCase().includes(search.toLowerCase()) || p.category?.toLowerCase().includes(search.toLowerCase())) : true) &&
+    (categoryFilter ? p.category === categoryFilter : true)
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredCurrentProducts.length / itemsPerPage));
+  const paginatedProducts = filteredCurrentProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.min(Math.max(1, page), totalPages));
@@ -1782,7 +1904,24 @@ export default function AdminProductsPage() {
           <p className="text-muted-foreground">View and manage products by seller.</p>
         </div>
 
-        <div className="flex gap-4 items-end w-full md:w-auto md:justify-end justify-between">
+        <div className="flex flex-wrap gap-2 items-end w-full md:w-auto md:justify-end">
+          <input
+            type="text"
+            placeholder="Search products..."
+            className="border rounded px-3 py-2 w-[200px] h-10 bg-background text-sm"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+          />
+          <select
+            className="border rounded px-3 py-2 w-[180px] h-10 bg-background text-sm"
+            value={categoryFilter}
+            onChange={e => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
 
           {/* Seller Dropdown */}
           <div className="min-w-[260px] relative" ref={sellerDropdownRef}>
@@ -1841,58 +1980,223 @@ export default function AdminProductsPage() {
             )}
           </div>
 
-          <div className="flex gap-2 items-end">
-            <Button variant={layout === "table" ? "default" : "outline"} size="sm" onClick={() => setLayout("table")}>Tabular View</Button>
-            <Button variant={layout === "card" ? "default" : "outline"} size="sm" onClick={() => setLayout("card")}>Card View</Button>
-          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b flex-wrap">
-        <Button variant={activeView === "all" ? "default" : "ghost"} onClick={() => setActiveView("all")} className="rounded-b-none">
-          All ({tabCounts.all || allProducts.length})
+      {/* Main Tab Switcher */}
+      <div className="flex gap-1 border-b pb-3 mb-2">
+        <Button
+          variant={activeView !== "recycle-bin" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => { if (activeView === "recycle-bin") { setActiveView("approved"); setCurrentPage(1); } }}
+          className="gap-1.5"
+        >
+          <Package className="h-4 w-4" /> Products ({(tabCounts.all || allProducts.length) || (products.length + pendingProducts.length + rejectedProducts.length + inactiveProducts.length)})
         </Button>
-        <Button variant={activeView === "approved" ? "default" : "ghost"} onClick={() => setActiveView("approved")} className="rounded-b-none">
-          Approved ({tabCounts.approved || products.length})
-        </Button>
-        <Button variant={activeView === "pending" ? "default" : "ghost"} onClick={() => setActiveView("pending")} className="rounded-b-none text-yellow-600 hover:text-yellow-700">
-          Pending ({tabCounts.pending || sellers.find((s) => s.id === selectedSeller)?.pendingCount || pendingProducts.length})
-        </Button>
-        <Button variant={activeView === "rejected" ? "default" : "ghost"} onClick={() => setActiveView("rejected")} className="rounded-b-none text-red-500 hover:text-red-600">
-          Rejected ({tabCounts.rejected || rejectedProducts.length})
-        </Button>
-        <Button variant={activeView === "inactive" ? "default" : "ghost"} onClick={() => setActiveView("inactive")} className="rounded-b-none text-gray-500 hover:text-gray-600">
-          Inactive ({tabCounts.inactive || inactiveProducts.length})
+        <Button
+          variant={activeView === "recycle-bin" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => { setActiveView("recycle-bin"); setCurrentPage(1); }}
+          className={cn("gap-1.5", activeView !== "recycle-bin" && "text-muted-foreground")}
+        >
+          <Trash2 className="h-4 w-4" /> Recycle Bin ({recycleBinProducts.length})
         </Button>
       </div>
 
+      {activeView !== "recycle-bin" && (
+        <div className="flex gap-1 flex-wrap border-b pb-2 mb-1">
+          {([
+            { key: "all",      label: "All",      count: tabCounts.all || allProducts.length,         cls: "" },
+            { key: "approved", label: "Approved", count: tabCounts.approved || products.length,       cls: "text-green-700 dark:text-green-400" },
+            { key: "pending",  label: "Pending",  count: tabCounts.pending || pendingProducts.length, cls: "text-yellow-700 dark:text-yellow-400" },
+            { key: "rejected", label: "Rejected", count: tabCounts.rejected || rejectedProducts.length, cls: "text-red-600 dark:text-red-400" },
+            { key: "inactive", label: "Inactive", count: tabCounts.inactive || inactiveProducts.length, cls: "text-gray-500 dark:text-gray-400" },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveView(tab.key); setCurrentPage(1); }}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors whitespace-nowrap",
+                activeView === tab.key
+                  ? "border border-b-background border-b-0 -mb-px bg-background text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              <span className={cn(
+                "ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-semibold",
+                activeView === tab.key ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+              )}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Recycle Bin Tab ─────────────────────────────────────────────────── */}
+      {activeView === "recycle-bin" && (
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">In Recycle Bin</CardTitle>
+                <Trash2 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent><div className="text-2xl font-bold">{recycleBinProducts.length}</div></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Deleted by Sellers</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent><div className="text-2xl font-bold">{recycleBinProducts.filter(p => p.deletedByRole === "SELLER").length}</div></CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Deleted by Admins</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent><div className="text-2xl font-bold">{recycleBinProducts.filter(p => p.deletedByRole === "ADMIN").length}</div></CardContent>
+            </Card>
+          </div>
+
+          {loadingRecycleBin ? (
+            <div className="overflow-x-auto rounded-lg border bg-background">
+              <table className="min-w-full divide-y divide-muted">
+                <thead className="bg-muted/50">
+                  <tr>{["Image","Title","Seller","Price","Stock","Deleted On","Deleted By","Actions"].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-muted">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-4 py-3"><Skeleton className="h-12 w-12 rounded" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-12" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-6 w-24 rounded-full" /></td>
+                      <td className="px-4 py-3"><div className="flex gap-1"><Skeleton className="h-8 w-16 rounded-md" /><Skeleton className="h-8 w-28 rounded-md" /></div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : recycleBinProducts.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
+                <Trash2 className="h-12 w-12 text-muted-foreground/25" />
+                <p className="text-lg font-semibold text-muted-foreground">Recycle Bin is empty for this seller</p>
+                <p className="text-sm text-muted-foreground">No soft-deleted products found.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border bg-background">
+              <table className="min-w-full divide-y divide-muted">
+                <thead className="bg-muted/50">
+                  <tr>{["Image","Title","Seller","Price","Stock","Deleted On","Deleted By","Actions"].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{h}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-muted">
+                  {rbPaginatedProducts.map((product) => (
+                    <tr key={product.id} className="hover:bg-muted/20">
+                      <td className="px-4 py-2">
+                        {product.featuredImage ? (
+                          <Image src={product.featuredImage} alt={product.title} width={48} height={48}
+                            className="h-12 w-12 object-cover rounded opacity-60" unoptimized
+                            onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/100x100?text=No+Image"; }} />
+                        ) : (
+                          <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
+                            <LucideImage className="h-5 w-5 text-muted-foreground/40" />
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        <p className="font-semibold text-muted-foreground line-clamp-1">{product.title}</p>
+                        <p className="text-xs text-muted-foreground">{product.category || "—"}</p>
+                      </td>
+                      <td className="px-4 py-2">
+                        {product.seller ? (
+                          <div>
+                            <p className="text-sm font-medium">{product.seller.name}</p>
+                            <p className="text-xs text-muted-foreground">{product.seller.email}</p>
+                          </div>
+                        ) : product.sellerName ? (
+                          <p className="text-sm font-medium">{product.sellerName}</p>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-4 py-2 text-sm font-semibold">${product.price}</td>
+                      <td className="px-4 py-2 text-sm">{product.stock}</td>
+                      <td className="px-4 py-2 text-sm text-muted-foreground whitespace-nowrap">
+                        {new Date(product.deletedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className={cn(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap",
+                          product.deletedByRole === "ADMIN" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
+                        )}>
+                          {product.deletedByRole === "ADMIN" ? "Deleted by Admin" : "Deleted by Seller"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex gap-1.5">
+                          <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            disabled={restoringId === product.id} onClick={() => handleRestoreFromBin(product)}>
+                            {restoringId === product.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                            Restore
+                          </Button>
+                          <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => openDeleteConfirm(product)}>
+                            <Trash2 className="h-3 w-3" /> Delete Permanently
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {!loadingRecycleBin && rbTotalPages > 1 && (
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-sm text-muted-foreground">
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, recycleBinProducts.length)}–{Math.min(currentPage * itemsPerPage, recycleBinProducts.length)} of {recycleBinProducts.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage === rbTotalPages} onClick={() => handlePageChange(currentPage + 1)}><ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Standard product views ──────────────────────────────────────────── */}
+      {activeView !== "recycle-bin" && (<>
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">
-        {[
-          {
-            label: activeView === "approved" ? "Total Products" : activeView === "pending" ? "Pending Products" : activeView === "all" ? "All Products" : activeView === "rejected" ? "Rejected Products" : "Inactive Products",
-            value: activeView === "approved" ? totalProducts : activeView === "pending" ? pendingProducts.length : activeView === "all" ? allProducts.length : activeView === "rejected" ? rejectedProducts.length : inactiveProducts.length,
-            icon: <Package className="h-4 w-4 text-muted-foreground" />
-          },
-          {
-            label: activeView === "approved" ? "Total Stock" : activeView === "pending" ? "Pending Stock" : activeView === "all" ? "Total Stock" : activeView === "rejected" ? "Rejected Stock" : "Inactive Stock",
-            value: activeView === "approved" ? totalStock : activeView === "pending" ? pendingProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0) : activeView === "all" ? allProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0) : activeView === "rejected" ? rejectedProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0) : inactiveProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0),
-            icon: <Package className="h-4 w-4 text-muted-foreground" />
-          },
-          {
-            label: activeView === "approved" ? "Estimated Revenue" : "Potential Revenue",
-            value: "$" + currentProducts.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0).toLocaleString(),
-            icon: <DollarSign className="h-4 w-4 text-muted-foreground" />
-          },
-        ].map((c) => (
-          <Card key={c.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">{c.label}</CardTitle>{c.icon}
-            </CardHeader>
-            <CardContent><div className="text-2xl font-bold">{c.value}</div></CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{currentProducts.length}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Stock</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">{currentProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0)}</div></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Estimated Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent><div className="text-2xl font-bold">${currentProducts.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0).toLocaleString()}</div></CardContent>
+        </Card>
       </div>
 
       {/* Product list */}
@@ -1927,9 +2231,11 @@ export default function AdminProductsPage() {
               </tbody>
             </table>
           </div>
-      ) : currentProducts.length === 0 ? (
-        <Card className="col-span-full text-center py-12">No {activeView === "approved" ? "approved" : activeView === "pending" ? "pending" : activeView === "rejected" ? "rejected" : activeView === "inactive" ? "inactive" : ""} products found.</Card>
-      ) : layout === "table" ? (
+      ) : filteredCurrentProducts.length === 0 ? (
+        <Card className="col-span-full text-center py-12">
+          {(search || categoryFilter) ? "No products match your search." : `No ${activeView === "approved" ? "approved" : activeView === "pending" ? "pending" : activeView === "rejected" ? "rejected" : activeView === "inactive" ? "inactive" : ""} products found.`}
+        </Card>
+      ) : (
 
         /* TABLE VIEW */
         <div className="overflow-x-auto rounded-lg border bg-background">
@@ -1955,7 +2261,18 @@ export default function AdminProductsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-2 font-semibold">{product.title}</td>
+                    <td className="px-4 py-2">
+                      <p className="font-semibold">{product.title}</p>
+                      {product.seller && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{product.seller.name}</p>
+                      )}
+                      {product.rejectionReason && (
+                        <p className="text-xs text-red-600 mt-0.5 line-clamp-2" title={product.rejectionReason}>
+                          <AlertCircle className="inline h-3 w-3 mr-1 align-middle" />
+                          {product.rejectionReason}
+                        </p>
+                      )}
+                    </td>
                     <td className="px-4 py-2">{product.category}</td>
                     <td className="px-4 py-2 text-primary font-bold">${product.price}</td>
                     <td className="px-4 py-2">{product.stock}</td>
@@ -1975,12 +2292,14 @@ export default function AdminProductsPage() {
                             <div className="flex items-center gap-1.5 px-2">
                               <Switch
                                 checked={product.status === "ACTIVE"}
+                                disabled={(product.stock ?? 0) <= 2 && product.status !== "ACTIVE"}
+                                title={(product.stock ?? 0) <= 2 && product.status !== "ACTIVE" ? "Cannot activate — stock is 2 or less" : undefined}
                                 onCheckedChange={(checked) =>
                                   checked ? handleActivate(product.id) : handleInactivate(product.id)
                                 }
                               />
                               <span className={`text-xs font-medium ${product.status === "INACTIVE" ? "text-red-500" : "text-green-600"}`}>
-                                {product.status === "INACTIVE" ? "Inactive" : "Active"}
+                                {product.status === "INACTIVE" ? ((product.stock ?? 0) <= 2 ? "Low Stock" : "Inactive") : "Active"}
                               </span>
                             </div>
                           </>
@@ -1995,9 +2314,9 @@ export default function AdminProductsPage() {
                             </Button>
                           </>
                         ) : (
-                          /* REJECTED or unknown: view + approve */
+                          /* REJECTED: edit + view only — no Approve until seller resubmits */
                           <>
-                            <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
+                            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditModal(product.id)} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
                             <Button variant="outline" size="sm" className="gap-1"
                               onClick={() => router.push(`/admindashboard/products/${product.id}`)}
                               title="View">
@@ -2013,95 +2332,24 @@ export default function AdminProductsPage() {
           </table>
         </div>
 
-      ) : (
-
-        /* CARD VIEW */
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {paginatedProducts.map((product) => (
-            <Card key={product.id} className="overflow-hidden flex flex-col">
-              <div className="relative h-48 w-full bg-muted">
-                {(product.featuredImage || product.images?.length) ? (
-                  <Image src={product.featuredImage || product.images![0]} alt={product.title || "Product"} width={400} height={192}
-                    className="h-full w-full object-cover transition-transform hover:scale-105"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/400x300?text=No+Image"; }} />
-                ) : (
-                  <div className="flex h-full items-center justify-center"><LucideImage className="h-12 w-12 text-muted-foreground/50" /></div>
-                )}
-                <div className="absolute top-2 right-2">
-                  <StatusBadge status={product.status} />
-                </div>
-              </div>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg line-clamp-1">{product.title}</CardTitle>
-                <CardDescription className="line-clamp-2">{product.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 mt-auto">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">{product.category}</span>
-                  <span className="font-bold text-lg text-primary">${product.price}</span>
-                </div>
-                <div className="flex justify-between text-sm border-t pt-2">
-                  <span className="text-muted-foreground">Stock Available</span>
-                  <span className="font-semibold">{product.stock} units</span>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  {(product.status === "ACTIVE" || product.status === "INACTIVE") ? (
-                    <>
-                      <div className="flex items-center justify-center gap-2 flex-1 py-1 px-2 rounded-md border border-border">
-                        <Switch
-                          checked={product.status === "ACTIVE"}
-                          onCheckedChange={(checked) =>
-                            checked ? handleActivate(product.id) : handleInactivate(product.id)
-                          }
-                        />
-                        <span className={`text-xs font-medium ${product.status === "INACTIVE" ? "text-red-500" : "text-green-600"}`}>
-                          {product.status === "INACTIVE" ? "Inactive" : "Active"}
-                        </span>
-                      </div>
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditModal(product.id)} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
-                    </>
-                  ) : product.status === "PENDING" ? (
-                    <>
-                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
-                      <Button variant="outline" size="sm" className="flex-1 gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openRejectModal(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
-                    </>
-                  ) : (
-                    /* REJECTED: show rejection reason + approve */
-                    <Button variant="outline" size="sm" className="flex-1 gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
-                  )}
-                </div>
-                {/* Rejection reason banner */}
-                {product.rejectionReason && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-800">
-                    <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-red-700 dark:text-red-400">Rejection Reason</p>
-                      <p className="text-sm text-red-600 dark:text-red-300">{product.rejectionReason}</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       )}
 
       {/* Pagination */}
-      {!((activeView === "approved" ? loading : activeView === "pending" ? loadingPending : activeView === "all" ? loadingAll : activeView === "rejected" ? loadingRejected : loadingInactive)) && currentProducts.length > 0 && (
+      {!((activeView === "approved" ? loading : activeView === "pending" ? loadingPending : activeView === "all" ? loadingAll : activeView === "rejected" ? loadingRejected : loadingInactive)) && filteredCurrentProducts.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
           {/* Left: count info + per-page */}
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span>
               Showing{" "}
               <span className="font-medium text-foreground">
-                {Math.min((currentPage - 1) * itemsPerPage + 1, currentProducts.length)}
+                {Math.min((currentPage - 1) * itemsPerPage + 1, filteredCurrentProducts.length)}
               </span>
               {"\u2013"}
               <span className="font-medium text-foreground">
-                {Math.min(currentPage * itemsPerPage, currentProducts.length)}
+                {Math.min(currentPage * itemsPerPage, filteredCurrentProducts.length)}
               </span>
               {" of "}
-              <span className="font-medium text-foreground">{currentProducts.length}</span>
+              <span className="font-medium text-foreground">{filteredCurrentProducts.length}</span>
               {" products"}
             </span>
             <div className="flex items-center gap-1.5">
@@ -2164,6 +2412,7 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
+      </>)} {/* end activeView !== "recycle-bin" */}
 
       {/* Reject Modal */}
       {showRejectModal && (
@@ -2206,7 +2455,7 @@ export default function AdminProductsPage() {
       )}
 
       {/* Edit Modal */}
-      {showEditModal && activeView === "approved" && (
+      {showEditModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
             <CardHeader className="border-b sticky top-0 bg-background z-10">
@@ -2427,6 +2676,33 @@ export default function AdminProductsPage() {
           </Card>
         </div>
       )}
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Permanently delete this product?</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              This will remove <span className="font-semibold text-foreground">&ldquo;{deleteTarget?.title}&rdquo;</span> and all associated data forever. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <label className="text-sm font-medium">Reason <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <Input
+              placeholder="e.g. Duplicate listing removed by admin"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              disabled={deleteSubmitting}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleteSubmitting}>Cancel</Button>
+            <Button variant="destructive" onClick={handlePermanentDelete} disabled={deleteSubmitting}>
+              {deleteSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deleting…</> : <><Trash2 className="mr-2 h-4 w-4" />Delete Permanently</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

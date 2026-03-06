@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Bell, ShoppingCart, Package, DollarSign, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut } from "lucide-react";
+import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut, CheckCircle2, AlertTriangle, XCircle, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
@@ -24,23 +24,40 @@ type Notification = {
 	title: string;
 	message: string;
 	type: string;
+	relatedId?: string | null;
+	relatedType?: string | null;
 	isRead: boolean;
 	createdAt: string;
 	metadata?: Record<string, any>;
 };
 
-const getNotificationIcon = (type: string) => {
-	switch (type) {
+const getNotificationIcon = (n: Pick<Notification, "type" | "metadata">) => {
+	const status = typeof n.metadata?.status === "string" ? n.metadata.status : null;
+	switch (n.type) {
 		case "NEW_ORDER":
 			return <ShoppingCart className="h-4 w-4 text-blue-600" />;
-		case "ORDER_UPDATE":
-			return <Package className="h-4 w-4 text-orange-600" />;
-		case "PAYMENT":
-			return <DollarSign className="h-4 w-4 text-green-600" />;
-		case "USER_ACTION":
-			return <UserCheck className="h-4 w-4 text-purple-600" />;
-		case "ALERT":
-			return <AlertCircle className="h-4 w-4 text-red-600" />;
+		case "ORDER_STATUS_CHANGED":
+			return <Package className="h-4 w-4 text-blue-600" />;
+		case "ORDER_CANCELLED":
+			return <XCircle className="h-4 w-4 text-red-600" />;
+		case "PRODUCT_STATUS_CHANGED":
+			if (status === "ACTIVE") return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+			if (status === "REJECTED") return <XCircle className="h-4 w-4 text-red-600" />;
+			return <AlertCircle className="h-4 w-4 text-gray-500" />;
+		case "LOW_STOCK_ALERT":
+			return <AlertTriangle className="h-4 w-4 text-orange-600" />;
+		case "NEW_PRODUCT_SUBMITTED":
+			return <Bell className="h-4 w-4 text-amber-600" />;
+		case "PRODUCT_LOW_STOCK_DEACTIVATED":
+			return <AlertTriangle className="h-4 w-4 text-orange-600" />;
+		case "SELLER_APPROVED":
+			return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+		case "SELLER_REJECTED":
+			return <XCircle className="h-4 w-4 text-red-600" />;
+		case "CULTURAL_APPROVAL":
+			return <UserCheck className="h-4 w-4 text-green-600" />;
+		case "PRODUCT_RECOMMENDATION":
+			return <Star className="h-4 w-4 text-indigo-600" />;
 		default:
 			return <Bell className="h-4 w-4 text-gray-600" />;
 	}
@@ -68,6 +85,51 @@ const getNotificationIcon = (type: string) => {
 			role === "ADMIN" ? "/admindashboard/notifications" :
 			role === "CUSTOMER" ? "/customerdashboard/notifications" :
 			"/sellerdashboard/notifications";
+
+		const getDeepLink = (n: Notification): string | null => {
+			const id = n.relatedId;
+			switch (n.type) {
+				case "PRODUCT_STATUS_CHANGED":
+				case "LOW_STOCK_ALERT":
+					return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
+				case "NEW_PRODUCT_SUBMITTED":
+					return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
+				case "PRODUCT_LOW_STOCK_DEACTIVATED":
+					return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
+				case "NEW_ORDER":
+					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+					return "/sellerdashboard/orders";
+				case "ORDER_STATUS_CHANGED":
+				case "ORDER_CANCELLED":
+					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+					if (role === "CUSTOMER") return "/customerdashboard/orders";
+					return "/sellerdashboard/orders";
+				case "SELLER_APPROVED":
+					return "/sellerdashboard";
+				case "SELLER_REJECTED":
+					return "/sellerdashboard/auth";
+				case "CULTURAL_APPROVAL":
+					return "/sellerdashboard/profile";
+				case "PRODUCT_RECOMMENDATION":
+					return "/sellerdashboard/products";
+				default:
+					return null;
+			}
+		};
+
+		const handleNotificationClick = async (notification: Notification) => {
+			try {
+				if (!notification.isRead) {
+					await api.put(`/api/notifications/read/${notification.id}`);
+					setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+					setUnreadCount(prev => Math.max(0, prev - 1));
+				}
+			} catch {
+				// non-critical, proceed with navigation
+			}
+			const link = getDeepLink(notification);
+			if (link) router.push(link);
+		};
 
 		// Fetch notifications from API
 		const fetchNotifications = async () => {
@@ -245,10 +307,11 @@ const getNotificationIcon = (type: string) => {
 										<DropdownMenuItem 
 											key={notification.id} 
 											className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors"
+											onClick={() => handleNotificationClick(notification)}
 										>
 											<div className="flex items-start gap-3">
 												<div className="flex-shrink-0 mt-0.5">
-													{getNotificationIcon(notification.type)}
+													{getNotificationIcon(notification)}
 												</div>
 												<div className="flex-1 min-w-0">
 													<div className="flex items-center gap-2">
