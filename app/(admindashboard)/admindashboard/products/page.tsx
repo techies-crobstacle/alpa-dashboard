@@ -1244,7 +1244,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Image as LucideImage } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
-import { api } from "@/lib/api";
+import { api, apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1460,8 +1460,12 @@ export default function AdminProductsPage() {
   // ── unified tab fetch (uses new endpoint) ────────────────────────────────
   const fetchTabProducts = async (
     sellerId: string,
-    status: "all" | "approved" | "pending" | "rejected" | "inactive"
+    status: "all" | "approved" | "pending" | "rejected" | "inactive" | "recycle-bin"
   ) => {
+    if (status === "recycle-bin") {
+      fetchRecycleBin(sellerId);
+      return;
+    }
     const setLoadingMap: Record<string, (v: boolean) => void> = {
       approved: setLoading, pending: setLoadingPending, all: setLoadingAll,
       rejected: setLoadingRejected, inactive: setLoadingInactive,
