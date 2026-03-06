@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
+import { ProductAuditHistory } from "@/components/shared/product-audit-history";
 
 type Product = {
   id: string;
@@ -350,6 +351,9 @@ export default function AdminProductDetailPage() {
               )}
             </div>
           </div>
+
+          {/* ── Audit History ──────────────────────────────────────────── */}
+          <ProductAuditHistory productId={product.id} productTitle={product.title} />
         </CardContent>
       </Card>
 
