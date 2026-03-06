@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -21,72 +21,89 @@ import {
 	MessageSquare,
 	Database,
 } from "lucide-react";
-
-const apps = [
-	{
-		name: "Dashboard",
-		icon: Grid3X3,
-		href: "/dashboard",
-		description: "Main dashboard overview",
-	},
-	{
-		name: "Mail",
-		icon: Mail,
-		href: "/mail",
-		description: "Email management",
-	},
-	{
-		name: "Calendar",
-		icon: Calendar,
-		href: "/calendar",
-		description: "Schedule and events",
-	},
-	{
-		name: "Documents",
-		icon: FileText,
-		href: "/documents",
-		description: "File management",
-	},
-	{
-		name: "Analytics",
-		icon: BarChart3,
-		href: "/analytics",
-		description: "Data insights",
-	},
-	{
-		name: "Users",
-		icon: Users,
-		href: "/users",
-		description: "User management",
-	},
-	{
-		name: "Projects",
-		icon: FolderKanban,
-		href: "/projects",
-		description: "Project tracking",
-	},
-	{
-		name: "Messages",
-		icon: MessageSquare,
-		href: "/messages",
-		description: "Team communication",
-	},
-	{
-		name: "Database",
-		icon: Database,
-		href: "/database",
-		description: "Data management",
-	},
-	{
-		name: "Settings",
-		icon: Settings,
-		href: "/settings",
-		description: "System configuration",
-	},
-];
+import { decodeJWT } from "@/lib/jwt";
 
 export function AppSwitcher() {
 	const [isOpen, setIsOpen] = useState(false);
+	const [dashboardHref, setDashboardHref] = useState("/sellerdashboard");
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			const token = localStorage.getItem("alpa_token");
+			const decoded = token ? decodeJWT(token) : null;
+			type D = { role?: string };
+			const d = decoded as D | null;
+			const role = d?.role;
+			setDashboardHref(
+				role === "ADMIN"    ? "/admindashboard" :
+				role === "CUSTOMER" ? "/customerdashboard/profile" :
+				"/sellerdashboard"
+			);
+		}
+	}, []);
+
+	const apps = [
+		{
+			name: "Dashboard",
+			icon: Grid3X3,
+			href: dashboardHref,
+			description: "Main dashboard overview",
+		},
+		{
+			name: "Mail",
+			icon: Mail,
+			href: "/mail",
+			description: "Email management",
+		},
+		{
+			name: "Calendar",
+			icon: Calendar,
+			href: "/calendar",
+			description: "Schedule and events",
+		},
+		{
+			name: "Documents",
+			icon: FileText,
+			href: "/documents",
+			description: "File management",
+		},
+		{
+			name: "Analytics",
+			icon: BarChart3,
+			href: "/analytics",
+			description: "Data insights",
+		},
+		{
+			name: "Users",
+			icon: Users,
+			href: "/users",
+			description: "User management",
+		},
+		{
+			name: "Projects",
+			icon: FolderKanban,
+			href: "/projects",
+			description: "Project tracking",
+		},
+		{
+			name: "Messages",
+			icon: MessageSquare,
+			href: "/messages",
+			description: "Team communication",
+		},
+		{
+			name: "Database",
+			icon: Database,
+			href: "/database",
+			description: "Data management",
+		},
+		{
+			name: "Settings",
+			icon: Settings,
+			href: "/settings",
+			description: "System configuration",
+		},
+	];
 
 	return (
 		<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>

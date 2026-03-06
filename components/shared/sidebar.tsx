@@ -9,13 +9,8 @@ import {
 	Settings,
 	Users,
 	BarChart3,
-	FolderKanban,
 	ChevronLeft,
 	ChevronRight,
-	Database,
-	LogIn,
-	AlertCircle,
-	ListOrdered,
 	Heart,
 	MessageSquare,
 	User,
@@ -27,215 +22,49 @@ import {
 	Percent,
 	ShoppingCart,
 	ClipboardList,
-	ScrollText,
+	Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const baseSidebarGroups = [
-	{
-		// title: "General",
-		items: [
-			{
-				title: "Profile",
-				href: "/dashboard/customer/profile",
-				icon: User,
-				badge: null,
-			},
-			{
-				title: "Dashboard",
-				href: "/dashboard",
-				icon: LayoutDashboard,
-				badge: null,
-			},
-			{
-				title: "Dashboard",
-				href: "/dashboard/admin/dashboard",
-				icon: LayoutDashboard,
-				badge: null,
-			},
-			{
-				title: "Analytics",
-				href: "/dashboard/analytics",
-				icon: BarChart3,
-				badge: "New",
-			},
-			{
-				title: "Analytics",
-				href: "/dashboard/admin/analytics",
-				icon: BarChart3,
-				badge: "New",
-			},
-			{
-				title: "Settings",
-				href: "/dashboard/settings",
-				icon: Settings,
-				badge: null,
-			},
-			
-		],
-	},
-	{
-		// title: "Pages",
-		items: [
-			{
-				title: "Orders",
-				href: "/dashboard/admin/orders",
-				icon: ShoppingCart,
-				badge: "3",
-			},
-			
-			{
-				title: "Users",
-				href: "/dashboard/users",
-				icon: Users,
-				badge: "12",
-			},
-			{
-				title: "Sellers",
-				href: "/dashboard/admin/sellers",
-				icon: Store,
-				badge: "12",
-			},
-			{
-				title: "Products",
-				href: "/dashboard/products",
-				icon: Package,
-				badge: null,
-			},
-			{
-				title: "Products",
-				href: "/dashboard/admin/products",
-				icon: Package,
-				badge: null,
-			},
-			{
-				title: "Categories",
-				href: "/dashboard/admin/categories",
-				icon: Tag,
-				badge: null,
-			},
-			{
-				title: "Categories",
-				href: "/dashboard/categories",
-				icon: Tag,
-				badge: null,
-			},
-			{
-				title: "Coupons",
-				href: "/dashboard/admin/coupon",
-				icon: Ticket,
-				badge: null,
-			},
-			{
-				title: "Shipping",
-				href: "/dashboard/admin/shipping",
-				icon: Truck,
-				badge: null,
-			},
-			{
-				title: "GST",
-				href: "/dashboard/admin/gst",
-				icon: Percent,
-				badge: null,
-			},
-			{
-				title: "Feedback",
-				href: "/dashboard/admin/feedback",
-				icon: MessageSquare,
-				badge: null,
-			},
-			{
-				title: "Audit Logs",
-				href: "/dashboard/admin/audit-logs",
-				icon: ScrollText,
-				badge: null,
-			},
-			{
-				title: "Orders",
-				href: "/dashboard/orders",
-				icon: ShoppingCart,
-				badge: "3",
-			},
-			
-			
-			// {
-			// 	title: "Invoices",
-			// 	href: "/dashboard/invoice",
-			// 	icon: ListOrdered,
-			// 	badge: "4",
-			// },
-			// {
-			// 	title: "Auth Pages",
-			// 	href: "/dashboard/auth",
-			// 	icon: LogIn,
-			// 	badge: null,
-			// },
-			
-			{
-				title: "My Orders",
-				href: "/dashboard/customer/orders",
-				icon: ClipboardList,
-				badge: null,
-			},
-			{
-				title: "My Wishlist",
-				href: "/dashboard/customer/wishList",
-				icon: Heart,
-				badge: null,
-			},
-			{
-				title: "Commissions",
-				href: "/dashboard/admin/commissions",
-				icon: Users,
-				badge: "12",
-			},
+// ─── Admin navigation ────────────────────────────────────────────────────────
+const adminSidebarItems = [
+	{ title: "Dashboard",   href: "/admindashboard",              icon: LayoutDashboard, badge: null },
+	{ title: "Analytics",   href: "/admindashboard/analytics",    icon: BarChart3,       badge: "New" },
+	{ title: "Orders",      href: "/admindashboard/orders",       icon: ShoppingCart,    badge: null },
+	{ title: "Products",    href: "/admindashboard/products",     icon: Package,         badge: null },
+	{ title: "Categories",  href: "/admindashboard/categories",   icon: Tag,             badge: null },
+	{ title: "Sellers",     href: "/admindashboard/sellers",      icon: Store,           badge: null },
+	{ title: "Users",       href: "/admindashboard/users",        icon: Users,           badge: null },
+	{ title: "Coupons",     href: "/admindashboard/coupon",       icon: Ticket,          badge: null },
+	{ title: "Shipping",    href: "/admindashboard/shipping",     icon: Truck,           badge: null },
+	{ title: "GST",         href: "/admindashboard/gst",          icon: Percent,         badge: null },
+	{ title: "Commissions", href: "/admindashboard/commissions",  icon: Users,           badge: null },
+	{ title: "Feedback",    href: "/admindashboard/feedback",     icon: MessageSquare,   badge: null },
+	{ title: "Profile",        href: "/admindashboard/profile",        icon: User,            badge: null },
+	{ title: "Notifications",  href: "/admindashboard/notifications", icon: Bell,            badge: null },
+	{ title: "Settings",       href: "/admindashboard/settings",      icon: Settings,        badge: null },
+];
 
-			// {
-			// 	title: "Error Pages",
-			// 	href: "/dashboard/errors",
-			// 	icon: AlertCircle,
-			// 	badge: null,
-			// },
-		],
-	},
-	{
-		title: "Others",
-		items: [
-			
-			// {
-			// 	title: "Return Policy",
-			// 	href: "/dashboard/customer/returnPolicy",
-			// 	icon: AlertCircle,
-			// 	badge: null,
-			// }
-			
-			// {
-			// 	title: "Messages",
-			// 	href: "/dashboard/messages",
-			// 	icon: MessageSquare,
-			// 	badge: "5",
-			// },
-			// {
-			// 	title: "Database",
-			// 	href: "/dashboard/database",
-			// 	icon: Database,
-			// 	badge: null,
-			// },
-			// {
-			// 	title: "Security",
-			// 	href: "/dashboard/security",
-			// 	icon: Shield,
-			// 	badge: "!",
-			// },
-			// {
-			// 	title: "Help",
-			// 	href: "/dashboard/help",
-			// 	icon: HelpCircle,
-			// 	badge: null,
-			// },
-		],
-	},
+// ─── Seller navigation ────────────────────────────────────────────────────────
+const sellerSidebarItems = [
+	{ title: "Dashboard",  href: "/sellerdashboard",            icon: LayoutDashboard, badge: null },
+	{ title: "Analytics",  href: "/sellerdashboard/analytics",  icon: BarChart3,       badge: "New" },
+	{ title: "Products",   href: "/sellerdashboard/products",   icon: Package,         badge: null },
+	{ title: "Categories", href: "/sellerdashboard/categories", icon: Tag,             badge: null },
+	{ title: "Orders",     href: "/sellerdashboard/orders",     icon: ShoppingCart,    badge: null },
+	{ title: "Profile",       href: "/sellerdashboard/profile",        icon: User,    badge: null },
+	{ title: "Notifications", href: "/sellerdashboard/notifications",  icon: Bell,    badge: null },
+	{ title: "Settings",      href: "/sellerdashboard/settings",       icon: Settings, badge: null },
+];
 
+// ─── Customer navigation ──────────────────────────────────────────────────────
+const customerSidebarItems = [
+	{ title: "Dashboard",   href: "/customerdashboard",           icon: LayoutDashboard, badge: null },
+	{ title: "My Orders",   href: "/customerdashboard/orders",    icon: ClipboardList, badge: null },
+	{ title: "My Wishlist", href: "/customerdashboard/wishList",  icon: Heart,         badge: null },
+	{ title: "Profile",        href: "/customerdashboard/profile",        icon: User,         badge: null },
+	{ title: "Notifications",  href: "/customerdashboard/notifications",  icon: Bell,         badge: null },
+	{ title: "Settings",       href: "/customerdashboard/settings",       icon: Settings,     badge: null },
 ];
 
 interface SidebarProps {
@@ -271,39 +100,14 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 		}
 	};
 
-	// Filter sidebar groups/items based on role
-	const sidebarGroups = baseSidebarGroups.map((group) => {
-		// Deep copy to avoid mutating base
-		let filteredItems = group.items.filter((item) => {
-			// Admin-only pages
-			if ([ "/dashboard/admin/commissions", "/dashboard/users","/dashboard/admin/gst", "/dashboard/admin/shipping", "/dashboard/admin/analytics", "/dashboard/errors", "/dashboard/admin/products","/dashboard/admin/orders", "/dashboard/admin/sellers", "/dashboard/auth", "/dashboard/admin/coupon", "/dashboard/admin/categories" ,"/dashboard/admin/dashboard","/dashboard/admin/feedback","/dashboard/admin/audit-logs"].includes(item.href)) {
-				return role === "ADMIN";
-			}
-			// Seller and customer can see /dashboard/orders
-			// if (["/dashboard/orders"].includes(item.href)) {
-			// 	return role === "SELLER" || role === "CUSTOMER";
-			// }
-			// Seller-only pages
-			if (["/dashboard/products","/dashboard/categories", "/dashboard/orders", "/dashboard", "/dashboard/analytics",].includes(item.href)) {
-				return role === "SELLER";
-			}
-			// Customer-only pages
-			if (["/dashboard/customer/orders", "/dashboard/customer/wishList"].includes(item.href)) {
-				return role === "CUSTOMER";
-			}
-			// Settings and profile: visible to all roles
-			if (["/dashboard/settings","/dashboard/customer/profile"].includes(item.href)) {
-				return true;
-			}
-			// Users, Analytics, Settings, Dashboard: visible to admin and seller
-			if ([  "/dashboard/invoice","/dashboard/report"].includes(item.href)) {
-				return role === "ADMIN" || role === "SELLER";
-			}
-			// Default: visible to all
-			return true;
-		});
-		return { ...group, items: filteredItems };
-	});
+	// Select navigation items based on role
+	const roleItems =
+		role === "ADMIN"    ? adminSidebarItems    :
+		role === "SELLER"   ? sellerSidebarItems   :
+		role === "CUSTOMER" ? customerSidebarItems :
+		[];
+
+	const sidebarGroups = [{ items: roleItems }];
 
 	return (
 		<div

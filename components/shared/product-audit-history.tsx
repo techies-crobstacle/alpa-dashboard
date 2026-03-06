@@ -9,11 +9,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  ShieldX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { AuditLogDiffModal, type AuditLogEntry } from "@/components/shared/audit-log-diff-modal";
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
 // ─── Action badge config ───────────────────────────────────────────────────────
 const ACTION_CONFIG: Record<string, { label: string; className: string }> = {
@@ -71,10 +73,11 @@ interface ProductAuditHistoryProps {
 // ─── Component ─────────────────────────────────────────────────────────────────
 export function ProductAuditHistory({ productId, productTitle }: ProductAuditHistoryProps) {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [page, setPage]       = useState(1);
-  const [meta, setMeta]       = useState({ total: 0, page: 1, limit: 20, pages: 1 });
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
+  const [page, setPage]           = useState(1);
+  const [meta, setMeta]           = useState({ total: 0, page: 1, limit: 20, pages: 1 });
 
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
   const [diffOpen, setDiffOpen]           = useState(false);
@@ -82,8 +85,23 @@ export function ProductAuditHistory({ productId, productTitle }: ProductAuditHis
   const fetchLogs = useCallback(async (p: number) => {
     setLoading(true);
     setError(null);
+    setForbidden(false);
     try {
-      const data = await api.get(`/api/admin/audit-logs/products/${productId}?page=${p}&limit=20`);
+      const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      // Use raw fetch to avoid the global 403→logout interceptor in api.ts
+      const res = await fetch(
+        `${BASE_URL}/api/admin/audit-logs/products/${productId}?page=${p}&limit=20`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      if (res.status === 401 || res.status === 403) {
+        setForbidden(true);
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || `Request failed (${res.status})`);
+      }
+      const data = await res.json();
       setLogs(data?.data ?? []);
       if (data?.meta) setMeta(data.meta);
     } catch (err) {
@@ -123,6 +141,12 @@ export function ProductAuditHistory({ productId, productTitle }: ProductAuditHis
           <div className="flex items-center gap-2 py-8 text-muted-foreground text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading audit history…
+          </div>
+        ) : forbidden ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+            <ShieldX className="h-8 w-8 opacity-40" />
+            <p className="text-sm font-medium">Audit history is visible to Admins only.</p>
+            <p className="text-xs opacity-60">Every change to this product is being recorded and can be reviewed by your Admin.</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">

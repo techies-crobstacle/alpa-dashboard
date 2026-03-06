@@ -95,7 +95,7 @@ export function WelcomeBanner() {
 				</p>
 
 				<div className="mt-3">
-					<a href="/dashboard/products">
+					<a href="/sellerdashboard/products">
 						<Button size="sm" variant="default" className="gap-1.5 h-8 text-xs">
 							<PackagePlus className="h-3.5 w-3.5" />
 							Add Products
