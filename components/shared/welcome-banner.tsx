@@ -14,6 +14,16 @@ export function WelcomeBanner() {
 	useEffect(() => {
 		if (typeof window === "undefined") return;
 
+		// Only show this banner for seller accounts
+		const token = localStorage.getItem("alpa_token");
+		if (!token) return;
+		const decoded = decodeJWT(token);
+		type D = { role?: string; userType?: string; type?: string };
+		const d = decoded as D | null;
+		const role = (d?.role || d?.userType || d?.type || "").toLowerCase();
+		// If the user is not a seller, skip the banner entirely
+		if (role && role !== "seller") return;
+
 		// Resolve user name: profile API → JWT fallback
 		const resolveName = async () => {
 			try {
@@ -26,14 +36,11 @@ export function WelcomeBanner() {
 					"";
 				if (name) setUserName(name.split(" ")[0]);
 			} catch {
-				const token = localStorage.getItem("alpa_token");
-				if (token) {
-					const decoded = decodeJWT(token);
-					type D = { name?: string; firstName?: string; email?: string };
-					const d = decoded as D | null;
-					const fallback = d?.name || d?.firstName || d?.email || "";
-					if (fallback) setUserName(fallback.split(" ")[0].split("@")[0]);
-				}
+				// Fallback to already-decoded JWT data
+				type Full = { name?: string; firstName?: string; email?: string };
+				const fd = decoded as Full | null;
+				const fallback = fd?.name || fd?.firstName || fd?.email || "";
+				if (fallback) setUserName(fallback.split(" ")[0].split("@")[0]);
 			}
 		};
 
