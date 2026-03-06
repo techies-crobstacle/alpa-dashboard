@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ProductActivityLog } from "@/components/shared/product-activity-log";
 
 // --- CONFIGURATION ---
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
@@ -849,6 +850,8 @@ function ProjectsPage() {
                           )}
                         </div>
                       </div>
+                      {/* ── Activity Log ──────────────────────────────── */}
+                      <ProductActivityLog productId={product.id} productTitle={product.title} />
                     </td>
                   </tr>
                 )}
@@ -1027,6 +1030,8 @@ function ProjectsPage() {
                           )}
                         </div>
                       </div>
+                      {/* ── Activity Log ──────────────────────────────── */}
+                      <ProductActivityLog productId={product.id} productTitle={product.title} />
                     </div>
                   )}
                 </CardContent>
