@@ -1477,17 +1477,6 @@ function ProjectsPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="edit-featured" className="text-sm font-semibold cursor-pointer">Featured Product</Label>
-                          <p className="text-[11px] text-muted-foreground">Highlight this on homepage</p>
-                        </div>
-                        <Switch
-                          id="edit-featured"
-                          checked={editFormData.featured}
-                          onCheckedChange={(checked) => setEditFormData({ ...editFormData, featured: checked })}
-                        />
-                      </div>
                     </div>
 
                     <div className="space-y-3">
@@ -1780,17 +1769,6 @@ function ProjectsPage() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="featured" className="text-sm font-semibold cursor-pointer">Featured Product</Label>
-                    <p className="text-[11px] text-muted-foreground">Highlight this on homepage</p>
-                  </div>
-                  <Switch
-                    id="featured"
-                    checked={formData.featured}
-                    onCheckedChange={(checked) => setFormData({ ...formData, featured: checked })}
-                  />
-                </div>
               </div>
 
               <div className="space-y-3">

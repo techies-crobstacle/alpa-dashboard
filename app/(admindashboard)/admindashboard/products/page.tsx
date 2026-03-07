@@ -1410,6 +1410,7 @@ export default function AdminProductsPage() {
     oldGalleryImages: [] as string[],
     tags: "",
     artistName: "",
+    featured: false,
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -1669,6 +1670,7 @@ export default function AdminProductsPage() {
         oldGalleryImages: resolvedGallery, // ← correctly populated now
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : prod.tags || "",
         artistName: prod.artistName || "",
+        featured: prod.featured ?? false,
       });
       setEditProductStatus(prod.status || "");
 
@@ -1694,6 +1696,7 @@ export default function AdminProductsPage() {
       form.append("stock", String(editFormData.stock));
       form.append("category", editFormData.category.trim());
       form.append("tags", editFormData.tags);
+      form.append("featured", String(editFormData.featured));
       if (editFormData.artistName) form.append("artistName", editFormData.artistName.trim());
 
       // Featured image: prefer new file from ref, fall back to old URL
@@ -2636,7 +2639,16 @@ export default function AdminProductsPage() {
                   )}
                 </div>
 
-                {/* Featured toggle removed — seller-controlled */}
+                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors col-span-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold cursor-pointer">Featured Product</Label>
+                    <p className="text-[11px] text-muted-foreground">Highlight this product on the homepage</p>
+                  </div>
+                  <Switch
+                    checked={editFormData.featured}
+                    onCheckedChange={(checked) => setEditFormData({ ...editFormData, featured: checked })}
+                  />
+                </div>
 
                 <div className="space-y-2 col-span-2">
                   <Label className="text-sm font-semibold">Tags (comma separated)</Label>
