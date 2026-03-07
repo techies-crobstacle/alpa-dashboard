@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut, CheckCircle2, AlertTriangle, XCircle, Star, Pencil } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
 import { api } from "@/lib/api";
@@ -73,6 +73,7 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 		const [notificationsLoading, setNotificationsLoading] = useState(false);
 		const [role, setRole] = useState<string | null>(null);
 		const router = useRouter();
+		const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 		// Derive role-aware dashboard paths
 		const settingsHref =
@@ -100,12 +101,15 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 					return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
 				case "NEW_ORDER":
 					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-					return "/sellerdashboard/orders";
+					return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
 				case "ORDER_STATUS_CHANGED":
+					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+					if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
+					return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
 				case "ORDER_CANCELLED":
 					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-					if (role === "CUSTOMER") return "/customerdashboard/orders";
-					return "/sellerdashboard/orders";
+					if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
+					return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
 				case "SELLER_APPROVED":
 					return "/sellerdashboard";
 				case "SELLER_REJECTED":
@@ -136,19 +140,26 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 			if (link) router.push(link);
 		};
 
-		// Fetch notifications from API
+		// Poll badge count every 30 seconds (spec: unreadOnly=true for efficiency)
+		const fetchBadgeCount = useCallback(async () => {
+			try {
+				const response = await api.get('/api/notifications?unreadOnly=true&limit=1');
+				setUnreadCount(response?.unreadCount ?? 0);
+			} catch {
+				// non-critical — silent failure for background poll
+			}
+		}, []);
+
+		// Fetch notifications for the dropdown (called on open)
 		const fetchNotifications = async () => {
 			try {
 				setNotificationsLoading(true);
-				const response = await api.get('/api/notifications?limit=4');
-				console.log('[Topbar] Notifications response:', response);
-				setNotifications(response?.notifications || response?.data || []);
-				setUnreadCount(response?.unreadCount ?? response?.unread ?? 0);
+				const response = await api.get('/api/notifications?page=1&limit=10');
+				setNotifications(response?.notifications || []);
+				setUnreadCount(response?.unreadCount ?? 0);
 			} catch (error) {
 				console.error('Failed to fetch notifications:', error);
-				// Set fallback data on error
 				setNotifications([]);
-				setUnreadCount(0);
 			} finally {
 				setNotificationsLoading(false);
 			}
@@ -212,9 +223,15 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 		useEffect(() => {
 			if (typeof window !== "undefined") {
 				fetchProfileData();
-				fetchNotifications();
+				// Initial badge count fetch
+				fetchBadgeCount();
+				// Poll unread count every 30 seconds
+				pollingIntervalRef.current = setInterval(fetchBadgeCount, 30_000);
 			}
-		}, []);
+			return () => {
+				if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+			};
+		}, [fetchBadgeCount]);
 
 		const handleLogout = () => {
 			if (typeof window !== "undefined") {
@@ -270,7 +287,7 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 					<ThemeToggle />
 
 					{/* Notifications Dropdown */}
-					<DropdownMenu>
+				<DropdownMenu onOpenChange={(open) => { if (open) fetchNotifications(); }}>
 						<DropdownMenuTrigger asChild>
 							<Button
 								variant="ghost"

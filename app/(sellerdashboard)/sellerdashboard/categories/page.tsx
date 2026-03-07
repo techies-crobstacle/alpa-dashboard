@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw } from "lucide-react";
+import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw, Eye } from "lucide-react";
 
 interface Category {
   categoryName: string;
@@ -64,6 +65,7 @@ interface CategoryRequestForm {
 }
 
 const CategoriesPage = () => {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [rejectedRequests, setRejectedRequests] = useState<RejectedRequest[]>([]);
@@ -285,9 +287,14 @@ const CategoriesPage = () => {
                           })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-none">
-                            {request.status}
-                          </Badge>
+                          <div className="flex items-center justify-end gap-2">
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-none">
+                              {request.status}
+                            </Badge>
+                            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}>
+                              <Eye className="w-3 h-3" /> View
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -340,18 +347,17 @@ const CategoriesPage = () => {
                           })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8 text-xs gap-1.5 border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => {
-                              form.setValue("categoryName", request.categoryName);
-                              setIsDialogOpen(true);
-                            }}
-                          >
-                            <RefreshCcw className="w-3 h-3" />
-                            Fix
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-8 text-xs gap-1.5 border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}
+                            >
+                              <Eye className="w-3 h-3" />
+                              View
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
