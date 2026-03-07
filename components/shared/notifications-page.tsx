@@ -114,12 +114,15 @@ const getDeepLink = (n: Notification, role: string | null): string | null => {
 			return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
 		case "NEW_ORDER":
 			if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-			return "/sellerdashboard/orders";
+			return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
 		case "ORDER_STATUS_CHANGED":
+			if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
+			return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
 		case "ORDER_CANCELLED":
 			if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-			if (role === "CUSTOMER") return "/customerdashboard/orders";
-			return "/sellerdashboard/orders";
+			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
+			return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
 		case "SELLER_APPROVED":
 			return "/sellerdashboard";
 		case "SELLER_REJECTED":
