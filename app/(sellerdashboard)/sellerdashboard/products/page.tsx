@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation";
 
 // --- CONFIGURATION ---
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
 // --- HELPER: Get Auth Token ---
 const getAuthToken = () => {

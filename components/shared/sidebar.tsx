@@ -107,7 +107,7 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 		role === "CUSTOMER" ? customerSidebarItems :
 		[];
 
-	const sidebarGroups = [{ title: undefined, items: roleItems }];
+	const sidebarGroups: { title?: string; items: typeof roleItems }[] = [{ items: roleItems }];
 
 	return (
 		<div

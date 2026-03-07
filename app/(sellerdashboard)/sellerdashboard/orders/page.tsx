@@ -14,7 +14,7 @@
  
 // import { toast } from "sonner";
 
-// const BASE_URL = "http://127.0.0.1:5000";
+// const BASE_URL = "https://alpa-be.onrender.com";
 
 // // --- API HELPERS ---
 // const getAuthHeaders = () => {
@@ -443,7 +443,7 @@ import {
   isTerminalStatus,
 } from "@/lib/orderStatusRules";
 
-const BASE_URL = "http://127.0.0.1:5000";
+const BASE_URL = "https://alpa-be.onrender.com";
 
 // --- API HELPERS ---
 const getAuthHeaders = () => {
