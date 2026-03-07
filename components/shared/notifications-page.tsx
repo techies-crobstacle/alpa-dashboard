@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import {
 	Loader2, Bell, Package, ShoppingCart, UserCheck,
 	AlertCircle, CheckCircle2, Clock, AlertTriangle,
-	XCircle, Trash2, Star,
+	XCircle, Trash2, Star, Pencil,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -34,8 +34,10 @@ type NotificationsResponse = {
 	pagination: { page: number; limit: number; total: number };
 };
 
-const getIcon = (n: Pick<Notification, "type" | "metadata">) => {
+const getIcon = (n: Pick<Notification, "type" | "metadata" | "relatedType">) => {
 	const status = typeof n.metadata?.status === "string" ? n.metadata.status : null;
+	if (n.type === "GENERAL" && n.relatedType === "product")
+		return <Pencil className="h-5 w-5 text-blue-600" />;
 	switch (n.type) {
 		case "NEW_ORDER":
 			return <ShoppingCart className="h-5 w-5 text-blue-600" />;
@@ -66,8 +68,10 @@ const getIcon = (n: Pick<Notification, "type" | "metadata">) => {
 	}
 };
 
-const getTypeColor = (n: Pick<Notification, "type" | "metadata">): string => {
+const getTypeColor = (n: Pick<Notification, "type" | "metadata" | "relatedType">): string => {
 	const status = typeof n.metadata?.status === "string" ? n.metadata.status : null;
+	if (n.type === "GENERAL" && n.relatedType === "product")
+		return "bg-blue-100 text-blue-800 border-blue-200";
 	switch (n.type) {
 		case "NEW_ORDER":
 			return "bg-blue-100 text-blue-800 border-blue-200";
@@ -124,6 +128,9 @@ const getDeepLink = (n: Notification, role: string | null): string | null => {
 			return "/sellerdashboard/profile";
 		case "PRODUCT_RECOMMENDATION":
 			return "/sellerdashboard/products";
+		case "GENERAL":
+			if (n.relatedType === "product") return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
+			return null;
 		default:
 			return null;
 	}

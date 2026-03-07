@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut, CheckCircle2, AlertTriangle, XCircle, Star } from "lucide-react";
+import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut, CheckCircle2, AlertTriangle, XCircle, Star, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
@@ -31,8 +31,10 @@ type Notification = {
 	metadata?: Record<string, any>;
 };
 
-const getNotificationIcon = (n: Pick<Notification, "type" | "metadata">) => {
+const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relatedType">) => {
 	const status = typeof n.metadata?.status === "string" ? n.metadata.status : null;
+	if (n.type === "GENERAL" && n.relatedType === "product")
+		return <Pencil className="h-4 w-4 text-blue-600" />;
 	switch (n.type) {
 		case "NEW_ORDER":
 			return <ShoppingCart className="h-4 w-4 text-blue-600" />;
@@ -112,6 +114,9 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata">) => {
 					return "/sellerdashboard/profile";
 				case "PRODUCT_RECOMMENDATION":
 					return "/sellerdashboard/products";
+				case "GENERAL":
+					if (n.relatedType === "product") return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
+					return null;
 				default:
 					return null;
 			}
