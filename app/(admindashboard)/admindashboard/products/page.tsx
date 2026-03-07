@@ -1264,6 +1264,8 @@ type Product = {
   status: string;
   isActive?: boolean;
   rejectionReason?: string | null;
+  reviewNote?: string | null;
+  sellerInactiveReason?: string | null;
   images?: string[];
   featuredImage?: string | null;
   galleryImages?: string[];
@@ -1383,6 +1385,13 @@ export default function AdminProductsPage() {
   const [rejectProductId, setRejectProductId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
+
+  // Admin deactivate modal
+  const [showAdminDeactivateModal, setShowAdminDeactivateModal] = useState(false);
+  const [adminDeactivateProductId, setAdminDeactivateProductId] = useState<string | null>(null);
+  const [adminDeactivateReason, setAdminDeactivateReason] = useState("");
+  const [adminDeactivateSubmitting, setAdminDeactivateSubmitting] = useState(false);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editProductId, setEditProductId] = useState<string | null>(null);
@@ -1741,7 +1750,7 @@ export default function AdminProductsPage() {
         await api.post(`/api/admin/products/approve/${editProductId}`);
         if (stockNum <= 2) {
           // Low stock — approve puts it ACTIVE, then deactivate immediately
-          await api.put(`/api/admin/products/deactivate/${editProductId}`);
+          await api.put(`/api/admin/products/deactivate/${editProductId}`, { reason: "Auto-deactivated due to low stock (≤ 2 units). Please update stock to re-activate." });
           toast.success("Product approved and saved — marked Inactive due to low stock (≤ 2). Update stock to activate.", { duration: 7000 });
         } else {
           toast.success("Product approved and is now Active.", { duration: 5000 });
@@ -1765,15 +1774,31 @@ export default function AdminProductsPage() {
   };
 
   // ── approve / reject / inactivate / activate ──────────────────────────────
-  const handleInactivate = async (productId: string) => {
+  const openAdminDeactivateModal = (productId: string) => {
+    setAdminDeactivateProductId(productId);
+    setAdminDeactivateReason("");
+    setShowAdminDeactivateModal(true);
+  };
+
+  const handleAdminDeactivate = async () => {
+    if (!adminDeactivateProductId) return;
+    if (!adminDeactivateReason.trim()) {
+      toast.error("Please enter a reason for deactivating this product.");
+      return;
+    }
     try {
-      await api.put(`/api/admin/products/deactivate/${productId}`);
-      toast.success("Product marked as inactive");
-      // Bust cache for tabs affected by status change
+      setAdminDeactivateSubmitting(true);
+      await api.put(`/api/admin/products/deactivate/${adminDeactivateProductId}`, { reason: adminDeactivateReason.trim() });
+      toast.success("Product deactivated. The seller has been notified with the reason.");
+      setShowAdminDeactivateModal(false);
+      setAdminDeactivateProductId(null);
+      setAdminDeactivateReason("");
       fetchedTabsRef.current = new Set([activeViewRef.current]);
       fetchTabProducts(selectedSellerRef.current, activeViewRef.current);
-    } catch {
-      toast.error("Failed to inactivate product");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to deactivate product");
+    } finally {
+      setAdminDeactivateSubmitting(false);
     }
   };
 
@@ -2287,6 +2312,18 @@ export default function AdminProductsPage() {
                           {product.rejectionReason}
                         </p>
                       )}
+                      {product.status === "PENDING" && product.reviewNote && (
+                        <p className="text-xs text-blue-600 mt-0.5 line-clamp-2" title={product.reviewNote}>
+                          <AlertCircle className="inline h-3 w-3 mr-1 align-middle" />
+                          Seller note: {product.reviewNote}
+                        </p>
+                      )}
+                      {product.status === "INACTIVE" && product.sellerInactiveReason && (
+                        <p className="text-xs text-orange-600 mt-0.5 line-clamp-2" title={product.sellerInactiveReason}>
+                          <AlertCircle className="inline h-3 w-3 mr-1 align-middle" />
+                          Seller reason: {product.sellerInactiveReason}
+                        </p>
+                      )}
                     </td>
                     <td className="px-4 py-2">{product.category}</td>
                     <td className="px-4 py-2 text-primary font-bold">${product.price}</td>
@@ -2310,7 +2347,7 @@ export default function AdminProductsPage() {
                                 disabled={(product.stock ?? 0) <= 2 && product.status !== "ACTIVE"}
                                 title={(product.stock ?? 0) <= 2 && product.status !== "ACTIVE" ? "Cannot activate — stock is 2 or less" : undefined}
                                 onCheckedChange={(checked) =>
-                                  checked ? handleActivate(product.id) : handleInactivate(product.id)
+                                  checked ? handleActivate(product.id) : openAdminDeactivateModal(product.id)
                                 }
                               />
                               <span className={`text-xs font-medium ${product.status === "INACTIVE" ? "text-red-500" : "text-green-600"}`}>
@@ -2428,6 +2465,50 @@ export default function AdminProductsPage() {
         </div>
       )}
       </>)} {/* end activeView !== "recycle-bin" */}
+
+      {/* Admin Deactivate Modal */}
+      {showAdminDeactivateModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md shadow-2xl">
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <XCircle className="h-5 w-5 text-orange-500" /> Deactivate Product
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowAdminDeactivateModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted" disabled={adminDeactivateSubmitting}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">A reason is required. The seller will be notified with this reason.</p>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Reason for Deactivation <span className="text-red-500">*</span></Label>
+                <Textarea
+                  placeholder="e.g. Product images do not meet quality standards."
+                  value={adminDeactivateReason}
+                  onChange={(e) => setAdminDeactivateReason(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                  disabled={adminDeactivateSubmitting}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">{adminDeactivateReason.length} characters</p>
+              </div>
+            </CardContent>
+            <div className="p-4 border-t bg-muted/10 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowAdminDeactivateModal(false)} disabled={adminDeactivateSubmitting} className="h-10 px-4">Cancel</Button>
+              <Button
+                className="h-10 px-6 font-semibold bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={handleAdminDeactivate}
+                disabled={adminDeactivateSubmitting || !adminDeactivateReason.trim()}
+              >
+                {adminDeactivateSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deactivating...</> : "Deactivate Product"}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Reject Modal */}
       {showRejectModal && (

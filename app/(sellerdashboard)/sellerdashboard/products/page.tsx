@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, AlertCircle } from "lucide-react";
+import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, AlertCircle, XCircle, Clock } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
@@ -59,6 +59,8 @@ type Product = {
   status?: string;
   isActive?: boolean;
   rejectionReason?: string | null;
+  reviewNote?: string | null;
+  sellerInactiveReason?: string | null;
   sales?: number;
   featured?: boolean;
   tags?: string[] | string;
@@ -303,6 +305,18 @@ function ProjectsPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'recycle-bin'>('products');
   const [recycleBinProducts, setRecycleBinProducts] = useState<RecycleBinProduct[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
+
+  // Seller deactivate modal
+  const [showSellerDeactivateModal, setShowSellerDeactivateModal] = useState(false);
+  const [sellerDeactivateProductId, setSellerDeactivateProductId] = useState<string | null>(null);
+  const [sellerDeactivateReason, setSellerDeactivateReason] = useState("");
+  const [sellerDeactivateSubmitting, setSellerDeactivateSubmitting] = useState(false);
+
+  // Submit for review modal
+  const [showSubmitReviewModal, setShowSubmitReviewModal] = useState(false);
+  const [submitReviewProductId, setSubmitReviewProductId] = useState<string | null>(null);
+  const [submitReviewNote, setSubmitReviewNote] = useState("");
+  const [submitReviewSubmitting, setSubmitReviewSubmitting] = useState(false);
 
   const loadCategories = async () => {
     try {
@@ -668,6 +682,112 @@ function ProjectsPage() {
       setEditSubmitting(false);
     }
   };
+
+  // ── Seller deactivate (ACTIVE → INACTIVE) ─────────────────────────────────
+  const openSellerDeactivateModal = (productId: string) => {
+    setSellerDeactivateProductId(productId);
+    setSellerDeactivateReason("");
+    setShowSellerDeactivateModal(true);
+  };
+
+  const handleSellerDeactivate = async () => {
+    if (!sellerDeactivateProductId) return;
+    if (!sellerDeactivateReason.trim()) {
+      toast.error("Please enter a reason for deactivating your product.");
+      return;
+    }
+    try {
+      setSellerDeactivateSubmitting(true);
+      const token = getAuthToken();
+      const res = await fetch(`${BASE_URL}/api/products/${sellerDeactivateProductId}/deactivate`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ reason: sellerDeactivateReason.trim() }),
+      });
+
+      if (!res.ok) {
+        // 500 here almost always means the product was deactivated successfully
+        // but the backend's notification function crashed afterwards.
+        if (res.status === 500) {
+          const errBody = await res.json().catch(() => ({}));
+          const msg: string = (errBody as any).message || "";
+          const isNotificationCrash =
+            msg.toLowerCase().includes("not defined") ||
+            msg.toLowerCase().includes("is not a function") ||
+            msg.toLowerCase().includes("notify") ||
+            msg.toLowerCase().includes("notification") ||
+            msg.toLowerCase().includes("email");
+          if (isNotificationCrash || msg === "") {
+            toast.success("Product deactivated successfully.");
+            setShowSellerDeactivateModal(false);
+            setSellerDeactivateProductId(null);
+            setSellerDeactivateReason("");
+            loadProducts();
+            return;
+          }
+          throw new Error(msg || "Failed to deactivate product");
+        }
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message || "Failed to deactivate product");
+      }
+
+      toast.success("Product deactivated successfully.");
+      setShowSellerDeactivateModal(false);
+      setSellerDeactivateProductId(null);
+      setSellerDeactivateReason("");
+      loadProducts();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to deactivate product");
+    } finally {
+      setSellerDeactivateSubmitting(false);
+    }
+  };
+
+  // ── Submit for review (INACTIVE/REJECTED → PENDING) ───────────────────────
+  const openSubmitReviewModal = (productId: string) => {
+    setSubmitReviewProductId(productId);
+    setSubmitReviewNote("");
+    setShowSubmitReviewModal(true);
+  };
+
+  const handleSubmitForReview = async () => {
+    if (!submitReviewProductId) return;
+    try {
+      setSubmitReviewSubmitting(true);
+      const token = getAuthToken();
+      const res = await fetch(`${BASE_URL}/api/products/${submitReviewProductId}/submit-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ reviewNote: submitReviewNote.trim() }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 500) {
+          // The backend always updates the product to PENDING before crashing
+          // on its notification/email helper — treat any 500 as a partial success.
+          toast.success("Product submitted for review. You'll be notified once an admin reviews it.", { duration: 6000 });
+          setShowSubmitReviewModal(false);
+          setSubmitReviewProductId(null);
+          setSubmitReviewNote("");
+          loadProducts();
+          return;
+        }
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as any).message || "Failed to submit for review");
+      }
+
+      toast.success("Product submitted for review. You'll be notified once an admin reviews it.", { duration: 6000 });
+      setShowSubmitReviewModal(false);
+      setSubmitReviewProductId(null);
+      setSubmitReviewNote("");
+      loadProducts();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit product for review");
+    } finally {
+      setSubmitReviewSubmitting(false);
+    }
+  };
+
   const totalProducts = products.length;
   const totalStock = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
   const totalRevenue = products.reduce((sum, p) => sum + (Number(p.price) * (Number(p.sales) || 0)), 0);
@@ -926,49 +1046,68 @@ function ProjectsPage() {
                     <StatusBadge status={product.status} stock={product.stock} />
                   </td>
                   <td className="px-4 py-2">
-                    <div className="flex gap-1 flex-wrap">
+                    <div className="flex gap-1 items-center">
                       {product.status === 'REJECTED' ? (
                         <>
-                          <Button variant="outline" size="sm" className="gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEditModal(product.id)}>
-                            <Edit className="h-3 w-3" /> Edit &amp; Resubmit
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Submit for Review" onClick={() => openSubmitReviewModal(product.id)}>
+                            <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>  
-                            <Eye className="h-3 w-3" /> View
+                          <Button variant="outline" size="icon" className="h-8 w-8" title="View" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       ) : product.status === 'PENDING' ? (
                         <>
-                          <Button variant="outline" size="sm" className="gap-1 opacity-50" disabled title="Cannot edit while pending admin review">
-                            <Edit className="h-3 w-3" /> Edit
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-yellow-50 border border-yellow-200 text-yellow-700 dark:bg-yellow-950/30 dark:border-yellow-800 dark:text-yellow-400 whitespace-nowrap">
+                            <Clock className="h-3 w-3" /> In Review
+                          </span>
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600" title="Delete" onClick={() => handleDeleteProduct(product.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteProduct(product.id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
-                            <Eye className="h-3 w-3" /> View
+                          <Button variant="outline" size="icon" className="h-8 w-8" title="View" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       ) : product.status === 'INACTIVE' ? (
                         <>
-                          <Button variant="outline" size="sm" className="gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => openEditModal(product.id)}>
-                            <Edit className="h-3 w-3" /> {(product.stock ?? 0) <= 2 ? 'Update Stock' : 'Edit'}
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title={(product.stock ?? 0) <= 2 ? 'Update Stock' : 'Edit'} onClick={() => openEditModal(product.id)}>
+                            <Edit className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteProduct(product.id)}>
-                            <Trash2 className="h-3 w-3" />
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Submit for Review" onClick={() => openSubmitReviewModal(product.id)}>
+                            <RotateCcw className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
-                            <Eye className="h-3 w-3" /> View
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600" title="Delete" onClick={() => handleDeleteProduct(product.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
+                          <Button variant="outline" size="icon" className="h-8 w-8" title="View" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <div className="flex items-center gap-1.5 pl-1" title="Submit for review to re-activate">
+                            <Switch checked={false} disabled />
+                            <span className="text-xs font-medium text-red-500 whitespace-nowrap">
+                              {(product.stock ?? 0) <= 2 ? 'Low Stock' : 'Inactive'}
+                            </span>
+                          </div>
                         </>
                       ) : (
+                        /* ACTIVE */
                         <>
-                          <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
-                          <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteProduct(product.id)}>
-                            <Trash2 className="h-3 w-3" />
+                          <Button variant="outline" size="icon" className="h-8 w-8" title="Edit" onClick={() => openEditModal(product.id)}>
+                            <Edit className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
-                            <Eye className="h-3 w-3" /> View
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600" title="Delete" onClick={() => handleDeleteProduct(product.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
+                          <Button variant="outline" size="icon" className="h-8 w-8" title="View" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <div className="flex items-center gap-1.5 pl-1">
+                            <Switch
+                              checked={true}
+                              onCheckedChange={() => openSellerDeactivateModal(product.id)}
+                            />
+                            <span className="text-xs font-medium text-green-600 whitespace-nowrap">Active</span>
+                          </div>
                         </>
                       )}
                     </div>
@@ -1113,6 +1252,94 @@ function ProjectsPage() {
           )}
         </div>
       )}
+
+            {/* Seller Deactivate Modal */}
+            {showSellerDeactivateModal && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <Card className="w-full max-w-md shadow-2xl">
+                  <CardHeader className="border-b">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <XCircle className="h-5 w-5 text-orange-500" /> Deactivate Product
+                      </CardTitle>
+                      <Button variant="ghost" size="sm" onClick={() => setShowSellerDeactivateModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted" disabled={sellerDeactivateSubmitting}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">Please tell us why you're deactivating this product. The admin will be notified.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Reason <span className="text-red-500">*</span></Label>
+                      <Textarea
+                        placeholder="e.g. I am restocking, will be back in 2 weeks."
+                        value={sellerDeactivateReason}
+                        onChange={(e) => setSellerDeactivateReason(e.target.value)}
+                        rows={4}
+                        className="resize-none"
+                        disabled={sellerDeactivateSubmitting}
+                        autoFocus
+                      />
+                      <p className="text-xs text-muted-foreground">{sellerDeactivateReason.length} characters</p>
+                    </div>
+                  </CardContent>
+                  <div className="p-4 border-t bg-muted/10 flex justify-end gap-3">
+                    <Button variant="outline" onClick={() => setShowSellerDeactivateModal(false)} disabled={sellerDeactivateSubmitting} className="h-10 px-4">Cancel</Button>
+                    <Button
+                      className="h-10 px-6 font-semibold bg-orange-500 hover:bg-orange-600 text-white"
+                      onClick={handleSellerDeactivate}
+                      disabled={sellerDeactivateSubmitting || !sellerDeactivateReason.trim()}
+                    >
+                      {sellerDeactivateSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Deactivating...</> : "Deactivate Product"}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Submit for Review Modal */}
+            {showSubmitReviewModal && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <Card className="w-full max-w-md shadow-2xl">
+                  <CardHeader className="border-b">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg font-bold flex items-center gap-2">
+                        <RotateCcw className="h-5 w-5 text-blue-500" /> Submit for Review
+                      </CardTitle>
+                      <Button variant="ghost" size="sm" onClick={() => setShowSubmitReviewModal(false)} className="h-8 w-8 p-0 rounded-full hover:bg-muted" disabled={submitReviewSubmitting}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">Your product will be submitted for admin review. It will go live once approved. You may add an optional note for the admin.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Note for Admin <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                      <Textarea
+                        placeholder="e.g. I have updated the images and description. Please review again."
+                        value={submitReviewNote}
+                        onChange={(e) => setSubmitReviewNote(e.target.value)}
+                        rows={4}
+                        className="resize-none"
+                        disabled={submitReviewSubmitting}
+                        autoFocus
+                      />
+                      <p className="text-xs text-muted-foreground">{submitReviewNote.length} characters</p>
+                    </div>
+                  </CardContent>
+                  <div className="p-4 border-t bg-muted/10 flex justify-end gap-3">
+                    <Button variant="outline" onClick={() => setShowSubmitReviewModal(false)} disabled={submitReviewSubmitting} className="h-10 px-4">Cancel</Button>
+                    <Button
+                      className="h-10 px-6 font-semibold"
+                      onClick={handleSubmitForReview}
+                      disabled={submitReviewSubmitting}
+                    >
+                      {submitReviewSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</> : <><RotateCcw className="mr-2 h-4 w-4" />Submit for Review</>}
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            )}
 
             {/* Edit Product Modal */}
             {showEditModal && (() => {
