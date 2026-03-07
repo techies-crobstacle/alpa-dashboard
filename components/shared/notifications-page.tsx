@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { api, apiClient } from "@/lib/api";
+import { decodeJWT } from "@/lib/jwt";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
 	Loader2, Bell, Package, ShoppingCart, UserCheck,
-	AlertCircle, CheckCircle2, Clock, DollarSign,
+	AlertCircle, CheckCircle2, Clock, AlertTriangle,
+	XCircle, Trash2, Star, Pencil,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -18,6 +21,8 @@ type Notification = {
 	title: string;
 	message: string;
 	type: string;
+	relatedId?: string | null;
+	relatedType?: string | null;
 	isRead: boolean;
 	metadata?: Record<string, unknown>;
 	createdAt: string;
@@ -29,37 +34,128 @@ type NotificationsResponse = {
 	pagination: { page: number; limit: number; total: number };
 };
 
-const getIcon = (type: string) => {
-	switch (type) {
-		case "NEW_ORDER":     return <ShoppingCart className="h-5 w-5 text-blue-600" />;
-		case "ORDER_UPDATE":  return <Package className="h-5 w-5 text-orange-600" />;
-		case "PAYMENT":       return <DollarSign className="h-5 w-5 text-green-600" />;
-		case "USER_ACTION":   return <UserCheck className="h-5 w-5 text-purple-600" />;
-		case "ALERT":         return <AlertCircle className="h-5 w-5 text-red-600" />;
-		case "SELLER_APPROVED":        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-		case "PRODUCT_RECOMMENDATION": return <Package className="h-5 w-5 text-indigo-600" />;
-		default:              return <Bell className="h-5 w-5 text-muted-foreground" />;
+const getIcon = (n: Pick<Notification, "type" | "metadata" | "relatedType">) => {
+	const status = typeof n.metadata?.status === "string" ? n.metadata.status : null;
+	if (n.type === "GENERAL" && n.relatedType === "product")
+		return <Pencil className="h-5 w-5 text-blue-600" />;
+	switch (n.type) {
+		case "NEW_ORDER":
+			return <ShoppingCart className="h-5 w-5 text-blue-600" />;
+		case "ORDER_STATUS_CHANGED":
+			return <Package className="h-5 w-5 text-blue-600" />;
+		case "ORDER_CANCELLED":
+			return <XCircle className="h-5 w-5 text-red-600" />;
+		case "PRODUCT_STATUS_CHANGED":
+			if (status === "ACTIVE") return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+			if (status === "REJECTED") return <XCircle className="h-5 w-5 text-red-600" />;
+			return <AlertCircle className="h-5 w-5 text-gray-500" />; // INACTIVE
+		case "LOW_STOCK_ALERT":
+			return <AlertTriangle className="h-5 w-5 text-orange-600" />;
+		case "NEW_PRODUCT_SUBMITTED":
+			return <Bell className="h-5 w-5 text-amber-600" />;
+		case "PRODUCT_LOW_STOCK_DEACTIVATED":
+			return <AlertTriangle className="h-5 w-5 text-orange-600" />;
+		case "SELLER_APPROVED":
+			return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+		case "SELLER_REJECTED":
+			return <XCircle className="h-5 w-5 text-red-600" />;
+		case "CULTURAL_APPROVAL":
+			return <UserCheck className="h-5 w-5 text-green-600" />;
+		case "PRODUCT_RECOMMENDATION":
+			return <Star className="h-5 w-5 text-indigo-600" />;
+		default:
+			return <Bell className="h-5 w-5 text-muted-foreground" />;
 	}
 };
 
-const typeColor: Record<string, string> = {
-	NEW_ORDER:             "bg-blue-100 text-blue-800 border-blue-200",
-	ORDER_UPDATE:          "bg-orange-100 text-orange-800 border-orange-200",
-	PAYMENT:               "bg-green-100 text-green-800 border-green-200",
-	USER_ACTION:           "bg-purple-100 text-purple-800 border-purple-200",
-	ALERT:                 "bg-red-100 text-red-800 border-red-200",
-	SELLER_APPROVED:       "bg-green-100 text-green-800 border-green-200",
-	PRODUCT_RECOMMENDATION:"bg-indigo-100 text-indigo-800 border-indigo-200",
+const getTypeColor = (n: Pick<Notification, "type" | "metadata" | "relatedType">): string => {
+	const status = typeof n.metadata?.status === "string" ? n.metadata.status : null;
+	if (n.type === "GENERAL" && n.relatedType === "product")
+		return "bg-blue-100 text-blue-800 border-blue-200";
+	switch (n.type) {
+		case "NEW_ORDER":
+			return "bg-blue-100 text-blue-800 border-blue-200";
+		case "ORDER_STATUS_CHANGED":
+			return "bg-blue-100 text-blue-800 border-blue-200";
+		case "ORDER_CANCELLED":
+			return "bg-red-100 text-red-800 border-red-200";
+		case "PRODUCT_STATUS_CHANGED":
+			if (status === "ACTIVE") return "bg-green-100 text-green-800 border-green-200";
+			if (status === "REJECTED") return "bg-red-100 text-red-800 border-red-200";
+			return "bg-gray-100 text-gray-700 border-gray-200"; // INACTIVE
+		case "LOW_STOCK_ALERT":
+			return "bg-orange-100 text-orange-800 border-orange-200";
+		case "NEW_PRODUCT_SUBMITTED":
+			return "bg-amber-100 text-amber-800 border-amber-200";
+		case "PRODUCT_LOW_STOCK_DEACTIVATED":
+			return "bg-orange-100 text-orange-800 border-orange-200";
+		case "SELLER_APPROVED":
+			return "bg-green-100 text-green-800 border-green-200";
+		case "SELLER_REJECTED":
+			return "bg-red-100 text-red-800 border-red-200";
+		case "CULTURAL_APPROVAL":
+			return "bg-green-100 text-green-800 border-green-200";
+		case "PRODUCT_RECOMMENDATION":
+			return "bg-indigo-100 text-indigo-800 border-indigo-200";
+		default:
+			return "bg-muted text-muted-foreground";
+	}
+};
+
+const getDeepLink = (n: Notification, role: string | null): string | null => {
+	const id = n.relatedId;
+	switch (n.type) {
+		case "PRODUCT_STATUS_CHANGED":
+		case "LOW_STOCK_ALERT":
+			return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
+		case "NEW_PRODUCT_SUBMITTED":
+			return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
+		case "PRODUCT_LOW_STOCK_DEACTIVATED":
+			return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
+		case "NEW_ORDER":
+			if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+			return "/sellerdashboard/orders";
+		case "ORDER_STATUS_CHANGED":
+		case "ORDER_CANCELLED":
+			if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+			if (role === "CUSTOMER") return "/customerdashboard/orders";
+			return "/sellerdashboard/orders";
+		case "SELLER_APPROVED":
+			return "/sellerdashboard";
+		case "SELLER_REJECTED":
+			return "/sellerdashboard/auth";
+		case "CULTURAL_APPROVAL":
+			return "/sellerdashboard/profile";
+		case "PRODUCT_RECOMMENDATION":
+			return "/sellerdashboard/products";
+		case "GENERAL":
+			if (n.relatedType === "product") return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
+			return null;
+		default:
+			return null;
+	}
 };
 
 export function NotificationsPage() {
+	const router = useRouter();
 	const [notifications, setNotifications] = useState<Notification[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
 	const [markingId, setMarkingId] = useState<string | null>(null);
+	const [deletingId, setDeletingId] = useState<string | null>(null);
+	const [role, setRole] = useState<string | null>(null);
 
-	useEffect(() => { fetchNotifications(); }, []);
+	useEffect(() => {
+		fetchNotifications();
+		if (typeof window !== "undefined") {
+			const token = localStorage.getItem("alpa_token");
+			if (token) {
+				const decoded = decodeJWT(token);
+				if (decoded && typeof decoded.role === "string") setRole(decoded.role);
+			}
+		}
+	}, []);
 
 	const fetchNotifications = async () => {
 		setLoading(true);
@@ -78,7 +174,7 @@ export function NotificationsPage() {
 	const markAsRead = async (id: string) => {
 		setMarkingId(id);
 		try {
-			await api.put(`/api/notifications/${id}/read`);
+			await api.put(`/api/notifications/read/${id}`);
 			setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
 			setUnreadCount(prev => Math.max(0, prev - 1));
 		} catch {
@@ -97,6 +193,27 @@ export function NotificationsPage() {
 		} catch {
 			toast.error("Failed to mark all as read");
 		}
+	};
+
+	const deleteNotification = async (id: string) => {
+		setDeletingId(id);
+		try {
+			const wasUnread = notifications.find(n => n.id === id)?.isRead === false;
+			await apiClient(`/api/notifications/${id}`, { method: "DELETE" });
+			setNotifications(prev => prev.filter(n => n.id !== id));
+			if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1));
+			toast.success("Notification deleted");
+		} catch {
+			toast.error("Failed to delete notification");
+		} finally {
+			setDeletingId(null);
+		}
+	};
+
+	const handleNotificationClick = async (n: Notification) => {
+		if (!n.isRead) await markAsRead(n.id);
+		const link = getDeepLink(n, role);
+		if (link) router.push(link);
 	};
 
 	return (
@@ -137,17 +254,59 @@ export function NotificationsPage() {
 						>
 							<CardContent className="p-4">
 								<div className="flex items-start gap-4">
-									<div className="mt-0.5 shrink-0">{getIcon(n.type)}</div>
+									<div className="mt-0.5 shrink-0 cursor-pointer" onClick={() => handleNotificationClick(n)}>
+										{getIcon(n)}
+									</div>
 									<div className="flex-1 min-w-0">
 										<div className="flex items-start justify-between gap-3">
-											<div className="flex-1">
+											<div className="flex-1 cursor-pointer" onClick={() => handleNotificationClick(n)}>
 												<div className="flex items-center gap-2 mb-1">
 													<p className="text-sm font-medium">{n.title}</p>
 													{!n.isRead && <span className="h-2 w-2 rounded-full bg-primary shrink-0" />}
 												</div>
-												<p className="text-sm text-muted-foreground mb-3">{n.message}</p>
-												<div className="flex items-center gap-2 text-xs text-muted-foreground">
-													<Badge variant="outline" className={`text-xs ${typeColor[n.type] ?? "bg-muted text-muted-foreground"}`}>
+												<p className="text-sm text-muted-foreground mb-2">{n.message}</p>
+
+												{/* REJECTED reason */}
+												{n.type === "PRODUCT_STATUS_CHANGED" &&
+													n.metadata?.status === "REJECTED" &&
+													typeof n.metadata?.reason === "string" && (
+														<p className="text-xs text-red-600 font-medium mb-2">
+															Reason: {n.metadata.reason}
+														</p>
+													)}
+
+												{/* NEW_PRODUCT_SUBMITTED changed fields */}
+												{n.type === "NEW_PRODUCT_SUBMITTED" &&
+													Array.isArray(n.metadata?.changedFields) &&
+													(n.metadata.changedFields as string[]).length > 0 && (
+														<div className="flex flex-wrap gap-1 mb-2">
+															{(n.metadata.changedFields as string[]).map((field, i) => (
+																<span key={i} className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-1.5 py-0.5">
+																	{field}
+																</span>
+															))}
+														</div>
+													)}
+
+												{/* ORDER_STATUS_CHANGED updated-by (admin) */}
+												{n.type === "ORDER_STATUS_CHANGED" &&
+													typeof n.metadata?.updatedBy === "string" && (
+														<p className="text-xs text-muted-foreground mb-2">
+															Updated by: <span className="font-medium">{n.metadata.updatedBy as string}</span>
+														</p>
+													)}
+
+												{/* ORDER_CANCELLED cancelled products (seller) */}
+												{n.type === "ORDER_CANCELLED" &&
+													Array.isArray(n.metadata?.cancelledProducts) &&
+													(n.metadata.cancelledProducts as string[]).length > 0 && (
+														<p className="text-xs text-muted-foreground mb-2">
+															Products: {(n.metadata.cancelledProducts as string[]).join(", ")}
+														</p>
+													)}
+
+												<div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+													<Badge variant="outline" className={`text-xs ${getTypeColor(n)}`}>
 														{n.type.replace(/_/g, " ")}
 													</Badge>
 													<div className="flex items-center gap-1">
@@ -156,20 +315,27 @@ export function NotificationsPage() {
 													</div>
 												</div>
 											</div>
-											<div className="shrink-0">
-												{n.isRead ? (
-													<CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-												) : (
+											<div className="shrink-0 flex items-center gap-1">
+												{!n.isRead && (
 													<Button
 														variant="ghost"
 														size="sm"
 														className="text-xs h-7"
 														disabled={markingId === n.id}
-														onClick={() => markAsRead(n.id)}
+														onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }}
 													>
 														{markingId === n.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark read"}
 													</Button>
 												)}
+												<Button
+													variant="ghost"
+													size="icon"
+													className="h-7 w-7 text-muted-foreground hover:text-destructive"
+													disabled={deletingId === n.id}
+													onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+												>
+													{deletingId === n.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+												</Button>
 											</div>
 										</div>
 									</div>

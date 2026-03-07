@@ -9,12 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 
 // --- CONFIGURATION ---
@@ -56,10 +57,42 @@ type Product = {
   featuredImage?: string | null;
   galleryImages?: string[];
   status?: string;
+  isActive?: boolean;
+  rejectionReason?: string | null;
   sales?: number;
   featured?: boolean;
   tags?: string[] | string;
   artistName?: string;
+};
+
+// ── Status badge (seller-facing labels) ───────────────────────────────────────
+function StatusBadge({ status, stock }: { status?: string; stock?: number }) {
+  const isLowStock = (stock ?? 0) <= 2;
+  switch (status) {
+    case "ACTIVE":
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400">Live</span>;
+    case "PENDING":
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400">Pending Review</span>;
+    case "INACTIVE":
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{isLowStock ? "Inactive — Low Stock" : "Inactive"}</span>;
+    case "REJECTED":
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400">Rejected</span>;
+    default:
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{status ?? "Unknown"}</span>;
+  }
+}
+
+type RecycleBinProduct = {
+  id: string;
+  title: string;
+  price: string;
+  stock: number;
+  category?: string;
+  featuredImage?: string | null;
+  status?: string;
+  deletedAt: string;
+  deletedBy: string | null;
+  deletedByRole: string | null;
 };
 
 const addProduct = async (productData: {
@@ -154,6 +187,38 @@ const deleteProduct = async (productId: string) => {
   }
 };
 
+const fetchRecycleBinProducts = async () => {
+  const token = getAuthToken();
+  if (!token) throw new Error("No authentication token found. Please log in.");
+  const response = await fetch(`${BASE_URL}/api/products/recycle-bin`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) throw new Error("Failed to fetch recycle bin");
+  return response.json();
+};
+
+const restoreProduct = async (productId: string) => {
+  const token = getAuthToken();
+  if (!token) throw new Error("No authentication token found. Please log in.");
+  const response = await fetch(`${BASE_URL}/api/products/${productId}/restore`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    let errorData;
+    try { errorData = await response.json(); } catch { errorData = {}; }
+    throw new Error((errorData as any).message || `Failed to restore product (${response.status})`);
+  }
+  return response.json();
+};
+
 
 function ProjectsPage() {
   const router = useRouter();
@@ -163,7 +228,6 @@ function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [layout, setLayout] = useState<'table' | 'card'>("table");
   
   // Refs for closing dropdowns on click outside
   const catDropdownRef = useRef<HTMLDivElement>(null);
@@ -231,8 +295,14 @@ function ProjectsPage() {
     artistName: "",
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
+
+  // Recycle Bin state
+  const [activeTab, setActiveTab] = useState<'products' | 'recycle-bin'>('products');
+  const [recycleBinProducts, setRecycleBinProducts] = useState<RecycleBinProduct[]>([]);
+  const [recycleBinLoading, setRecycleBinLoading] = useState(false);
 
   const loadCategories = async () => {
     try {
@@ -258,7 +328,30 @@ function ProjectsPage() {
     loadCategories();
   }, []);
 
-  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter]);
+  useEffect(() => { setCurrentPage(1); }, [search, categoryFilter, statusFilter]);
+
+  const loadRecycleBin = async () => {
+    try {
+      setRecycleBinLoading(true);
+      const data = await fetchRecycleBinProducts();
+      setRecycleBinProducts(data.products || []);
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to load recycle bin");
+    } finally {
+      setRecycleBinLoading(false);
+    }
+  };
+
+  // Load recycle bin count eagerly so the badge shows the correct number immediately
+  useEffect(() => {
+    loadRecycleBin();
+  }, []); // eslint-disable-line
+
+  useEffect(() => {
+    if (activeTab === 'recycle-bin') {
+      loadRecycleBin();
+    }
+  }, [activeTab]); // eslint-disable-line
 
   const loadProducts = async () => {
     try {
@@ -311,16 +404,27 @@ function ProjectsPage() {
     }
   };
 
+  const handleRestoreProduct = async (productId: string, productTitle: string) => {
+    try {
+      await restoreProduct(productId);
+      toast.success(`"${productTitle}" restored and submitted for admin review. It will go live once approved.`);
+      loadRecycleBin();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast.error(`Restore failed: ${errorMessage}`);
+    }
+  };
+
   const handleDeleteProduct = (productId: string) => {
     toast("Delete this product?", {
-      description: "This action cannot be undone.",
+      description: "It will be moved to your Recycle Bin where you can restore it anytime.",
       action: {
         label: "Delete",
         onClick: async () => {
           try {
             console.log('Starting product deletion for ID:', productId);
             await deleteProduct(productId);
-            toast.success("Product deleted successfully!");
+            toast.success("Product moved to Recycle Bin. It can be restored from there.");
             loadProducts();
           } catch (error) {
             console.error('Product deletion failed:', error);
@@ -551,7 +655,7 @@ function ProjectsPage() {
         } catch {}
         throw new Error(errorMsg);
       }
-      toast.success("Product updated successfully!");
+      toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
       setShowEditModal(false);
       setEditProductId(null);
       editGalleryAccumRef.current = []; // clear accumulator
@@ -571,12 +675,22 @@ function ProjectsPage() {
   // Get unique categories from products
   const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
 
-  // Filtered products by search and category
+  // Per-status counts
+  const statusCounts = {
+    all: products.length,
+    ACTIVE: products.filter(p => p.status === 'ACTIVE').length,
+    PENDING: products.filter(p => p.status === 'PENDING').length,
+    REJECTED: products.filter(p => p.status === 'REJECTED').length,
+    INACTIVE: products.filter(p => p.status === 'INACTIVE').length,
+  };
+
+  // Filtered products by search, category, and status
   const filteredProducts = products.filter(
     (p) =>
       (p.title.toLowerCase().includes(search.toLowerCase()) ||
         (p.category?.toLowerCase().includes(search.toLowerCase()))) &&
-      (categoryFilter ? p.category === categoryFilter : true)
+      (categoryFilter ? p.category === categoryFilter : true) &&
+      (statusFilter !== 'all' ? p.status === statusFilter : true)
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
@@ -601,14 +715,6 @@ function ProjectsPage() {
     }
     return pages;
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -636,8 +742,6 @@ function ProjectsPage() {
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
-          <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
-          <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
           <Button className="gap-2" onClick={() => setShowAddModal(true)}>
             <Plus className="h-4 w-4" /> Add Product
           </Button>
@@ -669,14 +773,96 @@ function ProjectsPage() {
         </Card>
       </div>
 
+      {/* Tab Switcher */}
+      <div className="flex gap-1 border-b pb-3 mb-2">
+        <Button
+          variant={activeTab === 'products' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('products')}
+          className="gap-1.5"
+        >
+          <Package className="h-4 w-4" /> My Products ({totalProducts})
+        </Button>
+        <Button
+          variant={activeTab === 'recycle-bin' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setActiveTab('recycle-bin')}
+          className={cn("gap-1.5", activeTab !== 'recycle-bin' && "text-muted-foreground")}
+        >
+          <Trash2 className="h-4 w-4" /> Recycle Bin ({recycleBinProducts.length})
+        </Button>
+      </div>
+
+      {activeTab === 'products' && (<>
+      {/* Status Filter Tabs */}
+      <div className="flex gap-1 flex-wrap border-b pb-2 mb-1">
+        {([
+          { key: 'all',      label: 'All',           count: statusCounts.all,      cls: '' },
+          { key: 'ACTIVE',   label: 'Live',          count: statusCounts.ACTIVE,   cls: 'text-green-700 dark:text-green-400' },
+          { key: 'PENDING',  label: 'Pending Review',count: statusCounts.PENDING,  cls: 'text-yellow-700 dark:text-yellow-400' },
+          { key: 'REJECTED', label: 'Rejected',      count: statusCounts.REJECTED, cls: 'text-red-600 dark:text-red-400' },
+          { key: 'INACTIVE', label: 'Inactive',      count: statusCounts.INACTIVE, cls: 'text-gray-500 dark:text-gray-400' },
+        ] as const).map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setStatusFilter(tab.key)}
+            className={cn(
+              "px-3 py-1.5 text-sm font-medium rounded-t-md transition-colors whitespace-nowrap",
+              statusFilter === tab.key
+                ? "border border-b-background border-b-0 -mb-px bg-background text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+            <span className={cn(
+              "ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-semibold",
+              statusFilter === tab.key ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+            )}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Product List */}
       {loading ? (
-        <div className="flex items-center justify-center min-h-[200px]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="overflow-x-auto rounded-lg border bg-background">
+          <table className="min-w-full divide-y divide-muted">
+            <thead className="bg-muted/50">
+              <tr>
+                {["Image", "Title", "Category", "Price", "Stock", "Status", "Actions"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-muted">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3"><Skeleton className="h-12 w-12 rounded" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-12" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1">
+                      <Skeleton className="h-8 w-16 rounded-md" />
+                      <Skeleton className="h-8 w-20 rounded-md" />
+                      <Skeleton className="h-8 w-14 rounded-md" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <Card className="col-span-full text-center py-12">No products found.</Card>
-      ) : layout === 'table' ? (
+        <Card className="col-span-full text-center py-12">
+          {statusFilter !== 'all'
+            ? `No ${statusFilter === 'ACTIVE' ? 'live' : statusFilter === 'PENDING' ? 'pending' : statusFilter === 'REJECTED' ? 'rejected' : 'inactive'} products found.`
+            : 'No products found.'}
+        </Card>
+      ) : (
         <div className="overflow-x-auto rounded-lg border bg-background">
           <table className="min-w-full divide-y divide-muted">
             <thead className="bg-muted/50">
@@ -719,110 +905,78 @@ function ProjectsPage() {
                       </div>
                     )}
                   </td>
-                  <td className="px-4 py-2 font-semibold">{product.title}</td>
+                  <td className="px-4 py-2">
+                    <p className="font-semibold">{product.title}</p>
+                    {product.status === 'REJECTED' && product.rejectionReason && (
+                      <p className="text-xs text-red-600 mt-0.5 line-clamp-2" title={product.rejectionReason}>
+                        <AlertCircle className="inline h-3 w-3 mr-1 align-middle" />
+                        {product.rejectionReason}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-4 py-2">{product.category}</td>
                   <td className="px-4 py-2">${product.price}</td>
-                  <td className="px-4 py-2">{product.stock}</td>
-                  <td className="px-4 py-2">
-                    <Badge variant={product.status === 'ACTIVE' ? 'default' : 'secondary'}>{product.status || 'Active'}</Badge>
+                  <td className={cn("px-4 py-2 font-medium", (product.stock ?? 0) <= 2 && product.status === 'INACTIVE' ? "text-red-600" : "")}>
+                    {product.stock}
+                    {(product.stock ?? 0) <= 2 && product.status === 'INACTIVE' && (
+                      <span className="ml-1 text-xs text-red-500">(low)</span>
+                    )}
                   </td>
-                  <td className="px-4 py-2 flex gap-1">
-                    <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id, product)} disabled={product.status === 'REJECTED'}><Edit className="h-3 w-3" /> Edit</Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                      onClick={() => handleDeleteProduct(product.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}
-                    >
-                      <Eye className="h-3 w-3" /> View
-                    </Button>
+                  <td className="px-4 py-2">
+                    <StatusBadge status={product.status} stock={product.stock} />
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex gap-1 flex-wrap">
+                      {product.status === 'REJECTED' ? (
+                        <>
+                          <Button variant="outline" size="sm" className="gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEditModal(product.id)}>
+                            <Edit className="h-3 w-3" /> Edit &amp; Resubmit
+                          </Button>
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>  
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                        </>
+                      ) : product.status === 'PENDING' ? (
+                        <>
+                          <Button variant="outline" size="sm" className="gap-1 opacity-50" disabled title="Cannot edit while pending admin review">
+                            <Edit className="h-3 w-3" /> Edit
+                          </Button>
+                          <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteProduct(product.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                        </>
+                      ) : product.status === 'INACTIVE' ? (
+                        <>
+                          <Button variant="outline" size="sm" className="gap-1 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => openEditModal(product.id)}>
+                            <Edit className="h-3 w-3" /> {(product.stock ?? 0) <= 2 ? 'Update Stock' : 'Edit'}
+                          </Button>
+                          <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteProduct(product.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => openEditModal(product.id)}><Edit className="h-3 w-3" /> Edit</Button>
+                          <Button variant="outline" size="sm" className="text-red-500 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteProduct(product.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}>
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {paginatedProducts.map((product) => (
-            <div key={product.id} className="flex flex-col">
-              <Card className="overflow-hidden flex flex-col">
-                <div className="relative h-48 w-full bg-muted">
-                  {(product.featuredImage || (product.images && product.images.length > 0)) ? (
-                    <Image
-                      src={product.featuredImage || product.images[0]}
-                      alt={product.title}
-                      width={400}
-                      height={192}
-                      className="h-full w-full object-cover transition-transform hover:scale-105"
-                      onError={e => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://placehold.co/400x300?text=No+Image';
-                      }}
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <Image
-                        src="/placeholder.svg"
-                        alt="No image"
-                        width={48}
-                        height={48}
-                        className="h-12 w-12 text-muted-foreground/50"
-                      />
-                    </div>
-                  )}
-                  <Badge 
-                    className="absolute top-2 right-2" 
-                    variant={product.status === "ACTIVE" ? "default" : "secondary"}
-                  >
-                    {product.status || "Active"}
-                  </Badge>
-                </div>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg line-clamp-1">{product.title}</CardTitle>
-                  <CardDescription className="line-clamp-2">{product.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4 mt-auto">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">{product.category}</span>
-                    <span className="font-bold text-lg text-primary">${product.price}</span>
-                  </div>
-                  <div className="flex justify-between text-sm border-t pt-2">
-                    <span className="text-muted-foreground">Stock Available</span>
-                    <span className="font-semibold">{product.stock} units</span>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => openEditModal(product.id, product)} disabled={product.status === 'REJECTED'}><Edit className="h-3 w-3" /> Edit</Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                      onClick={() => handleDeleteProduct(product.id)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 gap-1"
-                      onClick={() => router.push(`/sellerdashboard/products/${product.id}`)}
-                    >
-                      <Eye className="h-3 w-3" /> View
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ))}
         </div>
       )}
 
@@ -866,16 +1020,132 @@ function ProjectsPage() {
           </div>
         </div>
       )}
+      </>)}
+
+      {/* Recycle Bin View */}
+      {activeTab === 'recycle-bin' && (
+        <div className="space-y-4">
+          {recycleBinLoading ? (
+            <div className="flex items-center justify-center min-h-[200px]">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : recycleBinProducts.length === 0 ? (
+            <Card className="col-span-full">
+              <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
+                <Trash2 className="h-12 w-12 text-muted-foreground/30" />
+                <p className="text-lg font-semibold text-muted-foreground">Recycle Bin is empty</p>
+                <p className="text-sm text-muted-foreground">Deleted products will appear here and can be restored anytime.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border bg-background">
+              <table className="min-w-full divide-y divide-muted">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Image</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Title</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Price</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Deleted On</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Deleted By</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-muted">
+                  {recycleBinProducts.map((product) => (
+                    <tr key={product.id} className="hover:bg-muted/20">
+                      <td className="px-4 py-2">
+                        {product.featuredImage ? (
+                          <Image
+                            src={product.featuredImage}
+                            alt={product.title}
+                            width={48}
+                            height={48}
+                            className="h-12 w-12 object-cover rounded opacity-60"
+                            unoptimized
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }}
+                          />
+                        ) : (
+                          <div className="h-12 w-12 flex items-center justify-center bg-muted rounded">
+                            <Package className="h-5 w-5 text-muted-foreground/40" />
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 font-semibold text-muted-foreground">{product.title}</td>
+                      <td className="px-4 py-2 text-sm text-muted-foreground">{product.category || '—'}</td>
+                      <td className="px-4 py-2 text-sm">${product.price}</td>
+                      <td className="px-4 py-2 text-sm">{product.stock}</td>
+                      <td className="px-4 py-2 text-sm text-muted-foreground whitespace-nowrap">
+                        {new Date(product.deletedAt).toLocaleDateString('en-AU', {
+                          day: 'numeric', month: 'short', year: 'numeric',
+                          hour: '2-digit', minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-2">
+                        <Badge
+                          className={cn(
+                            "text-xs whitespace-nowrap",
+                            product.deletedByRole === 'ADMIN'
+                              ? "bg-red-100 text-red-700 border-red-200 hover:bg-red-100"
+                              : "bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-100"
+                          )}
+                          variant="outline"
+                        >
+                          {product.deletedByRole === 'ADMIN' ? 'Deleted by Admin' : 'Deleted by You'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          onClick={() => handleRestoreProduct(product.id, product.title)}
+                        >
+                          <RotateCcw className="h-3 w-3" /> Restore
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
             {/* Edit Product Modal */}
-            {showEditModal && (
+            {showEditModal && (() => {
+              const editingProduct = products.find(p => p.id === editProductId);
+              const isResubmit = editingProduct?.status === 'REJECTED';
+              const isInactive = editingProduct?.status === 'INACTIVE';
+              const isActive = editingProduct?.status === 'ACTIVE';
+              return (
               <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
                   <CardHeader className="border-b sticky top-0 bg-background z-10">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-xl font-bold">Edit Product</CardTitle>
+                      <CardTitle className="text-xl font-bold">
+                        {isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
+                      </CardTitle>
                       <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
                     </div>
+                    {(isResubmit || isActive || isInactive) && (
+                      <div className={`flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs ${
+                        isResubmit ? 'bg-blue-50 border border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300'
+                        : isInactive && (editingProduct?.stock ?? 0) <= 2 ? 'bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
+                        : 'bg-yellow-50 border border-yellow-200 text-yellow-700 dark:bg-yellow-950/30 dark:border-yellow-800 dark:text-yellow-300'
+                      }`}>
+                        <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                        <span>
+                          {isResubmit
+                            ? 'After saving, your product will be resubmitted for admin review. Address the rejection reason before resubmitting.'
+                            : isInactive && (editingProduct?.stock ?? 0) <= 2
+                            ? 'Update the stock quantity. Your product will be submitted for admin review and re-listed once approved.'
+                            : 'Editing a live product will temporarily remove it from the storefront and submit it for re-approval.'}
+                        </span>
+                      </div>
+                    )}
                   </CardHeader>
                   <CardContent className="space-y-6 p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1163,9 +1433,8 @@ function ProjectsPage() {
                   </CardContent>
                 </Card>
               </div>
-            )}
-      {/* Add Product Modal */}
-
+            );
+            })()}
       {/* Add Product Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
