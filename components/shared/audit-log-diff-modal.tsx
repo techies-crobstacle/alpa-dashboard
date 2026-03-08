@@ -39,6 +39,8 @@ const ACTION_BADGE: Record<string, { label: string; className: string }> = {
   PRODUCT_CREATED:                      { label: "Created",               className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
   PRODUCT_UPDATED:                      { label: "Updated",               className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700" },
   PRODUCT_DELETED:                      { label: "Deleted",               className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700" },
+  PRODUCT_RESTORED:                     { label: "Restored",              className: "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-700" },
+  PRODUCT_PERMANENTLY_DELETED:          { label: "Permanently Deleted",   className: "bg-red-200 text-red-900 border-red-400 dark:bg-red-900/60 dark:text-red-200 dark:border-red-600" },
   PRODUCT_APPROVED:                     { label: "Approved",              className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
   PRODUCT_REJECTED:                     { label: "Rejected",              className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700" },
   PRODUCT_ACTIVATED:                    { label: "Activated",             className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
@@ -99,6 +101,55 @@ function DiffRow({
       </td>
     </tr>
   );
+}
+
+// ─── Snapshot actor enrichment (delete / restore) ─────────────────────────────
+function SnapshotActorRow({ entry }: { entry: AuditLogEntry }) {
+  if (entry.action === "PRODUCT_DELETED") {
+    const email = entry.newData?.deletedByEmail != null ? String(entry.newData.deletedByEmail) : null;
+    const role  = entry.newData?.deletedByRole  != null ? String(entry.newData.deletedByRole)  : null;
+    if (!email && !role) return null;
+    return (
+      <div className="col-span-2">
+        <span className="text-xs text-muted-foreground">Deleted by (snapshot)</span>
+        <p className="text-xs">
+          {email ?? "—"}
+          {role && (
+            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300">
+              {role}
+            </span>
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  if (entry.action === "PRODUCT_RESTORED") {
+    const email      = entry.newData?.restoredByEmail != null ? String(entry.newData.restoredByEmail) : null;
+    const role       = entry.newData?.restoredByRole  != null ? String(entry.newData.restoredByRole)  : null;
+    const restoredAt = entry.newData?.restoredAt      != null ? String(entry.newData.restoredAt)      : null;
+    if (!email && !role) return null;
+    return (
+      <div className="col-span-2">
+        <span className="text-xs text-muted-foreground">Restored by (snapshot)</span>
+        <p className="text-xs">
+          {email ?? "—"}
+          {role && (
+            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-700 text-teal-700 dark:text-teal-300">
+              {role}
+            </span>
+          )}
+          {restoredAt && (
+            <span className="ml-2 text-muted-foreground">
+              at {formatDate(restoredAt)}
+            </span>
+          )}
+        </p>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -162,6 +213,8 @@ export function AuditLogDiffModal({ entry, open, onOpenChange }: AuditLogDiffMod
               )}
             </p>
           </div>
+          {/* Snapshot actor — enriched identity for delete / restore events */}
+          <SnapshotActorRow entry={entry} />
           <div>
             <span className="text-xs text-muted-foreground">Actor IP</span>
             <p className="font-mono text-xs">{entry.actorIp ?? "—"}</p>

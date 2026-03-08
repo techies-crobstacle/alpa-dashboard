@@ -16,7 +16,9 @@ import { apiClient } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import { ProductAuditHistory } from "@/components/shared/product-audit-history";
 
 // --- CONFIGURATION ---
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
@@ -278,6 +280,7 @@ function ProjectsPage() {
     artistName: "",
   });
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isRestoringMode, setIsRestoringMode] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editProductId, setEditProductId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -305,6 +308,9 @@ function ProjectsPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'recycle-bin'>('products');
   const [recycleBinProducts, setRecycleBinProducts] = useState<RecycleBinProduct[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
+
+  // View deleted product
+  const [viewBinProduct, setViewBinProduct] = useState<RecycleBinProduct | null>(null);
 
   // Seller deactivate modal
   const [showSellerDeactivateModal, setShowSellerDeactivateModal] = useState(false);
@@ -529,13 +535,14 @@ function ProjectsPage() {
     }
   };
 
-  const openEditModal = async (productId: string, product?: Product) => {
+  const openEditModal = async (productId: string, product?: Product, isRestoring: boolean = false) => {
     // Check if product is rejected before allowing edit
-    if (product?.status === "REJECTED") {
+    if (!isRestoring && product?.status === "REJECTED") {
       toast.error("Cannot edit rejected products. Please create a new product or resubmit the original.");
       return;
     }
 
+    setIsRestoringMode(isRestoring);
     setEditProductId(productId);
     setEditSubmitting(false);
     editGalleryAccumRef.current = []; // reset accumulator for fresh edit session
@@ -557,7 +564,7 @@ function ProjectsPage() {
       const prod = data.product || data;
 
       // Check if returned product is rejected
-      if (prod.status === "REJECTED") {
+      if (!isRestoring && prod.status === "REJECTED") {
         throw new Error("This product has been rejected and cannot be edited. Please create a new product instead.");
       }
 
@@ -669,9 +676,18 @@ function ProjectsPage() {
         } catch {}
         throw new Error(errorMsg);
       }
-      toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
+
+      if (isRestoringMode && editProductId) {
+        await restoreProduct(editProductId);
+        toast.success(`"${editFormData.title}" restored and updated! It is now submitted for admin review.`);
+        setRecycleBinProducts(prev => prev.filter(p => p.id !== editProductId));
+      } else {
+        toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
+      }
+
       setShowEditModal(false);
       setEditProductId(null);
+      setIsRestoringMode(false);
       editGalleryAccumRef.current = []; // clear accumulator
       loadProducts();
     } catch (err: unknown) {
@@ -1235,14 +1251,24 @@ function ProjectsPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => handleRestoreProduct(product.id, product.title)}
-                        >
-                          <RotateCcw className="h-3 w-3" /> Restore
-                        </Button>
+                        <div className="flex gap-1.5 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => setViewBinProduct(product)}
+                          >
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => openEditModal(product.id, undefined, true)}
+                          >
+                            <RotateCcw className="h-3 w-3" /> Restore
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1353,9 +1379,9 @@ function ProjectsPage() {
                   <CardHeader className="border-b sticky top-0 bg-background z-10">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-xl font-bold">
-                        {isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
+                        {isRestoringMode ? 'Edit & Restore Product' : isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
                       </CardTitle>
-                      <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
                     </div>
                     {(isResubmit || isActive || isInactive) && (
                       <div className={`flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs ${
@@ -1639,11 +1665,12 @@ function ProjectsPage() {
                     </div>
                     <div className="flex gap-4 pt-4 sticky bottom-0 bg-background/80 backdrop-blur-sm mt-4 border-t py-4">
                       <Button className="flex-1 h-11 text-base font-semibold shadow-lg shadow-primary/20" onClick={handleEditProduct} disabled={editSubmitting}>
-                        {editSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Save Changes"}
+                        {editSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : isRestoringMode ? "Save & Restore" : "Save Changes"}
                       </Button>
                       <Button variant="outline" className="h-11 px-8" onClick={() => {
                           editGalleryAccumRef.current = []; // reset on cancel
                           setShowEditModal(false);
+                          setIsRestoringMode(false);
                         }} disabled={editSubmitting}>Cancel</Button>
                     </div>
                   </CardContent>
@@ -1913,7 +1940,62 @@ function ProjectsPage() {
           </Card>
         </div>
       )}
-    </div>
+
+      {/* View Deleted Product Dialog */}
+      <Dialog open={!!viewBinProduct} onOpenChange={(open) => { if (!open) setViewBinProduct(null); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700">
+              Deleted
+            </span>
+            <span className="truncate">{viewBinProduct?.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+        {viewBinProduct && (
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              {viewBinProduct.featuredImage ? (
+                <Image
+                  src={viewBinProduct.featuredImage}
+                  alt={viewBinProduct.title}
+                  width={96}
+                  height={96}
+                  unoptimized
+                  className="h-24 w-24 object-cover rounded-lg border shrink-0 opacity-80"
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }}
+                />
+              ) : (
+                <div className="h-24 w-24 flex items-center justify-center bg-muted rounded-lg border shrink-0">
+                  <Package className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+              )}
+              <div className="space-y-1.5 text-sm">
+                <p className="font-semibold text-base">{viewBinProduct.title}</p>
+                {viewBinProduct.category && <p className="text-muted-foreground">{viewBinProduct.category}</p>}
+                <div className="flex flex-wrap gap-3">
+                  <span><span className="text-muted-foreground">Price:</span> <span className="font-semibold">${viewBinProduct.price}</span></span>
+                  <span><span className="text-muted-foreground">Stock:</span> <span className="font-semibold">{viewBinProduct.stock}</span></span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <span className={cn(
+                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                    viewBinProduct.deletedByRole === 'ADMIN' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                  )}>
+                    {viewBinProduct.deletedByRole === 'ADMIN' ? 'Deleted by Admin' : 'Deleted by You'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    on {new Date(viewBinProduct.deletedAt).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ProductAuditHistory productId={viewBinProduct.id} productTitle={viewBinProduct.title} />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  </div>
   );
 }
 
