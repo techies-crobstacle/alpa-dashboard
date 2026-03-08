@@ -1988,7 +1988,7 @@ export default function AdminProductsPage() {
             </div>
 
             {isSellerDropdownOpen && (
-              <div className="absolute z-[60] left-0 w-full mt-1 bg-background rounded-lg border shadow-xl p-1 min-w-[400px] animate-in fade-in zoom-in-95">
+              <div className="absolute z-[60] right-0 w-full mt-1 bg-background rounded-lg border shadow-xl p-1 min-w-[400px] animate-in fade-in zoom-in-95">
                 <div className="max-h-[300px] overflow-y-auto">
                   {loadingSellers ? (
                     <div className="py-6 flex justify-center"><Loader2 className="h-4 w-4 animate-spin" /></div>
@@ -2650,9 +2650,37 @@ export default function AdminProductsPage() {
                   />
                 </div>
 
-                <div className="space-y-2 col-span-2">
-                  <Label className="text-sm font-semibold">Tags (comma separated)</Label>
-                  <Input placeholder="e.g. handmade, vintage, summer" value={editFormData.tags} onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })} className="h-10" />
+                <div className="space-y-3 col-span-2">
+                  <Label className="text-sm font-semibold">Promotion Tags</Label>
+                  <div className="flex flex-wrap gap-4 pt-1">
+                    {["New Arrival", "Sale", "Best Seller", "Limited Edition"].map(tag => {
+                      const currentTags = editFormData.tags ? editFormData.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
+                      const isChecked = currentTags.includes(tag);
+                      return (
+                        <div
+                          key={tag}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all cursor-pointer select-none",
+                            isChecked ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-muted/10 border-transparent hover:bg-muted/20"
+                          )}
+                          onClick={() => {
+                            const newTags = isChecked
+                              ? currentTags.filter(t => t !== tag)
+                              : [...currentTags, tag];
+                            setEditFormData({ ...editFormData, tags: newTags.join(", ") });
+                          }}
+                        >
+                          <div className={cn(
+                            "flex h-4 w-4 items-center justify-center rounded border border-primary transition-all",
+                            isChecked ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50"
+                          )}>
+                            {isChecked && <Check className="h-3 w-3" />}
+                          </div>
+                          <span className="text-sm font-medium">{tag}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Featured Image */}

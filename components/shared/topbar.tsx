@@ -325,7 +325,7 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 								</div>
 							) : (
 								<>
-									{notifications.map((notification) => (
+									{notifications.slice(0, 4).map((notification) => (
 										<DropdownMenuItem 
 											key={notification.id} 
 											className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors"
