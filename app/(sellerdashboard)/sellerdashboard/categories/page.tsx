@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw, Eye } from "lucide-react";
+import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw, Eye, Trash2 } from "lucide-react";
 
 interface Category {
   categoryName: string;
@@ -73,6 +73,9 @@ const CategoriesPage = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<PendingRequest | RejectedRequest | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<CategoryRequestForm>({
     defaultValues: {
@@ -123,6 +126,29 @@ const CategoriesPage = () => {
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const response = await apiClient(`/api/categories/${deleteTarget.id}`, {
+        method: "DELETE",
+        body: JSON.stringify({}),
+      });
+      if (response.success) {
+        toast.success(`Category "${deleteTarget.categoryName}" moved to recycle bin`);
+        setIsDeleteDialogOpen(false);
+        setDeleteTarget(null);
+        fetchCategories();
+      } else {
+        throw new Error(response.message ?? "Failed to delete");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -294,6 +320,14 @@ const CategoriesPage = () => {
                             <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}>
                               <Eye className="w-3 h-3" /> View
                             </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1 text-xs text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
+                            >
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -348,14 +382,23 @@ const CategoriesPage = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="h-8 text-xs gap-1.5 border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/10 hover:text-primary"
                               onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}
                             >
-                              <Eye className="w-3 h-3" />
-                              View
+                              <RefreshCcw className="w-3 h-3" />
+                              Fix &amp; Resubmit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs gap-1.5 border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              Delete
                             </Button>
                           </div>
                         </TableCell>
@@ -470,6 +513,33 @@ const CategoriesPage = () => {
           </div>
         </>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={(o) => { if (!isDeleting) { setIsDeleteDialogOpen(o); if (!o) setDeleteTarget(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-4 w-4" /> Move to Recycle Bin
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to move{" "}
+              <span className="font-semibold text-foreground">{deleteTarget?.categoryName}</span>{" "}
+              to the recycle bin? An admin will need to permanently delete it from there.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" disabled={isDeleting} onClick={() => { setIsDeleteDialogOpen(false); setDeleteTarget(null); }}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={isDeleting} onClick={handleDelete}>
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              Move to Bin
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

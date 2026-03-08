@@ -25,7 +25,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.co
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface ApprovedCategory {
-	id: string;
+	id: string | null;
 	categoryName: string;
 	totalProductCount: number;
 	isRequestedCategory?: boolean;
@@ -319,7 +319,7 @@ const AdminCategoriesPage = () => {
 	};
 
 	const handleEdit = async () => {
-		if (!editTarget || !editName.trim()) return;
+		if (!editTarget || !editTarget.id || !editName.trim()) return;
 		try {
 			setIsProcessing(true);
 			const response = await apiClient(`/api/categories/${editTarget.id}`, {
@@ -351,7 +351,7 @@ const AdminCategoriesPage = () => {
 	};
 
 	const handleSoftDelete = async () => {
-		if (!softDeleteTarget) return;
+		if (!softDeleteTarget || !softDeleteTarget.id) return;
 		try {
 			setIsProcessing(true);
 			const response = await apiClient(`/api/categories/${softDeleteTarget.id}`, {
@@ -608,13 +608,13 @@ const AdminCategoriesPage = () => {
 										</td>
 										<td className="px-4 py-2">
 											<div className="flex gap-1 flex-wrap">
-												<Button variant="outline" size="sm" className="gap-1" onClick={() => openEdit(cat)}>
+												<Button variant="outline" size="sm" className="gap-1" disabled={!cat.id} onClick={() => openEdit(cat)}>
 													<Pencil className="h-3 w-3" /> Edit
 												</Button>
-												<Button variant="outline" size="sm" className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20" onClick={() => openSoftDelete(cat)}>
+												<Button variant="outline" size="sm" className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20" disabled={!cat.id} onClick={() => openSoftDelete(cat)}>
 													<Trash2 className="h-3 w-3" /> Delete
 												</Button>
-												<Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/admindashboard/categories/${cat.id}`)}>
+												<Button variant="outline" size="sm" className="gap-1" disabled={!cat.id} onClick={() => cat.id && router.push(`/admindashboard/categories/${cat.id}`)}>
 													<Eye className="h-3 w-3" /> View
 												</Button>
 											</div>
