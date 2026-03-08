@@ -93,6 +93,12 @@ type RecycleBinProduct = {
   stock: number;
   category?: string;
   featuredImage?: string | null;
+  galleryImages?: string[];
+  images?: string[];
+  description?: string;
+  tags?: string[] | string;
+  artistName?: string;
+  featured?: boolean;
   status?: string;
   deletedAt: string;
   deletedBy: string | null;
@@ -600,6 +606,41 @@ function ProjectsPage() {
     }
   };
 
+  // ── Open restore modal directly from recycle-bin data (no API fetch) ───────
+  const openRestoreModal = (recycleBinProduct: RecycleBinProduct) => {
+    setIsRestoringMode(true);
+    setEditProductId(recycleBinProduct.id);
+    setEditSubmitting(false);
+    editGalleryAccumRef.current = [];
+
+    const featuredImg = recycleBinProduct.featuredImage || null;
+    const rawGallery: string[] = [
+      ...(Array.isArray(recycleBinProduct.galleryImages) ? recycleBinProduct.galleryImages : []),
+      ...(Array.isArray(recycleBinProduct.images) ? recycleBinProduct.images : []),
+    ];
+    const resolvedGallery = [...new Set(rawGallery)].filter((img) => img !== featuredImg);
+
+    setEditFormData({
+      title: recycleBinProduct.title || "",
+      description: recycleBinProduct.description || "",
+      price: recycleBinProduct.price?.toString() || "",
+      stock: recycleBinProduct.stock?.toString() || "",
+      category: recycleBinProduct.category || "",
+      images: [],
+      oldImages: [],
+      featuredImage: null,
+      oldFeaturedImage: featuredImg,
+      galleryImages: [],
+      oldGalleryImages: resolvedGallery,
+      featured: recycleBinProduct.featured ?? false,
+      tags: Array.isArray(recycleBinProduct.tags)
+        ? recycleBinProduct.tags.join(", ")
+        : (recycleBinProduct.tags || ""),
+      artistName: recycleBinProduct.artistName || "",
+    });
+    setShowEditModal(true);
+  };
+
   const handleEditProduct = async () => {
     if (!editProductId) return;
     if (!editFormData.title || !editFormData.price || !editFormData.stock) {
@@ -652,6 +693,38 @@ function ProjectsPage() {
       if (editFormData.artistName) {
         form.append("artistName", editFormData.artistName.trim());
       }
+
+      // ── RESTORE MODE: restore the deleted product first, then apply edits ──
+      if (isRestoringMode && editProductId) {
+        // Step 1: Un-delete the product (sets status back to PENDING)
+        await restoreProduct(editProductId);
+
+        // Step 2: Apply any edits the seller made
+        try {
+          const updateRes = await fetch(`${BASE_URL}/api/products/${editProductId}`, {
+            method: "PUT",
+            headers: { "Authorization": `Bearer ${token}` },
+            body: form,
+          });
+          if (updateRes.ok) {
+            toast.success(`"${editFormData.title}" restored and submitted for admin review!`);
+          } else {
+            toast.success(`"${editFormData.title}" restored! It's now pending review. Some edits may not have saved.`, { duration: 6000 });
+          }
+        } catch {
+          toast.success(`"${editFormData.title}" restored and submitted for admin review!`);
+        }
+
+        setRecycleBinProducts(prev => prev.filter(p => p.id !== editProductId));
+        setShowEditModal(false);
+        setEditProductId(null);
+        setIsRestoringMode(false);
+        editGalleryAccumRef.current = [];
+        loadProducts();
+        return;
+      }
+
+      // ── NORMAL EDIT MODE ─────────────────────────────────────────────────
       // Debug: Log what we're sending
       console.log("Sending edit request for product:", editProductId);
       console.log("FormData contents:");
@@ -677,13 +750,7 @@ function ProjectsPage() {
         throw new Error(errorMsg);
       }
 
-      if (isRestoringMode && editProductId) {
-        await restoreProduct(editProductId);
-        toast.success(`"${editFormData.title}" restored and updated! It is now submitted for admin review.`);
-        setRecycleBinProducts(prev => prev.filter(p => p.id !== editProductId));
-      } else {
-        toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
-      }
+      toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
 
       setShowEditModal(false);
       setEditProductId(null);
@@ -1264,7 +1331,7 @@ function ProjectsPage() {
                             variant="outline"
                             size="sm"
                             className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
-                            onClick={() => openEditModal(product.id, undefined, true)}
+                            onClick={() => openRestoreModal(product)}
                           >
                             <RotateCcw className="h-3 w-3" /> Restore
                           </Button>
@@ -1383,7 +1450,14 @@ function ProjectsPage() {
                       </CardTitle>
                       <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
                     </div>
-                    {(isResubmit || isActive || isInactive) && (
+                    {isRestoringMode ? (
+                      <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs bg-green-50 border border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300">
+                        <RotateCcw className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                        <span>
+                          Review the product details below and make any edits needed before restoring. Once confirmed, the product will be submitted for admin review and go live once approved.
+                        </span>
+                      </div>
+                    ) : (isResubmit || isActive || isInactive) && (
                       <div className={`flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs ${
                         isResubmit ? 'bg-blue-50 border border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300'
                         : isInactive && (editingProduct?.stock ?? 0) <= 2 ? 'bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
