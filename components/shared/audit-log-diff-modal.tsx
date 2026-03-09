@@ -207,7 +207,7 @@ export function AuditLogDiffModal({ entry, open, onOpenChange }: AuditLogDiffMod
           <div>
             <span className="text-xs text-muted-foreground">Actor</span>
             <p className="text-xs">
-              {entry.actorEmail ?? "System"}
+              {entry.actorEmail ?? entry.actorId ?? "—"}
               {entry.actorRole && (
                 <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">{entry.actorRole}</span>
               )}
@@ -215,10 +215,12 @@ export function AuditLogDiffModal({ entry, open, onOpenChange }: AuditLogDiffMod
           </div>
           {/* Snapshot actor — enriched identity for delete / restore events */}
           <SnapshotActorRow entry={entry} />
+          {entry.actorIp !== null && (
           <div>
             <span className="text-xs text-muted-foreground">Actor IP</span>
-            <p className="font-mono text-xs">{entry.actorIp ?? "—"}</p>
+            <p className="font-mono text-xs">{entry.actorIp}</p>
           </div>
+          )}
           <div>
             <span className="text-xs text-muted-foreground">Entity</span>
             <p className="font-mono text-xs">{entry.entityType} · {entry.entityId}</p>
