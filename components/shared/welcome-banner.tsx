@@ -89,9 +89,7 @@ export function WelcomeBanner() {
 					<span className="font-medium text-foreground">
 						{productCount} {productCount === 1 ? "product" : "products"}
 					</span>{" "}
-					listed. We recommend adding at least{" "}
-					<span className="font-medium text-primary">5 products</span> to your
-					store to start receiving orders and improve your visibility.
+					listed. We suggest adding more items to your store to help improve your overall visibility to shoppers.
 				</p>
 
 				<div className="mt-3">
