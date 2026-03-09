@@ -141,7 +141,6 @@ const AdminCategoriesPage = () => {
 	const [editTarget, setEditTarget] = useState<ApprovedCategory | null>(null);
 	const [editName, setEditName] = useState("");
 	const [editDesc, setEditDesc] = useState("");
-	const [editSample, setEditSample] = useState("");
 	const [isEditOpen, setIsEditOpen] = useState(false);
 
 	// â”€â”€ Soft delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -315,7 +314,6 @@ const AdminCategoriesPage = () => {
 		setEditTarget(cat);
 		setEditName(cat.categoryName);
 		setEditDesc("");
-		setEditSample("");
 		setIsEditOpen(true);
 	};
 
@@ -328,7 +326,6 @@ const AdminCategoriesPage = () => {
 				body: JSON.stringify({
 					categoryName: editName.trim(),
 					...(editDesc.trim() ? { description: editDesc.trim() } : {}),
-					...(editSample.trim() ? { sampleProduct: editSample.trim() } : {}),
 				}),
 			});
 			if (response.success) {
@@ -974,10 +971,6 @@ const AdminCategoriesPage = () => {
 						<div className="space-y-2">
 							<Label htmlFor="edit-desc">Description <span className="text-muted-foreground text-xs">(leave blank to keep existing)</span></Label>
 							<Textarea id="edit-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Leave blank to keep existing" className="resize-none h-20" />
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="edit-sample">Sample Product <span className="text-muted-foreground text-xs">(optional)</span></Label>
-							<Input id="edit-sample" value={editSample} onChange={(e) => setEditSample(e.target.value)} placeholder="Leave blank to keep existing" />
 						</div>
 						<Button className="w-full" disabled={isProcessing || !editName.trim()} onClick={handleEdit}>
 							{isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Pencil className="w-4 h-4 mr-2" />}

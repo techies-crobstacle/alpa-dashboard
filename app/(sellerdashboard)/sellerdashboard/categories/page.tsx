@@ -63,7 +63,6 @@ interface CategoryResponse {
 interface CategoryRequestForm {
   categoryName: string;
   description: string;
-  sampleProduct: string;
 }
 
 const CategoriesPage = () => {
@@ -85,7 +84,6 @@ const CategoriesPage = () => {
     defaultValues: {
       categoryName: "",
       description: "",
-      sampleProduct: "",
     },
   });
 
@@ -209,20 +207,6 @@ const CategoriesPage = () => {
                       <FormLabel>Description *</FormLabel>
                       <FormControl>
                         <Textarea placeholder="Describe the category and its purpose..." {...field} rows={3} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sampleProduct"
-                  rules={{ required: "Sample product is required" }}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sample Product *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Dining set" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

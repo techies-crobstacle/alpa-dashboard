@@ -68,7 +68,6 @@ export default function SellerCategoryDetailPage() {
 	const [resubmitOpen, setResubmitOpen]   = useState(false);
 	const [editName, setEditName]           = useState("");
 	const [editDesc, setEditDesc]           = useState("");
-	const [editSample, setEditSample]       = useState("");
 	const [submitting, setSubmitting]       = useState(false);
 
 	// ── Fetch ───────────────────────────────────────────────────────────────────
@@ -97,7 +96,6 @@ export default function SellerCategoryDetailPage() {
 		if (!category) return;
 		setEditName(category.categoryName);
 		setEditDesc(category.description ?? "");
-		setEditSample(category.sampleProduct ?? "");
 		setResubmitOpen(true);
 	};
 
@@ -108,7 +106,7 @@ export default function SellerCategoryDetailPage() {
 		try {
 			const body: Record<string, string> = { categoryName: editName.trim() };
 			if (editDesc.trim())   body.description   = editDesc.trim();
-			if (editSample.trim()) body.sampleProduct  = editSample.trim();
+
 
 			const response = await apiClient(`/api/categories/resubmit/${id}`, {
 				method: "POST",
@@ -297,10 +295,6 @@ export default function SellerCategoryDetailPage() {
 						<div className="space-y-2">
 							<Label htmlFor="resub-desc">Description</Label>
 							<Textarea id="resub-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Leave blank to keep existing" className="resize-none h-20" />
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="resub-sample">Sample Product</Label>
-							<Input id="resub-sample" value={editSample} onChange={(e) => setEditSample(e.target.value)} placeholder="Leave blank to keep existing" />
 						</div>
 						<Button className="w-full" disabled={submitting || !editName.trim()} onClick={handleResubmit}>
 							{submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Pencil className="w-4 h-4 mr-2" />}

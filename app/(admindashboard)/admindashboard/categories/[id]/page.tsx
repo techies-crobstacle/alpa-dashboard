@@ -111,7 +111,6 @@ export default function AdminCategoryDetailPage() {
 	const [editOpen, setEditOpen]               = useState(false);
 	const [editName, setEditName]               = useState("");
 	const [editDesc, setEditDesc]               = useState("");
-	const [editSample, setEditSample]           = useState("");
 	const [softDeleteOpen, setSoftDeleteOpen]   = useState(false);
 	const [softDeleteReason, setSoftDeleteReason] = useState("");
 	const [hardDeleteOpen, setHardDeleteOpen]   = useState(false);
@@ -192,7 +191,6 @@ export default function AdminCategoryDetailPage() {
 		if (!category) return;
 		setEditName(category.categoryName);
 		setEditDesc(category.description ?? "");
-		setEditSample(category.sampleProduct ?? "");
 		setEditOpen(true);
 	};
 
@@ -203,7 +201,7 @@ export default function AdminCategoryDetailPage() {
 		try {
 			const body: Record<string, string> = { categoryName: editName.trim() };
 			if (editDesc.trim())   body.description  = editDesc.trim();
-			if (editSample.trim()) body.sampleProduct = editSample.trim();
+
 			const res = await fetch(`${BASE_URL}/api/categories/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -545,10 +543,6 @@ export default function AdminCategoryDetailPage() {
 						<div className="space-y-2">
 							<Label htmlFor="edit-desc">Description <span className="text-muted-foreground text-xs">(leave blank to keep existing)</span></Label>
 							<Textarea id="edit-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Leave blank to keep existing" className="resize-none h-20" />
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="edit-sample">Sample Product <span className="text-muted-foreground text-xs">(optional)</span></Label>
-							<Input id="edit-sample" value={editSample} onChange={(e) => setEditSample(e.target.value)} placeholder="Leave blank to keep existing" />
 						</div>
 						<Button className="w-full" disabled={actionLoading || !editName.trim()} onClick={handleEdit}>
 							{actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Pencil className="w-4 h-4 mr-2" />}
