@@ -23,6 +23,7 @@ import {
 	ShoppingCart,
 	ClipboardList,
 	Bell,
+	Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -52,6 +53,7 @@ const sellerSidebarItems = [
 	{ title: "Products",   href: "/sellerdashboard/products",   icon: Package,         badge: null },
 	{ title: "Categories", href: "/sellerdashboard/categories", icon: Tag,             badge: null },
 	{ title: "Orders",     href: "/sellerdashboard/orders",     icon: ShoppingCart,    badge: null },
+	{ title: "Earnings",   href: "/sellerdashboard/earnings",   icon: Wallet,          badge: null },
 	{ title: "Profile",       href: "/sellerdashboard/profile",        icon: User,    badge: null },
 	{ title: "Notifications", href: "/sellerdashboard/notifications",  icon: Bell,    badge: null },
 	{ title: "Settings",      href: "/sellerdashboard/settings",       icon: Settings, badge: null },
