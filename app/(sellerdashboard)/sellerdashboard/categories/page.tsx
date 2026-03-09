@@ -12,15 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw, Eye, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw, Eye, Trash2, X } from "lucide-react";
 
 interface Category {
   categoryName: string;
@@ -76,6 +69,7 @@ const CategoriesPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<PendingRequest | RejectedRequest | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState("available");
 
   const form = useForm<CategoryRequestForm>({
     defaultValues: {
@@ -156,361 +150,345 @@ const CategoriesPage = () => {
     cat.categoryName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const myTotalProducts = categories.reduce((sum, cat) => sum + (cat.myProductCount || 0), 0);
+
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage and view available product categories
-            </p>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Request Category
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Request New Category</DialogTitle>
-              </DialogHeader>
-              <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name="categoryName"
-                    rules={{ required: "Category name is required" }}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category Name *</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., Electronics"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    rules={{ required: "Description is required" }}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description *</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Describe the category and its purpose..."
-                            {...field}
-                            rows={3}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="sampleProduct"
-                    rules={{ required: "Sample product is required" }}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sample Product *</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., Dining set"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      "Submit Request"
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-6 p-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
+          <p className="text-muted-foreground mt-1">
+            Browse available categories and manage your category requests
+          </p>
         </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
+              Request Category
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Request New Category</DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="categoryName"
+                  rules={{ required: "Category name is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category Name *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Electronics" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  rules={{ required: "Description is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description *</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Describe the category and its purpose..." {...field} rows={3} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sampleProduct"
+                  rules={{ required: "Sample product is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sample Product *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Dining set" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" disabled={isSubmitting} className="w-full">
+                  {isSubmitting ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting...</>
+                  ) : (
+                    "Submit Request"
+                  )}
+                </Button>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Categories Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="h-24 animate-pulse bg-muted" />
-          ))}
+        <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading categories&hellip;
         </div>
       ) : (
         <>
-          {/* Pending Requests Section */}
-          {pendingRequests.length > 0 && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-yellow-500" />
-                  Pending Requests ({pendingRequests.length})
-                </h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Your category requests awaiting approval
-                </p>
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-5">
+              <p className="text-xs font-medium text-muted-foreground">Available Categories</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-3xl font-bold">{categories.length}</p>
+                <Package className="w-5 h-5 text-muted-foreground" />
               </div>
-              <Card className="border-yellow-200 dark:border-yellow-900 overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-yellow-50/50 dark:bg-yellow-950/20">
-                    <TableRow>
-                      <TableHead className="w-16 text-center">#</TableHead>
-                      <TableHead>Category Name</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Sample Product</TableHead>
-                      <TableHead>Requested On</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingRequests.map((request, idx) => (
-                      <TableRow key={request.id}>
-                        <TableCell className="text-center font-medium">{idx + 1}</TableCell>
-                        <TableCell className="font-semibold">{request.categoryName}</TableCell>
-                        <TableCell className="max-w-[300px] truncate text-muted-foreground text-xs">
-                          {request.description}
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs bg-muted px-2 py-0.5 rounded italic">
-                            {request.sampleProduct}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(request.requestedAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 border-none">
-                              {request.status}
-                            </Badge>
-                            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}>
-                              <Eye className="w-3 h-3" /> View
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-7 gap-1 text-xs text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
-                            >
-                              <Trash2 className="w-3 h-3" /> Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            </div>
+            </Card>
+            <Card className="p-5">
+              <p className="text-xs font-medium text-muted-foreground">My Products</p>
+              <p className="text-3xl font-bold mt-1">{myTotalProducts}</p>
+            </Card>
+            <Card className="p-5 border-yellow-200 dark:border-yellow-900 bg-yellow-50/50 dark:bg-yellow-900/10">
+              <p className="text-xs font-medium text-muted-foreground">Pending Requests</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-500">{pendingRequests.length}</p>
+                <Clock className="w-5 h-5 text-yellow-500" />
+              </div>
+            </Card>
+            <Card className="p-5 border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-900/10">
+              <p className="text-xs font-medium text-muted-foreground">Rejected Requests</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-3xl font-bold text-red-600 dark:text-red-500">{rejectedRequests.length}</p>
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              </div>
+            </Card>
+          </div>
+
+          {/* Tab Switcher */}
+          <div className="flex gap-1 border-b pb-4 flex-wrap">
+            {([
+              { key: "available", label: "Available", count: categories.length,      icon: <CheckCircle2 className="h-4 w-4" /> },
+              { key: "pending",   label: "Pending",   count: pendingRequests.length,  icon: <Clock className="h-4 w-4" /> },
+              { key: "rejected",  label: "Rejected",  count: rejectedRequests.length, icon: <X className="h-4 w-4" /> },
+            ] as const).map(tab => (
+              <Button
+                key={tab.key}
+                variant={activeTab === tab.key ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveTab(tab.key)}
+                className="gap-1.5"
+              >
+                {tab.icon}
+                {tab.label}
+                <span className={cn(
+                  "ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-semibold",
+                  activeTab === tab.key
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : tab.key === "pending" && tab.count > 0 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"
+                    : tab.key === "rejected" && tab.count > 0 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                    : "bg-muted text-muted-foreground"
+                )}>
+                  {tab.count}
+                </span>
+              </Button>
+            ))}
+          </div>
+
+          {/* Available Tab */}
+          {activeTab === "available" && (
+            categories.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                <Package className="h-10 w-10 opacity-20" />
+                <p className="text-sm">No approved categories yet</p>
+                <Button variant="outline" size="sm" onClick={() => setIsDialogOpen(true)}>
+                  <Plus className="w-3 h-3 mr-1" /> Request a Category
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="relative flex-1 max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search categories..."
+                      className="pl-9"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  {searchQuery && (
+                    <Button variant="ghost" size="sm" onClick={() => setSearchQuery("")}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {filteredCategories.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                    <Search className="h-10 w-10 opacity-20" />
+                    <p className="text-sm">No categories matching &ldquo;{searchQuery}&rdquo;</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border bg-background">
+                    <table className="min-w-full divide-y divide-muted">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Origin</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">My Products</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-muted">
+                        {filteredCategories.map((category, index) => (
+                          <tr key={index} className="hover:bg-muted/20">
+                            <td className="px-4 py-2 text-sm text-muted-foreground">{index + 1}</td>
+                            <td className="px-4 py-2 font-semibold">{category.categoryName}</td>
+                            <td className="px-4 py-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400 border-none text-[10px] uppercase">
+                                  Active
+                                </Badge>
+                                {category.requestedByMe && (
+                                  <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 text-[10px] uppercase">
+                                    My Request
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                                <Package className="h-3 w-3" />{category.myProductCount || 0}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )
           )}
 
-          {/* Rejected Requests Section */}
-          {rejectedRequests.length > 0 && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-destructive" />
-                  Rejected Requests ({rejectedRequests.length})
-                </h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Requests that were not approved. You can fix and request again.
-                </p>
+          {/* Pending Tab */}
+          {activeTab === "pending" && (
+            pendingRequests.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                <Clock className="h-10 w-10 opacity-20" />
+                <p className="text-sm">No pending category requests</p>
               </div>
-              <Card className="border-destructive/20 overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-destructive/5">
-                    <TableRow>
-                      <TableHead className="w-16 text-center">#</TableHead>
-                      <TableHead>Category Name</TableHead>
-                      <TableHead>Rejection Feedback</TableHead>
-                      <TableHead>Rejected On</TableHead>
-                      <TableHead className="text-right pr-6">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rejectedRequests.map((request, idx) => (
-                      <TableRow key={request.id}>
-                        <TableCell className="text-center font-medium">{idx + 1}</TableCell>
-                        <TableCell className="font-semibold text-destructive">{request.categoryName}</TableCell>
-                        <TableCell>
-                          <div className="flex items-start gap-2 text-destructive/90 text-sm italic">
-                            <span className="shrink-0 mt-1">"</span>
-                            <span>{request.rejectionMessage}</span>
-                            <span className="shrink-0 mt-1">"</span>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border bg-background">
+                <table className="min-w-full divide-y divide-muted">
+                  <thead className="bg-yellow-50/50 dark:bg-yellow-950/20">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Description</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Sample Product</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Requested On</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-muted">
+                    {pendingRequests.map((request, idx) => (
+                      <tr key={request.id} className="hover:bg-muted/20">
+                        <td className="px-4 py-2 text-sm text-muted-foreground">{idx + 1}</td>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{request.categoryName}</span>
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-400 border-yellow-300 dark:border-yellow-700 text-[10px]">Pending</Badge>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(request.rejectedAt).toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
+                        </td>
+                        <td className="px-4 py-2 text-xs text-muted-foreground max-w-[200px]">
+                          <p className="line-clamp-2">{request.description}</p>
+                        </td>
+                        <td className="px-4 py-2">
+                          <span className="text-xs bg-muted px-2 py-0.5 rounded italic">{request.sampleProduct}</span>
+                        </td>
+                        <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(request.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-1 flex-wrap">
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}>
+                              <Eye className="h-3 w-3" /> View
+                            </Button>
                             <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs gap-1.5 border-primary/20 hover:bg-primary/10 hover:text-primary"
+                              variant="outline" size="sm"
+                              className="gap-1 text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
+                            >
+                              <Trash2 className="h-3 w-3" /> Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+
+          {/* Rejected Tab */}
+          {activeTab === "rejected" && (
+            rejectedRequests.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                <X className="h-10 w-10 opacity-20" />
+                <p className="text-sm">No rejected category requests</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border bg-background">
+                <table className="min-w-full divide-y divide-muted">
+                  <thead className="bg-red-50/50 dark:bg-red-950/20">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Rejection Feedback</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Rejected On</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-muted">
+                    {rejectedRequests.map((request, idx) => (
+                      <tr key={request.id} className="hover:bg-muted/20">
+                        <td className="px-4 py-2 text-sm text-muted-foreground">{idx + 1}</td>
+                        <td className="px-4 py-2 font-semibold text-destructive">{request.categoryName}</td>
+                        <td className="px-4 py-2">
+                          <p className="text-xs text-muted-foreground italic line-clamp-2 max-w-[240px]">
+                            {request.rejectionMessage ?? "—"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(request.rejectedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-1 flex-wrap">
+                            <Button
+                              variant="outline" size="sm"
+                              className="gap-1 text-primary border-primary/20 hover:bg-primary/10 hover:text-primary"
                               onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}
                             >
-                              <RefreshCcw className="w-3 h-3" />
-                              Fix &amp; Resubmit
+                              <RefreshCcw className="h-3 w-3" /> Fix &amp; Resubmit
                             </Button>
                             <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs gap-1.5 border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
+                              variant="outline" size="sm"
+                              className="gap-1 text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
                               onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
                             >
-                              <Trash2 className="w-3 h-3" />
-                              Delete
+                              <Trash2 className="h-3 w-3" /> Delete
                             </Button>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            </div>
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
-
-          {/* Available Categories Section */}
-          <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                  <CheckCircle2 className="w-6 h-6 text-green-500" />
-                  Available Categories ({filteredCategories.length})
-                </h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Active categories you can use for your product listings
-                </p>
-              </div>
-              <div className="relative w-full md:w-72">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search categories..."
-                  className="pl-9 bg-muted/50 border-none focus-visible:ring-1"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {categories.length === 0 ? (
-              <Card className="p-16 border-dashed flex flex-col items-center justify-center text-center">
-                <div className="bg-muted rounded-full p-4 mb-4">
-                  <Package className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <h3 className="font-semibold text-lg">No approved categories</h3>
-                <p className="text-muted-foreground max-w-xs mx-auto mt-1">
-                  You haven't had any categories approved yet. Submit a request to get started.
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="mt-6"
-                  onClick={() => setIsDialogOpen(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Request Now
-                </Button>
-              </Card>
-            ) : filteredCategories.length === 0 ? (
-              <Card className="p-12 text-center border-dashed">
-                <p className="text-muted-foreground">
-                  No categories found matching "{searchQuery}"
-                </p>
-                <Button 
-                  variant="ghost" 
-                  className="mt-2"
-                  onClick={() => setSearchQuery("")}
-                >
-                  Clear search
-                </Button>
-              </Card>
-            ) : (
-              <Card className="overflow-hidden border-muted-foreground/10 shadow-sm">
-                <Table>
-                  <TableHeader className="bg-muted/50">
-                    <TableRow>
-                      <TableHead className="w-16 text-center">#</TableHead>
-                      <TableHead>Category Name</TableHead>
-                      <TableHead>Status & Origin</TableHead>
-                      <TableHead className="text-right pr-8">My Products</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCategories.map((category, index) => (
-                      <TableRow key={index} className="hover:bg-muted/30 group">
-                        <TableCell className="text-center font-medium text-muted-foreground">{index + 1}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="bg-primary/5 p-2 rounded-lg group-hover:bg-primary/10 transition-colors">
-                              <Package className="w-4 h-4 text-primary" />
-                            </div>
-                            <span className="font-bold text-base">{category.categoryName}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400 border-none text-[10px] uppercase">
-                              Active
-                            </Badge>
-                            {category.requestedByMe && (
-                              <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 text-[10px] uppercase">
-                                My Request
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right pr-8">
-                          <Badge variant="outline" className="font-semibold text-primary border-primary/20 bg-primary/5">
-                            {category.myProductCount || 0} Products
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            )}
-          </div>
         </>
       )}
 

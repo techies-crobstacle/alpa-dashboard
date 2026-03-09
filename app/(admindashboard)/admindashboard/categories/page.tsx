@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -28,7 +28,8 @@ interface ApprovedCategory {
 	id: string | null;
 	categoryName: string;
 	totalProductCount: number;
-	isRequestedCategory?: boolean;
+	/** true only when a seller (not admin) originally submitted this category request */
+	requestBySeller?: boolean;
 	approvalMessage?: string;
 	approvedAt?: string;
 }
@@ -596,8 +597,8 @@ const AdminCategoriesPage = () => {
 										<td className="px-4 py-2">
 											<div className="flex items-center gap-2">
 												<span className="font-semibold">{cat.categoryName}</span>
-												{cat.isRequestedCategory && (
-													<span className="text-[9px] border rounded px-1 py-0 text-muted-foreground">Requested</span>
+												{cat.requestBySeller && (
+													<span className="text-[9px] border rounded px-1 py-0 text-muted-foreground">Seller Request</span>
 												)}
 											</div>
 										</td>
