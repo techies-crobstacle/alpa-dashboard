@@ -76,16 +76,17 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 		const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 		// Derive role-aware dashboard paths
+		const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
 		const settingsHref =
-			role === "ADMIN" ? "/admindashboard/settings" :
+			isAdmin ? "/admindashboard/settings" :
 			role === "CUSTOMER" ? "/customerdashboard/settings" :
 			"/sellerdashboard/settings";
 		const profileHref =
-			role === "ADMIN" ? "/admindashboard/profile" :
+			isAdmin ? "/admindashboard/profile" :
 			role === "CUSTOMER" ? "/customerdashboard/profile" :
 			"/sellerdashboard/profile";
 		const notificationsHref =
-			role === "ADMIN" ? "/admindashboard/notifications" :
+			isAdmin ? "/admindashboard/notifications" :
 			role === "CUSTOMER" ? "/customerdashboard/notifications" :
 			"/sellerdashboard/notifications";
 
@@ -100,14 +101,14 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 				case "PRODUCT_LOW_STOCK_DEACTIVATED":
 					return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
 				case "NEW_ORDER":
-					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-					return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
-				case "ORDER_STATUS_CHANGED":
-					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-					if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-					return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
-				case "ORDER_CANCELLED":
-					if (role === "ADMIN") return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+				if (isAdmin) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+				return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
+			case "ORDER_STATUS_CHANGED":
+				if (isAdmin) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+				if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
+				return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
+			case "ORDER_CANCELLED":
+				if (isAdmin) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
 					if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
 					return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
 				case "SELLER_APPROVED":

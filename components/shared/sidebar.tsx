@@ -102,9 +102,9 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 
 	// Select navigation items based on role
 	const roleItems =
-		role === "ADMIN"    ? adminSidebarItems    :
-		role === "SELLER"   ? sellerSidebarItems   :
-		role === "CUSTOMER" ? customerSidebarItems :
+		(role === "ADMIN" || role === "SUPER_ADMIN") ? adminSidebarItems    :
+		role === "SELLER"                            ? sellerSidebarItems   :
+		role === "CUSTOMER"                          ? customerSidebarItems :
 		[];
 
 	const sidebarGroups: { title?: string; items: typeof roleItems }[] = [{ items: roleItems }];

@@ -139,7 +139,7 @@ export default function LoginPage() {
     });
 
     setTimeout(() => {
-      if (role === "ADMIN" || role === "admin") {
+      if (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN") {
         router.push("/admindashboard");
       } else if (role === "SELLER" || role === "seller") {
         router.push("/sellerdashboard");

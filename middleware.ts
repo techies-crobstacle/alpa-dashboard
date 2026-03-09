@@ -100,7 +100,7 @@ export function middleware(request: NextRequest) {
     // If trying to access public routes (login, register, etc.), redirect to their dashboard
     if (isPublicRoute) {
       const dest =
-        userRole === "ADMIN"    ? "/admindashboard" :
+        (userRole === "ADMIN" || userRole === "SUPER_ADMIN") ? "/admindashboard" :
         userRole === "SELLER"   ? "/sellerdashboard" :
         "/customerdashboard";
       return NextResponse.redirect(new URL(dest, request.url));
@@ -108,15 +108,16 @@ export function middleware(request: NextRequest) {
 
     // Role-based route guard — redirect immediately if visiting the wrong dashboard
     // This prevents client-side flicker; the redirect happens before any page renders.
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
     const wrongDashboard =
-      (pathname.startsWith("/admindashboard")    && userRole !== "ADMIN")   ||
-      (pathname.startsWith("/sellerdashboard")   && userRole !== "SELLER")  ||
+      (pathname.startsWith("/admindashboard")    && !isAdmin)              ||
+      (pathname.startsWith("/sellerdashboard")   && userRole !== "SELLER") ||
       (pathname.startsWith("/customerdashboard") && userRole !== "CUSTOMER");
 
     if (wrongDashboard) {
       const correctDest =
-        userRole === "ADMIN"    ? "/admindashboard" :
-        userRole === "SELLER"   ? "/sellerdashboard" :
+        isAdmin              ? "/admindashboard" :
+        userRole === "SELLER" ? "/sellerdashboard" :
         "/customerdashboard";
       return NextResponse.redirect(new URL(correctDest, request.url));
     }
