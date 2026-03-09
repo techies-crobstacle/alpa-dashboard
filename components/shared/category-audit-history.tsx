@@ -9,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  ShieldX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -73,10 +72,9 @@ interface CategoryAuditHistoryProps {
 // ─── Component ─────────────────────────────────────────────────────────────────
 export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAuditHistoryProps) {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [forbidden, setForbidden] = useState(false);
-  const [page, setPage]           = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [page, setPage]       = useState(1);
   const LIMIT = 20;
   const [total, setTotal]         = useState(0);
 
@@ -86,17 +84,12 @@ export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAudit
   const fetchLogs = useCallback(async (p: number) => {
     setLoading(true);
     setError(null);
-    setForbidden(false);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
       const res = await fetch(
         `${BASE_URL}/api/categories/${categoryId}/logs?page=${p}&limit=${LIMIT}`,
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
-      if (res.status === 401 || res.status === 403) {
-        setForbidden(true);
-        return;
-      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || `Request failed (${res.status})`);
@@ -147,12 +140,6 @@ export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAudit
           <div className="flex items-center gap-2 py-8 text-muted-foreground text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading audit history…
-          </div>
-        ) : forbidden ? (
-          <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
-            <ShieldX className="h-8 w-8 opacity-40" />
-            <p className="text-sm font-medium">Audit history is visible to Admins only.</p>
-            <p className="text-xs opacity-60">Every change to this category is being recorded.</p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">

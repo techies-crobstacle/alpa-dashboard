@@ -78,6 +78,8 @@ const CategoriesPage = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletedRequests, setDeletedRequests] = useState<DeletedRequest[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+  const [deletedFetched, setDeletedFetched] = useState(false);
   const [activeTab, setActiveTab] = useState("available");
 
   const form = useForm<CategoryRequestForm>({
@@ -90,6 +92,10 @@ const CategoriesPage = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "removed" && !deletedFetched) fetchDeletedRequests();
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchCategories = async () => {
     try {
@@ -107,6 +113,22 @@ const CategoriesPage = () => {
       toast.error("Failed to load categories");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDeletedRequests = async () => {
+    setDeletedLoading(true);
+    try {
+      const response = await apiClient("/api/categories/deleted");
+      if (response.success) {
+        setDeletedRequests(response.data?.deletedCategories ?? []);
+      }
+    } catch (error) {
+      console.error("Error fetching removed categories:", error);
+      toast.error("Failed to load removed categories");
+    } finally {
+      setDeletedLoading(false);
+      setDeletedFetched(true);
     }
   };
 
@@ -389,7 +411,6 @@ const CategoriesPage = () => {
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Description</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Sample Product</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Requested On</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
                     </tr>
@@ -407,9 +428,6 @@ const CategoriesPage = () => {
                         <td className="px-4 py-2 text-xs text-muted-foreground max-w-[200px]">
                           <p className="line-clamp-2">{request.description}</p>
                         </td>
-                        <td className="px-4 py-2">
-                          <span className="text-xs bg-muted px-2 py-0.5 rounded italic">{request.sampleProduct}</span>
-                        </td>
                         <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
                           {new Date(request.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                         </td>
@@ -417,13 +435,6 @@ const CategoriesPage = () => {
                           <div className="flex gap-1 flex-wrap">
                             <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}>
                               <Eye className="h-3 w-3" /> View
-                            </Button>
-                            <Button
-                              variant="outline" size="sm"
-                              className="gap-1 text-destructive border-destructive/20 hover:bg-destructive/10 hover:text-destructive"
-                              onClick={() => { setDeleteTarget(request); setIsDeleteDialogOpen(true); }}
-                            >
-                              <Trash2 className="h-3 w-3" /> Delete
                             </Button>
                           </div>
                         </td>
@@ -495,7 +506,11 @@ const CategoriesPage = () => {
 
           {/* Removed Tab */}
           {activeTab === "removed" && (
-            deletedRequests.length === 0 ? (
+            deletedLoading ? (
+              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading removed categories&hellip;
+              </div>
+            ) : deletedRequests.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
                 <Trash2 className="h-10 w-10 opacity-20" />
                 <p className="text-sm">No removed categories</p>
