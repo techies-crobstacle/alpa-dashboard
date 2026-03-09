@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
 	ArrowLeft, Loader2, Tag, Clock, XCircle,
-	MessageSquare, Calendar, RefreshCcw, Pencil,
+	MessageSquare, Calendar, RefreshCcw, Pencil, CheckCircle2, Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,12 +22,17 @@ import { apiClient } from "@/lib/api";
 interface CategoryDetail {
 	id: string;
 	categoryName: string;
-	status: "PENDING" | "REJECTED";
+	status: "PENDING" | "REJECTED" | "APPROVED" | "DELETED";
 	description?: string;
 	sampleProduct?: string;
 	requestedAt?: string;
-	rejectionMessage?: string;
+	approvedAt?: string;
 	rejectedAt?: string;
+	rejectionMessage?: string;
+	approvalMessage?: string;
+	softDeletedAt?: string;
+	isRequestedCategory?: boolean;
+	totalProductCount?: number;
 }
 
 // ─── Skeleton ──────────────────────────────────────────────────────────────────
@@ -63,25 +68,22 @@ export default function SellerCategoryDetailPage() {
 	const [resubmitOpen, setResubmitOpen]   = useState(false);
 	const [editName, setEditName]           = useState("");
 	const [editDesc, setEditDesc]           = useState("");
-	const [editSample, setEditSample]       = useState("");
 	const [submitting, setSubmitting]       = useState(false);
 
 	// ── Fetch ───────────────────────────────────────────────────────────────────
 	const load = useCallback(async () => {
 		setLoading(true);
 		try {
-			const response = await apiClient("/api/categories/");
+			const response = await apiClient(`/api/categories/${id}`);
 			if (!response.success) throw new Error(response.message ?? "Failed to load");
-			const { myPendingRequests = [], myRejectedRequests = [] } = response.data ?? {};
-
-			const pending  = myPendingRequests.find((r: any)  => r.id === id);
-			const rejected = myRejectedRequests.find((r: any) => r.id === id);
-
-			if (pending)       setCategory({ ...pending,  status: "PENDING" });
-			else if (rejected) setCategory({ ...rejected, status: "REJECTED" });
-			else               setCategory(null);
+			const data = response.data;
+			setCategory({
+				...data,
+				status: data.softDeletedAt ? "DELETED" : data.status,
+			});
 		} catch (err: any) {
 			toast.error(err?.message ?? "Failed to load category");
+			setCategory(null);
 		} finally {
 			setLoading(false);
 		}
@@ -94,7 +96,6 @@ export default function SellerCategoryDetailPage() {
 		if (!category) return;
 		setEditName(category.categoryName);
 		setEditDesc(category.description ?? "");
-		setEditSample(category.sampleProduct ?? "");
 		setResubmitOpen(true);
 	};
 
@@ -105,7 +106,7 @@ export default function SellerCategoryDetailPage() {
 		try {
 			const body: Record<string, string> = { categoryName: editName.trim() };
 			if (editDesc.trim())   body.description   = editDesc.trim();
-			if (editSample.trim()) body.sampleProduct  = editSample.trim();
+
 
 			const response = await apiClient(`/api/categories/resubmit/${id}`, {
 				method: "POST",
@@ -175,6 +176,16 @@ export default function SellerCategoryDetailPage() {
 										Rejected
 									</Badge>
 								)}
+								{category.status === "APPROVED" && (
+									<Badge className="bg-green-100 text-green-800 border-green-300 hover:bg-green-100 dark:bg-green-900/40 dark:text-green-400 dark:border-green-700">
+										Approved
+									</Badge>
+								)}
+								{category.status === "DELETED" && (
+									<Badge className="bg-orange-100 text-orange-800 border-orange-300 hover:bg-orange-100 dark:bg-orange-900/40 dark:text-orange-400 dark:border-orange-700">
+										In Recycle Bin
+									</Badge>
+								)}
 							</div>
 
 							{category.requestedAt && (
@@ -183,10 +194,22 @@ export default function SellerCategoryDetailPage() {
 									<span>Requested {new Date(category.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
 								</div>
 							)}
+							{category.approvedAt && (
+								<div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+									<CheckCircle2 className="h-4 w-4 shrink-0" />
+									<span>Approved {new Date(category.approvedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+								</div>
+							)}
 							{category.rejectedAt && (
 								<div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
 									<XCircle className="h-4 w-4 shrink-0" />
 									<span>Rejected {new Date(category.rejectedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+								</div>
+							)}
+							{category.softDeletedAt && (
+								<div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+									<Trash2 className="h-4 w-4 shrink-0" />
+									<span>Moved to bin {new Date(category.softDeletedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
 								</div>
 							)}
 
@@ -196,9 +219,21 @@ export default function SellerCategoryDetailPage() {
 									<p>Your request is under review. You&#39;ll be notified once an admin has responded.</p>
 								</div>
 							)}
+							{category.status === "APPROVED" && (
+								<div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900 p-3 text-sm text-green-800 dark:text-green-400">
+									<CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+									<p>This category is approved and active.</p>
+								</div>
+							)}
+							{category.status === "DELETED" && (
+								<div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-3 text-sm text-orange-800 dark:text-orange-400">
+									<Trash2 className="h-4 w-4 shrink-0 mt-0.5" />
+									<p>This category has been moved to the recycle bin and is no longer active.</p>
+								</div>
+							)}
 						</div>
 
-						{/* Right ── text content */}
+						{/* * Right ── text content */}
 						<div className="space-y-5">
 							<div>
 								<h1 className="text-2xl font-bold">{category.categoryName}</h1>
@@ -211,6 +246,15 @@ export default function SellerCategoryDetailPage() {
 								<div>
 									<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Sample Product</p>
 									<span className="text-sm bg-muted px-2 py-1 rounded italic">{category.sampleProduct}</span>
+								</div>
+							)}
+
+							{category.approvalMessage && (
+								<div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900 p-4">
+									<p className="flex items-center gap-2 text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wider mb-2">
+										<MessageSquare className="h-3.5 w-3.5" />Approval Note
+									</p>
+									<p className="text-sm text-green-800 dark:text-green-300 italic">&ldquo;{category.approvalMessage}&rdquo;</p>
 								</div>
 							)}
 
@@ -251,10 +295,6 @@ export default function SellerCategoryDetailPage() {
 						<div className="space-y-2">
 							<Label htmlFor="resub-desc">Description</Label>
 							<Textarea id="resub-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Leave blank to keep existing" className="resize-none h-20" />
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="resub-sample">Sample Product</Label>
-							<Input id="resub-sample" value={editSample} onChange={(e) => setEditSample(e.target.value)} placeholder="Leave blank to keep existing" />
 						</div>
 						<Button className="w-full" disabled={submitting || !editName.trim()} onClick={handleResubmit}>
 							{submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Pencil className="w-4 h-4 mr-2" />}

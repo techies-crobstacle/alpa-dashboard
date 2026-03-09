@@ -19,15 +19,17 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.co
 
 // ─── Action badge config ───────────────────────────────────────────────────────
 const ACTION_CONFIG: Record<string, { label: string; className: string }> = {
-  PRODUCT_CREATED:                    { label: "Created",          className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
-  PRODUCT_UPDATED:                    { label: "Updated",          className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700" },
-  PRODUCT_DELETED:                    { label: "Deleted",          className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700" },
-  PRODUCT_APPROVED:                   { label: "Approved",         className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
-  PRODUCT_REJECTED:                   { label: "Rejected",         className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700" },
-  PRODUCT_ACTIVATED:                  { label: "Activated",        className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
-  PRODUCT_DEACTIVATED:                { label: "Deactivated",      className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700" },
-  PRODUCT_BULK_APPROVED:              { label: "Bulk Approved",    className: "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-700" },
-  PRODUCT_AUTO_DEACTIVATED_LOW_STOCK: { label: "Auto-Deactivated", className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700" },
+  PRODUCT_CREATED:                    { label: "Created",              className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
+  PRODUCT_UPDATED:                    { label: "Updated",              className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700" },
+  PRODUCT_DELETED:                    { label: "Deleted",              className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700" },
+  PRODUCT_RESTORED:                   { label: "Restored",             className: "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-700" },
+  PRODUCT_PERMANENTLY_DELETED:        { label: "Permanently Deleted",  className: "bg-red-200 text-red-900 border-red-400 dark:bg-red-900/60 dark:text-red-200 dark:border-red-600" },
+  PRODUCT_APPROVED:                   { label: "Approved",             className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
+  PRODUCT_REJECTED:                   { label: "Rejected",             className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700" },
+  PRODUCT_ACTIVATED:                  { label: "Activated",            className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
+  PRODUCT_DEACTIVATED:                { label: "Deactivated",          className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700" },
+  PRODUCT_BULK_APPROVED:              { label: "Bulk Approved",        className: "bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-900/40 dark:text-teal-300 dark:border-teal-700" },
+  PRODUCT_AUTO_DEACTIVATED_LOW_STOCK: { label: "Auto-Deactivated",     className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700" },
 };
 
 const ROLE_BADGE: Record<string, string> = {
@@ -39,6 +41,43 @@ const ROLE_BADGE: Record<string, string> = {
 
 function getActionConfig(action: string) {
   return ACTION_CONFIG[action] ?? { label: action.replace(/_/g, " "), className: "bg-muted text-muted-foreground border-border" };
+}
+
+// ─── Actor detail row (delete / restore enrichment) ────────────────────────────
+function ActorDetailRow({
+  label,
+  email,
+  role,
+  timestamp,
+}: {
+  label: string;
+  email?: string | null;
+  role?: string | null;
+  timestamp?: string | null;
+}) {
+  if (!email && !role) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground mt-1.5 pt-1.5 border-t border-dashed">
+      <span className="font-medium shrink-0">{label}:</span>
+      {email && <span className="font-mono truncate max-w-[180px]">{email}</span>}
+      {role && (
+        <span className={cn(
+          "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+          ROLE_BADGE[role] ?? ROLE_BADGE.SYSTEM
+        )}>
+          {role}
+        </span>
+      )}
+      {timestamp && (
+        <span
+          className="ml-auto tabular-nums shrink-0"
+          title={formatTimestamp(timestamp)}
+        >
+          {relativeTime(timestamp)}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function formatTimestamp(iso: string): string {
@@ -210,6 +249,30 @@ export function ProductAuditHistory({ productId, productTitle }: ProductAuditHis
                       <p className="text-xs text-muted-foreground italic mb-2">
                         Reason: {entry.reason}
                       </p>
+                    )}
+
+                    {/* Enriched actor identity for delete / restore events */}
+                    {entry.action === "PRODUCT_DELETED" && (
+                      <ActorDetailRow
+                        label="Deleted by"
+                        email={(entry.newData?.deletedByEmail as string | null) ?? entry.actorEmail}
+                        role={(entry.newData?.deletedByRole as string | null) ?? entry.actorRole}
+                      />
+                    )}
+                    {entry.action === "PRODUCT_RESTORED" && (
+                      <ActorDetailRow
+                        label="Restored by"
+                        email={(entry.newData?.restoredByEmail as string | null) ?? entry.actorEmail}
+                        role={(entry.newData?.restoredByRole as string | null) ?? entry.actorRole}
+                        timestamp={(entry.newData?.restoredAt as string | null) ?? null}
+                      />
+                    )}
+                    {entry.action === "PRODUCT_PERMANENTLY_DELETED" && (
+                      <ActorDetailRow
+                        label="Permanently deleted by"
+                        email={entry.actorEmail}
+                        role={entry.actorRole}
+                      />
                     )}
 
                     {/* View Diff */}

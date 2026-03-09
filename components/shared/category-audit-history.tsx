@@ -9,10 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  ShieldX,
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AuditLogDiffModal, type AuditLogEntry } from "@/components/shared/audit-log-diff-modal";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
@@ -72,37 +73,33 @@ interface CategoryAuditHistoryProps {
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAuditHistoryProps) {
-  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [forbidden, setForbidden] = useState(false);
-  const [page, setPage]           = useState(1);
+  const [logs, setLogs]               = useState<AuditLogEntry[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [page, setPage]               = useState(1);
+  const [total, setTotal]             = useState(0);
+  const [actionFilter, setActionFilter] = useState("ALL");
   const LIMIT = 20;
-  const [total, setTotal]         = useState(0);
 
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
   const [diffOpen, setDiffOpen]           = useState(false);
 
-  const fetchLogs = useCallback(async (p: number) => {
+  const fetchLogs = useCallback(async (p: number, action: string) => {
     setLoading(true);
     setError(null);
-    setForbidden(false);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
+      if (action !== "ALL") params.set("action", action);
       const res = await fetch(
-        `${BASE_URL}/api/categories/${categoryId}/logs?page=${p}&limit=${LIMIT}`,
+        `${BASE_URL}/api/categories/${categoryId}/logs?${params}`,
         { headers: token ? { Authorization: `Bearer ${token}` } : {} }
       );
-      if (res.status === 401 || res.status === 403) {
-        setForbidden(true);
-        return;
-      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || `Request failed (${res.status})`);
       }
       const data = await res.json();
-      // Response: { success, data: { categoryId, total, logs: [...] } }
       const logsArr: AuditLogEntry[] = data?.data?.logs ?? data?.data ?? [];
       setLogs(logsArr);
       setTotal(data?.data?.total ?? logsArr.length);
@@ -113,19 +110,15 @@ export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAudit
     }
   }, [categoryId]);
 
-  useEffect(() => { fetchLogs(page); }, [fetchLogs, page]);
+  useEffect(() => { fetchLogs(page, actionFilter); }, [fetchLogs, page, actionFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.ceil(total / LIMIT);
-
-  const openDiff = (entry: AuditLogEntry) => {
-    setSelectedEntry(entry);
-    setDiffOpen(true);
-  };
 
   return (
     <>
       <div className="mt-2">
-        {/* Header */}
+
+        {/* ── Header ──────────────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
           <h4 className="font-semibold text-sm tracking-wide">
@@ -142,23 +135,34 @@ export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAudit
           )}
         </div>
 
-        {/* Body */}
+        {/* ── Filter bar ──────────────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Filter by action:</span>
+          <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-52 h-8 text-xs">
+              <SelectValue placeholder="All actions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All actions</SelectItem>
+              {Object.entries(ACTION_CONFIG).map(([key, cfg]) => (
+                <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* ── Body ────────────────────────────────────────────────────────────── */}
         {loading ? (
           <div className="flex items-center gap-2 py-8 text-muted-foreground text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading audit history…
           </div>
-        ) : forbidden ? (
-          <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
-            <ShieldX className="h-8 w-8 opacity-40" />
-            <p className="text-sm font-medium">Audit history is visible to Admins only.</p>
-            <p className="text-xs opacity-60">Every change to this category is being recorded.</p>
-          </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <AlertCircle className="h-8 w-8 text-destructive/50" />
             <p className="text-sm text-destructive">{error}</p>
-            <Button variant="outline" size="sm" onClick={() => fetchLogs(page)}>Retry</Button>
+            <Button variant="outline" size="sm" onClick={() => fetchLogs(page, actionFilter)}>Retry</Button>
           </div>
         ) : logs.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
@@ -166,95 +170,95 @@ export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAudit
             <p className="text-sm">No audit events recorded for this category yet.</p>
           </div>
         ) : (
-          <ol className="relative border-l border-muted ml-3 space-y-0">
-            {logs.map((entry, idx) => {
-              const config = getActionConfig(entry.action);
-              const isLast = idx === logs.length - 1;
-
-              return (
-                <li key={entry.id} className={cn("ml-5", !isLast && "pb-5")}>
-                  {/* Timeline bubble */}
-                  <span className={cn(
-                    "absolute -left-[17px] flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 text-[10px] font-bold select-none",
-                    config.className
-                  )}>
-                    {config.initial}
-                  </span>
-
-                  {/* Entry card */}
-                  <div className="rounded-lg border bg-background shadow-sm p-3 select-none">
-                    {/* Top row */}
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border", config.className)}>
-                        {config.label}
-                      </span>
-                      {entry.actorRole && (
-                        <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium", ROLE_BADGE[entry.actorRole] ?? ROLE_BADGE.SYSTEM)}>
-                          {entry.actorEmail ?? entry.actorId ?? "System"}
-                        </span>
-                      )}
-                      <span
-                        className="ml-auto text-[10px] text-muted-foreground tabular-nums shrink-0"
-                        title={formatTimestamp(entry.createdAt)}
-                      >
-                        {relativeTime(entry.createdAt)}
-                      </span>
-                    </div>
-
-                    {/* Changed fields */}
-                    {entry.changedFields?.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        <span className="text-[10px] text-muted-foreground mr-1 self-center">Changed:</span>
-                        {entry.changedFields.map((f) => (
-                          <span key={f} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{f}</span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Reason */}
-                    {entry.reason && (
-                      <p className="text-xs text-muted-foreground italic mb-2">
-                        {entry.reason}
-                      </p>
-                    )}
-
-                    {/* View Diff */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-6 text-[10px] px-2 gap-1"
-                      onClick={() => openDiff(entry)}
+          <div className="overflow-x-auto rounded-lg border bg-background">
+            <table className="min-w-full divide-y divide-muted">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Action</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Changed By</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Changed Fields</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Timestamp</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Diff</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-muted">
+                {logs.map((entry, idx) => {
+                  const config = getActionConfig(entry.action);
+                  return (
+                    <tr
+                      key={entry.id}
+                      className="hover:bg-muted/20 cursor-pointer"
+                      onClick={() => { setSelectedEntry(entry); setDiffOpen(true); }}
                     >
-                      <Eye className="h-3 w-3" />
-                      View Diff
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+                      <td className="px-4 py-2 text-sm text-muted-foreground">{(page - 1) * LIMIT + idx + 1}</td>
+                      <td className="px-4 py-2">
+                        <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border whitespace-nowrap", config.className)}>
+                          {config.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        <p className="text-xs font-medium">{entry.actorEmail ?? entry.actorId ?? "—"}</p>
+                        {entry.actorRole && (
+                          <span className={cn(
+                            "inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-semibold mt-0.5",
+                            entry.actorRole === "ADMIN"
+                              ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+                              : entry.actorRole === "SELLER"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                              : "bg-muted text-muted-foreground border border-border"
+                          )}>
+                            {entry.actorRole === "ADMIN" ? "Admin" : entry.actorRole === "SELLER" ? "Seller" : entry.actorRole}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {entry.changedFields?.length > 0
+                            ? entry.changedFields.map((f) => (
+                              <span key={f} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{f}</span>
+                            ))
+                            : <span className="text-[10px] text-muted-foreground">—</span>
+                          }
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                        {formatTimestamp(entry.createdAt)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <Button
+                          variant="ghost" size="sm" className="h-7 w-7 p-0"
+                          onClick={(e) => { e.stopPropagation(); setSelectedEntry(entry); setDiffOpen(true); }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
 
-        {/* Pagination */}
+        {/* ── Pagination ──────────────────────────────────────────────────────── */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground">
-            <span>Page {page} of {totalPages}</span>
+          <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+            <span>Page {page} of {totalPages} · {total} total event{total !== 1 ? "s" : ""}</span>
             <div className="flex gap-1">
               <Button
-                variant="outline" size="sm"
-                className="h-7 px-2 text-xs"
+                variant="outline" size="sm" className="h-7 px-2 text-xs gap-1"
                 disabled={page <= 1 || loading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                <ChevronLeft className="h-3 w-3" />
+                <ChevronLeft className="h-3 w-3" />Prev
               </Button>
               <Button
-                variant="outline" size="sm"
-                className="h-7 px-2 text-xs"
+                variant="outline" size="sm" className="h-7 px-2 text-xs gap-1"
                 disabled={page >= totalPages || loading}
                 onClick={() => setPage((p) => p + 1)}
               >
-                <ChevronRight className="h-3 w-3" />
+                Next<ChevronRight className="h-3 w-3" />
               </Button>
             </div>
           </div>

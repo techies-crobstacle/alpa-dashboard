@@ -34,17 +34,29 @@ interface CategoryDetail {
 	totalProductCount?: number;
 	approvalMessage?: string;
 	approvedAt?: string;
+	rejectedAt?: string;
+	updatedAt?: string;
+	restoredAt?: string;
 	rejectionReason?: string;
 	rejectionMessage?: string;
 	requestedAt?: string;
-	// Seller info (PENDING / REJECTED)
+	// Rich person info from GET /api/categories/:id
+	requested_by_name?: string;
+	requested_by_email?: string;
+	approved_by_name?: string;
+	approved_by_email?: string;
+	rejected_by_name?: string;
+	rejected_by_email?: string;
+	soft_deleted_by_name?: string;
+	soft_deleted_by_email?: string;
+	// Seller info (PENDING / REJECTED — legacy fallbacks)
 	seller_id?: string;
 	seller_name?: string;
 	email?: string;
 	storeName?: string;
 	businessName?: string;
 	seller_status?: string;
-	// Recycle bin extras
+	// Recycle bin extras (legacy fallbacks)
 	softDeletedAt?: string;
 	deleted_by_name?: string;
 	deleted_by_email?: string;
@@ -99,7 +111,6 @@ export default function AdminCategoryDetailPage() {
 	const [editOpen, setEditOpen]               = useState(false);
 	const [editName, setEditName]               = useState("");
 	const [editDesc, setEditDesc]               = useState("");
-	const [editSample, setEditSample]           = useState("");
 	const [softDeleteOpen, setSoftDeleteOpen]   = useState(false);
 	const [softDeleteReason, setSoftDeleteReason] = useState("");
 	const [hardDeleteOpen, setHardDeleteOpen]   = useState(false);
@@ -109,39 +120,20 @@ export default function AdminCategoryDetailPage() {
 	const load = useCallback(async () => {
 		setLoading(true);
 		const token = localStorage.getItem("alpa_token");
-		const headers = { Authorization: `Bearer ${token}` };
-
 		try {
-			// Fetch the full list and filter
-			const [listRes, deletedRes] = await Promise.all([
-				fetch(`${BASE_URL}/api/categories`, { headers }).then((r) => r.json()),
-				fetch(`${BASE_URL}/api/categories/deleted`, { headers }).then((r) => r.json()),
-			]);
-
-			if (!listRes.success) throw new Error(listRes.message ?? "Failed to load categories");
-
-			const { approvedCategories = [], pendingRequests = [], rejectedRequests = [] } = listRes.data ?? {};
-			const deletedCategories: any[] = deletedRes?.data?.deletedCategories ?? [];
-
-			// Search in all arrays
-			const approved   = approvedCategories.find((c: any) => c.id === id);
-			const pending    = pendingRequests.find((c: any) => c.id === id);
-			const rejected   = rejectedRequests.find((c: any) => c.id === id);
-			const deleted    = deletedCategories.find((c: any) => c.id === id);
-
-			if (approved) {
-				setCategory({ ...approved, status: "APPROVED" });
-			} else if (pending) {
-				setCategory({ ...pending, status: "PENDING" });
-			} else if (rejected) {
-				setCategory({ ...rejected, status: "REJECTED" });
-			} else if (deleted) {
-				setCategory({ ...deleted, status: "DELETED" });
-			} else {
-				setCategory(null);
-			}
+			const res = await fetch(`${BASE_URL}/api/categories/${id}`, {
+				headers: { Authorization: `Bearer ${token ?? ""}` },
+			});
+			const json = await res.json();
+			if (!json.success) throw new Error(json.message ?? "Failed to load category");
+			const data = json.data;
+			setCategory({
+				...data,
+				status: data.softDeletedAt ? "DELETED" : data.status,
+			});
 		} catch (err: any) {
 			toast.error(err?.message ?? "Failed to load category");
+			setCategory(null);
 		} finally {
 			setLoading(false);
 		}
@@ -157,7 +149,7 @@ export default function AdminCategoryDetailPage() {
 			const res = await fetch(`${BASE_URL}/api/categories/approve/${id}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-				body: JSON.stringify({ message }),
+				body: JSON.stringify({ approvalMessage: message }),
 			});
 			const json = await res.json();
 			if (!json.success) throw new Error(json.message);
@@ -179,7 +171,7 @@ export default function AdminCategoryDetailPage() {
 			const res = await fetch(`${BASE_URL}/api/categories/reject/${id}`, {
 				method: "POST",
 				headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-				body: JSON.stringify({ message: rejectMessage.trim() }),
+				body: JSON.stringify({ rejectionMessage: rejectMessage.trim() }),
 			});
 			const json = await res.json();
 			if (!json.success) throw new Error(json.message);
@@ -199,7 +191,6 @@ export default function AdminCategoryDetailPage() {
 		if (!category) return;
 		setEditName(category.categoryName);
 		setEditDesc(category.description ?? "");
-		setEditSample(category.sampleProduct ?? "");
 		setEditOpen(true);
 	};
 
@@ -210,7 +201,7 @@ export default function AdminCategoryDetailPage() {
 		try {
 			const body: Record<string, string> = { categoryName: editName.trim() };
 			if (editDesc.trim())   body.description  = editDesc.trim();
-			if (editSample.trim()) body.sampleProduct = editSample.trim();
+
 			const res = await fetch(`${BASE_URL}/api/categories/${id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -440,16 +431,17 @@ export default function AdminCategoryDetailPage() {
 							)}
 
 							{/* Seller info (PENDING / REJECTED) */}
-							{(category.seller_name || category.storeName) && (
+							{(category.requested_by_name || category.seller_name || category.storeName) && (
 								<div className="rounded-xl border bg-muted/40 p-4 space-y-3">
 									<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Requesting Seller</p>
 									<div className="grid grid-cols-2 gap-3 text-sm">
-										{category.seller_name && (
+										{(category.requested_by_name || category.seller_name) && (
 											<div className="flex items-start gap-2">
 												<User className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
 												<div>
 													<p className="text-[10px] text-muted-foreground uppercase">Name</p>
-													<p className="font-medium">{category.seller_name}</p>
+													<p className="font-medium">{category.requested_by_name ?? category.seller_name}</p>
+													{category.requested_by_email && <p className="text-[10px] text-muted-foreground">{category.requested_by_email}</p>}
 												</div>
 											</div>
 										)}
@@ -482,28 +474,28 @@ export default function AdminCategoryDetailPage() {
 										<MessageSquare className="h-3.5 w-3.5" />Approval Note
 									</p>
 									<p className="text-sm text-green-800 dark:text-green-300">{category.approvalMessage}</p>
+								{category.approved_by_name && (
+									<p className="text-xs text-green-600/80 dark:text-green-400/70 mt-1">Approved by {category.approved_by_name}{category.approved_by_email ? ` (${category.approved_by_email})` : ""}</p>
+								)}
 								</div>
 							)}
-
-							{/* Rejection reason */}
-							{(category.rejectionReason || category.rejectionMessage) && (
-								<div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 p-4">
-									<p className="flex items-center gap-2 text-xs font-medium text-red-700 dark:text-red-400 uppercase tracking-wider mb-1">
-										<XCircle className="h-3.5 w-3.5" />Rejection Reason
-									</p>
-									<p className="text-sm text-red-800 dark:text-red-300">
-										{category.rejectionReason ?? category.rejectionMessage}
-									</p>
+						{!category.approvalMessage && category.approved_by_name && (
+							<div className="rounded-xl border border-green-200 bg-green-50/50 dark:bg-green-950/20 dark:border-green-900 p-3 flex items-start gap-2">
+								<CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+								<div className="text-sm">
+									<p className="font-medium text-green-700 dark:text-green-400">Approved by {category.approved_by_name}</p>
+									{category.approved_by_email && <p className="text-green-600/70 dark:text-green-500/70 text-xs">{category.approved_by_email}</p>}
 								</div>
-							)}
+							</div>
+						)}
 
 							{/* Deleted by */}
-							{category.deleted_by_name && (
+							{(category.soft_deleted_by_name || category.deleted_by_name) && (
 								<div className="rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-3 flex items-start gap-2">
 									<Trash2 className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
 									<div className="text-sm">
-										<p className="font-medium text-orange-700 dark:text-orange-400">Moved to bin by {category.deleted_by_name}</p>
-										{category.deleted_by_email && <p className="text-orange-600/70 dark:text-orange-500/70 text-xs">{category.deleted_by_email}</p>}
+									<p className="font-medium text-orange-700 dark:text-orange-400">Moved to bin by {category.soft_deleted_by_name ?? category.deleted_by_name}</p>
+									{(category.soft_deleted_by_email || category.deleted_by_email) && <p className="text-orange-600/70 dark:text-orange-500/70 text-xs">{category.soft_deleted_by_email ?? category.deleted_by_email}</p>}
 									</div>
 								</div>
 							)}
@@ -551,10 +543,6 @@ export default function AdminCategoryDetailPage() {
 						<div className="space-y-2">
 							<Label htmlFor="edit-desc">Description <span className="text-muted-foreground text-xs">(leave blank to keep existing)</span></Label>
 							<Textarea id="edit-desc" value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Leave blank to keep existing" className="resize-none h-20" />
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="edit-sample">Sample Product <span className="text-muted-foreground text-xs">(optional)</span></Label>
-							<Input id="edit-sample" value={editSample} onChange={(e) => setEditSample(e.target.value)} placeholder="Leave blank to keep existing" />
 						</div>
 						<Button className="w-full" disabled={actionLoading || !editName.trim()} onClick={handleEdit}>
 							{actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Pencil className="w-4 h-4 mr-2" />}

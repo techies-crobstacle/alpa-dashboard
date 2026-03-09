@@ -56,6 +56,8 @@ const ACTION_TO_EVENT: Record<string, ProductLogEvent> = {
   PRODUCT_CREATED:                    "created",
   PRODUCT_UPDATED:                    "edited",
   PRODUCT_DELETED:                    "deleted",
+  PRODUCT_RESTORED:                   "restored",
+  PRODUCT_PERMANENTLY_DELETED:        "deleted",
   PRODUCT_APPROVED:                   "status_changed",
   PRODUCT_REJECTED:                   "status_changed",
   PRODUCT_ACTIVATED:                  "status_changed",
@@ -71,7 +73,7 @@ function mapAuditEntryToLog(entry: any): ProductLogEntry {
     .toLowerCase()
     .replace(/^\w/, (c: string) => c.toUpperCase());
 
-  return {
+  const base: ProductLogEntry = {
     id: entry.id,
     eventType,
     description: entry.reason ? `${description} — ${entry.reason}` : description,
@@ -84,6 +86,25 @@ function mapAuditEntryToLog(entry: any): ProductLogEntry {
     newValue: entry.newData?.status ? String(entry.newData.status) : undefined,
     timestamp: entry.createdAt,
   };
+
+  // Enrich delete / restore events with identity fields from the newData snapshot
+  if (entry.action === "PRODUCT_DELETED") {
+    const email = (entry.newData?.deletedByEmail ?? entry.actorEmail) as string | null;
+    const role  = (entry.newData?.deletedByRole  ?? entry.actorRole)  as string | null;
+    base.actor  = { name: email ?? entry.actorId ?? "System", role: (role ?? "SYSTEM") as "SELLER" | "ADMIN" | "SYSTEM" };
+    if (entry.reason) base.description = entry.reason;
+  } else if (entry.action === "PRODUCT_RESTORED") {
+    const email      = (entry.newData?.restoredByEmail ?? entry.actorEmail) as string | null;
+    const role       = (entry.newData?.restoredByRole  ?? entry.actorRole)  as string | null;
+    const restoredAt = entry.newData?.restoredAt as string | undefined;
+    base.actor     = { name: email ?? entry.actorId ?? "System", role: (role ?? "SYSTEM") as "SELLER" | "ADMIN" | "SYSTEM" };
+    if (restoredAt) base.timestamp = restoredAt;
+    if (entry.reason) base.description = entry.reason;
+  } else if (entry.action === "PRODUCT_PERMANENTLY_DELETED") {
+    if (entry.reason) base.description = entry.reason;
+  }
+
+  return base;
 }
 
 async function fetchProductLogs(productId: string): Promise<ProductLogEntry[]> {
@@ -147,6 +168,20 @@ function getDemoLogs(productId: string): ProductLogEntry[] {
       description: "Featured image and gallery images were replaced.",
       actor: { name: "Seller", role: "SELLER" },
       timestamp: new Date(now - 1 * 86_400_000).toISOString(),
+    },
+    {
+      id: `${productId}-demo-5`,
+      eventType: "deleted",
+      description: "Moved to Recycle Bin by ADMIN (admin@example.com)",
+      actor: { name: "admin@example.com", role: "ADMIN" },
+      timestamp: new Date(now - 12 * 3_600_000).toISOString(),
+    },
+    {
+      id: `${productId}-demo-6`,
+      eventType: "restored",
+      description: "Restored by SELLER (seller@example.com). Status set to PENDING — awaiting admin approval.",
+      actor: { name: "seller@example.com", role: "SELLER" },
+      timestamp: new Date(now - 6 * 3_600_000).toISOString(),
     },
   ];
 }

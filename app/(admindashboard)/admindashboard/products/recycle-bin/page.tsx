@@ -12,7 +12,9 @@ import {
   Package,
   AlertTriangle,
   Search,
+  Eye,
 } from "lucide-react";
+import { ProductAuditHistory } from "@/components/shared/product-audit-history";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +94,9 @@ export default function AdminRecycleBinPage() {
   const [deleteTarget, setDeleteTarget] = useState<RecycleBinProduct | null>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+
+  // View product state
+  const [viewProduct, setViewProduct] = useState<RecycleBinProduct | null>(null);
 
   // --- Load recycle bin ---
   const loadRecycleBin = useCallback(async () => {
@@ -377,7 +382,16 @@ export default function AdminRecycleBinPage() {
 
                   {/* Actions */}
                   <td className="px-4 py-2">
-                    <div className="flex gap-1.5 items-center">
+                    <div className="flex gap-1.5 items-center flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => setViewProduct(product)}
+                      >
+                        <Eye className="h-3 w-3" />
+                        View
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -472,6 +486,73 @@ export default function AdminRecycleBinPage() {
           )}
         </div>
       )}
+
+      {/* View Product Dialog */}
+      <Dialog open={!!viewProduct} onOpenChange={(open) => { if (!open) setViewProduct(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <span
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700"
+              >
+                Deleted
+              </span>
+              <span className="truncate">{viewProduct?.title}</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          {viewProduct && (
+            <div className="space-y-4">
+              {/* Basic info */}
+              <div className="flex gap-4">
+                {viewProduct.featuredImage ? (
+                  <Image
+                    src={viewProduct.featuredImage}
+                    alt={viewProduct.title}
+                    width={96}
+                    height={96}
+                    className="h-24 w-24 object-cover rounded-lg border shrink-0 opacity-80"
+                    unoptimized
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://placehold.co/100x100?text=No+Image"; }}
+                  />
+                ) : (
+                  <div className="h-24 w-24 flex items-center justify-center bg-muted rounded-lg border shrink-0">
+                    <Package className="h-8 w-8 text-muted-foreground/40" />
+                  </div>
+                )}
+                <div className="space-y-1.5 text-sm">
+                  <p className="font-semibold text-base">{viewProduct.title}</p>
+                  {viewProduct.category && <p className="text-muted-foreground">{viewProduct.category}</p>}
+                  <div className="flex flex-wrap gap-3">
+                    <span><span className="text-muted-foreground">Price:</span> <span className="font-semibold">${viewProduct.price}</span></span>
+                    <span><span className="text-muted-foreground">Stock:</span> <span className="font-semibold">{viewProduct.stock}</span></span>
+                  </div>
+                  {viewProduct.seller && (
+                    <p className="text-muted-foreground">
+                      Seller: <span className="font-medium text-foreground">{viewProduct.seller.name}</span>
+                      {" "}<span className="text-xs">({viewProduct.seller.email})</span>
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <span className={cn(
+                      "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                      viewProduct.deletedByRole === "ADMIN" ? "bg-red-100 text-red-700" : "bg-orange-100 text-orange-700"
+                    )}>
+                      {viewProduct.deletedByRole === "ADMIN" ? "Deleted by Admin" : "Deleted by Seller"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      on {new Date(viewProduct.deletedAt).toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Audit history */}
+              <ProductAuditHistory productId={viewProduct.id} productTitle={viewProduct.title} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Permanent Delete Confirmation Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>

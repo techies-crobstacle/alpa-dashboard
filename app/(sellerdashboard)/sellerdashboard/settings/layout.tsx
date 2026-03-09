@@ -58,9 +58,12 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 	const dashBase = "/" + pathname.split("/")[1];
 	const s = `${dashBase}/settings`;
 
+	const isSeller = dashBase === "/sellerdashboard";
+
 	const sidebarNavItems = [
 		{ title: "Edit Profile",     href: s },
 		{ title: "Change Password",  href: `${s}/account` },
+		...(isSeller ? [{ title: "Bank Details", href: `${s}/bank-details` }] : []),
 	];
 
 	return (

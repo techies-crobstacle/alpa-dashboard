@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, CreditCard, LogOut, CheckCircle2, AlertTriangle, XCircle, Star, Pencil } from "lucide-react";
+import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, LogOut, CheckCircle2, AlertTriangle, XCircle, Star, Pencil } from "lucide-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
@@ -416,9 +416,6 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 							<Link href={settingsHref} className="flex items-center gap-2 w-full">
 									<Settings className="h-4 w-4" /> Settings
 								</Link>
-							</DropdownMenuItem>
-							<DropdownMenuItem className="p-3 cursor-pointer hover:bg-muted rounded-md transition-colors">
-								<span className="flex items-center gap-2"><CreditCard className="h-4 w-4" /> Billing</span>
 							</DropdownMenuItem>
 							<DropdownMenuSeparator className="my-2" />
 							<DropdownMenuItem

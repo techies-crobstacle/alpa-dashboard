@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Percent,
@@ -36,6 +44,14 @@ import {
   Tag,
   Search,
   AlertTriangle,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  RefreshCw,
 } from "lucide-react";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -69,6 +85,43 @@ const EMPTY_FORM: FormState = {
   isActive: true,
 };
 
+// ─── Commission Earned types ──────────────────────────────────────────────────
+interface CommissionEarned {
+  id: string;
+  orderId: string;
+  sellerId: string;
+  customerId?: string | null;
+  customerName: string;
+  customerEmail?: string;
+  sellerName?: string | null;
+  sellerFullName?: string | null;
+  storeName?: string | null;
+  businessName?: string | null;
+  orderValue: string;
+  commissionRate: string;
+  commissionAmount: string;
+  status: "PENDING" | "PAID" | "CANCELLED";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CommissionEarnedSummary {
+  totalOrders: number;
+  totalOrderValue: number;
+  totalCommissionEarned: number;
+  totalPaid: number;
+  totalPending: number;
+  totalCancelled: number;
+  uniqueSellers: number;
+}
+
+interface EarnedPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 // ─── page ─────────────────────────────────────────────────────────────────────
 export default function AdminCommissionsPage() {
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -84,6 +137,18 @@ export default function AdminCommissionsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Commission Earned state ────────────────────────────────────────────────
+  const [earned, setEarned] = useState<CommissionEarned[]>([]);
+  const [earnedLoading, setEarnedLoading] = useState(false);
+  const [earnedSummary, setEarnedSummary] = useState<CommissionEarnedSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [earnedPagination, setEarnedPagination] = useState<EarnedPagination>({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [earnedPage, setEarnedPage] = useState(1);
+  const [earnedStatusFilter, setEarnedStatusFilter] = useState<string>("ALL");
+  const [earnedFrom, setEarnedFrom] = useState("");
+  const [earnedTo, setEarnedTo] = useState("");
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   // ── fetch ──────────────────────────────────────────────────────────────────
   const fetchCommissions = async () => {
@@ -106,6 +171,65 @@ export default function AdminCommissionsPage() {
   useEffect(() => {
     if (showModal) setTimeout(() => firstInputRef.current?.focus(), 80);
   }, [showModal]);
+
+  // ── Commission Earned fetch ────────────────────────────────────────────────
+  const fetchEarned = useCallback(async (page = 1) => {
+    setEarnedLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      if (earnedStatusFilter !== "ALL") params.set("status", earnedStatusFilter);
+      if (earnedFrom) params.set("from", earnedFrom);
+      if (earnedTo) params.set("to", earnedTo);
+      const res = await api.get(`/api/admin/commissions/earned?${params.toString()}`);
+      setEarned(Array.isArray(res?.data) ? res.data : []);
+      if (res?.pagination) setEarnedPagination(res.pagination);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load commission earned records");
+    } finally {
+      setEarnedLoading(false);
+    }
+  }, [earnedStatusFilter, earnedFrom, earnedTo]);
+
+  const fetchEarnedSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (earnedFrom) params.set("from", earnedFrom);
+      if (earnedTo) params.set("to", earnedTo);
+      const query = params.toString();
+      const res = await api.get(`/api/admin/commissions/earned/summary${query ? `?${query}` : ""}`);
+      if (res?.summary) setEarnedSummary(res.summary);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load commission summary");
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [earnedFrom, earnedTo]);
+
+  const handleMarkAsPaid = async (id: string) => {
+    setUpdatingStatusId(id);
+    try {
+      await api.put(`/api/admin/commissions/earned/${id}/status`, { status: "PAID" });
+      toast.success("Commission marked as Paid");
+      setEarned((prev) => prev.map((r) => r.id === id ? { ...r, status: "PAID" } : r));
+      fetchEarnedSummary();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  const handleApplyEarnedFilters = () => {
+    setEarnedPage(1);
+    fetchEarned(1);
+    fetchEarnedSummary();
+  };
+
+  const handleEarnedPageChange = (newPage: number) => {
+    setEarnedPage(newPage);
+    fetchEarned(newPage);
+  };
 
   // ── modal helpers ──────────────────────────────────────────────────────────
   const openCreate = () => {
@@ -228,12 +352,28 @@ export default function AdminCommissionsPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Commissions</h1>
-          <p className="text-muted-foreground">Manage commission rates across categories and sellers.</p>
+          <p className="text-muted-foreground">Manage commission rates and view earned commissions per order.</p>
         </div>
-        <Button onClick={openCreate} className="gap-2 self-start md:self-auto">
-          <Plus className="h-4 w-4" /> Add Commission
-        </Button>
       </div>
+
+      <Tabs defaultValue="plans" className="space-y-6">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="plans" className="gap-2">
+            <Percent className="h-4 w-4" /> Commission Plans
+          </TabsTrigger>
+          <TabsTrigger value="earned" className="gap-2" onClick={() => { fetchEarned(1); fetchEarnedSummary(); }}>
+            <DollarSign className="h-4 w-4" /> Commission Earned
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ═══════════════════════ TAB 1 — PLANS ═══════════════════════════ */}
+        <TabsContent value="plans" className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <p className="text-sm text-muted-foreground">Create and manage commission plans assigned to sellers.</p>
+            <Button onClick={openCreate} className="gap-2 self-start md:self-auto">
+              <Plus className="h-4 w-4" /> Add Commission
+            </Button>
+          </div>
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -626,6 +766,257 @@ export default function AdminCommissionsPage() {
           </Card>
         </div>
       )}
+
+        </TabsContent>
+
+        {/* ═══════════════════════ TAB 2 — EARNED ══════════════════════════ */}
+        <TabsContent value="earned" className="space-y-6">
+
+          {/* Summary Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Earned</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalCommissionEarned.toFixed(2)}` : "—"}
+                </div>
+                {earnedSummary && <p className="text-xs text-muted-foreground mt-1">{earnedSummary.totalOrders} orders</p>}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalPaid.toFixed(2)}` : "—"}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Pending</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalPending.toFixed(2)}` : "—"}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Unique Sellers</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {summaryLoading ? <Skeleton className="h-8 w-12" /> : earnedSummary ? earnedSummary.uniqueSellers : "—"}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Filters</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select value={earnedStatusFilter} onValueChange={setEarnedStatusFilter}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Statuses</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="PAID">Paid</SelectItem>
+                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">From</Label>
+                <Input
+                  type="date"
+                  className="h-9 w-[150px]"
+                  value={earnedFrom}
+                  onChange={(e) => setEarnedFrom(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">To</Label>
+                <Input
+                  type="date"
+                  className="h-9 w-[150px]"
+                  value={earnedTo}
+                  onChange={(e) => setEarnedTo(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleApplyEarnedFilters} className="h-9 gap-2">
+                <Search className="h-4 w-4" /> Apply
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 gap-2"
+                onClick={() => {
+                  setEarnedStatusFilter("ALL");
+                  setEarnedFrom("");
+                  setEarnedTo("");
+                  setEarnedPage(1);
+                  setTimeout(() => { fetchEarned(1); fetchEarnedSummary(); }, 0);
+                }}
+              >
+                <RefreshCw className="h-4 w-4" /> Reset
+              </Button>
+            </div>
+          </Card>
+
+          {/* Table */}
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Order ID</TableHead>
+                    <TableHead>Seller</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Order Value</TableHead>
+                    <TableHead>Rate</TableHead>
+                    <TableHead>Commission</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {earnedLoading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <TableRow key={i}>
+                        {Array.from({ length: 9 }).map((__, j) => (
+                          <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : earned.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                        No commission records found. Try adjusting the filters or click Apply.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    earned.map((r) => (
+                      <TableRow key={r.id} className="hover:bg-muted/20">
+                        <TableCell>
+                          <span className="font-mono text-xs text-primary">{r.orderId}</span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{r.storeName || r.sellerName || "—"}</span>
+                            {r.businessName && <span className="text-xs text-muted-foreground">{r.businessName}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="text-sm">{r.customerName || "—"}</span>
+                            {r.customerEmail && <span className="text-xs text-muted-foreground">{r.customerEmail}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">${parseFloat(r.orderValue).toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="border-blue-300 text-blue-600 dark:text-blue-400">
+                            {parseFloat(r.commissionRate).toFixed(2)}%
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-bold text-primary">${parseFloat(r.commissionAmount).toFixed(2)}</span>
+                        </TableCell>
+                        <TableCell>
+                          {r.status === "PAID" ? (
+                            <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0 hover:bg-green-100">
+                              Paid
+                            </Badge>
+                          ) : r.status === "CANCELLED" ? (
+                            <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0 hover:bg-red-100">
+                              Cancelled
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-0 hover:bg-yellow-100">
+                              Pending
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {new Date(r.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {r.status === "PENDING" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 gap-1 text-xs border-green-300 text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
+                              disabled={updatingStatusId === r.id}
+                              onClick={() => handleMarkAsPaid(r.id)}
+                            >
+                              {updatingStatusId === r.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-3 w-3" />
+                              )}
+                              Mark Paid
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            {!earnedLoading && earnedPagination.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Showing {((earnedPage - 1) * earnedPagination.limit) + 1}–{Math.min(earnedPage * earnedPagination.limit, earnedPagination.total)} of {earnedPagination.total} records
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={earnedPage <= 1}
+                    onClick={() => handleEarnedPageChange(earnedPage - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium">
+                    {earnedPage} / {earnedPagination.totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8"
+                    disabled={earnedPage >= earnedPagination.totalPages}
+                    onClick={() => handleEarnedPageChange(earnedPage + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+
+        </TabsContent>
+
+      </Tabs>
 
     </div>
   );

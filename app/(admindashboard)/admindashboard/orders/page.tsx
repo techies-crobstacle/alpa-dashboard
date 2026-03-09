@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -222,7 +222,7 @@ export default function AdminOrdersPage() {
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingNumber, setTrackingNumber] = useState<string>("");
   const [estimatedDelivery, setEstimatedDelivery] = useState<string>("");
-  const [layout, setLayout] = useState<'table' | 'card'>('table');
+
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -528,10 +528,7 @@ export default function AdminOrdersPage() {
             )}
           </div>
 
-          <div className="flex gap-2 items-end">
-            <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
-            <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
-          </div>
+
         </div>
       </div>
 
@@ -581,7 +578,7 @@ export default function AdminOrdersPage() {
           </div>
         ) : orders.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
-        ) : layout === 'card' ? (
+        ) : (
           paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
@@ -671,76 +668,6 @@ export default function AdminOrdersPage() {
               </CardContent>
             </Card>
           ))
-        ) : (
-          <div className="overflow-x-auto rounded-lg border bg-background">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Order #</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Tracking</TableHead>
-                  <TableHead>View</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedOrders.map((order) => (
-                  <TableRow key={order.id}>
-                      <TableCell>#{order.id?.slice(-6)?.toUpperCase?.()}</TableCell>
-                      <TableCell>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}</TableCell>
-                      <TableCell>{order.customerName || "Guest"}</TableCell>
-                      <TableCell>
-                        <Badge variant={order.status === "delivered" ? "default" : "secondary"}>
-                          {order.status?.toUpperCase?.()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {order.items?.map((item, i) => (
-                          <div key={i} className="flex items-center gap-2">
-                            {item.product?.images?.[0] && (
-                              <Image
-                                src={item.product.images[0]}
-                                alt={item.product.title || "Product image"}
-                                width={24}
-                                height={24}
-                                className="w-6 h-6 object-cover rounded inline-block"
-                              />
-                            )}
-                            <span>{item.product?.title || item.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
-                          </div>
-                        ))}
-                      </TableCell>
-                      <TableCell>${order.totalAmount}</TableCell>
-                      <TableCell>
-                        {order.trackingNumber ? (
-                          <div className="flex flex-col">
-                            <span className="font-medium">{order.trackingNumber}</span>
-                            <span className="text-xs text-muted-foreground">Est: {fmtDate(order.estimatedDelivery)}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">No tracking</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {!isTerminalStatus(order.status) && (
-                            <Button variant="outline" size="sm" onClick={() => setActiveStatusOrder(order)}>
-                              Update
-                            </Button>
-                          )}
-                          <Button variant="outline" size="sm" onClick={() => router.push(`/admindashboard/orders/${order.id}?sellerId=${selectedSeller}`)}>
-                            <Eye className="h-4 w-4 mr-1" /> View
-                          </Button>
-                        </div>
-                      </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
         )}
       </div>
 

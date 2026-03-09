@@ -16,7 +16,9 @@ import { apiClient } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
+import { ProductAuditHistory } from "@/components/shared/product-audit-history";
 
 // --- CONFIGURATION ---
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
@@ -91,6 +93,12 @@ type RecycleBinProduct = {
   stock: number;
   category?: string;
   featuredImage?: string | null;
+  galleryImages?: string[];
+  images?: string[];
+  description?: string;
+  tags?: string[] | string;
+  artistName?: string;
+  featured?: boolean;
   status?: string;
   deletedAt: string;
   deletedBy: string | null;
@@ -278,6 +286,7 @@ function ProjectsPage() {
     artistName: "",
   });
   const [showEditModal, setShowEditModal] = useState(false);
+  const [isRestoringMode, setIsRestoringMode] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editProductId, setEditProductId] = useState<string | null>(null);
   const [editFormData, setEditFormData] = useState({
@@ -305,6 +314,9 @@ function ProjectsPage() {
   const [activeTab, setActiveTab] = useState<'products' | 'recycle-bin'>('products');
   const [recycleBinProducts, setRecycleBinProducts] = useState<RecycleBinProduct[]>([]);
   const [recycleBinLoading, setRecycleBinLoading] = useState(false);
+
+  // View deleted product
+  const [viewBinProduct, setViewBinProduct] = useState<RecycleBinProduct | null>(null);
 
   // Seller deactivate modal
   const [showSellerDeactivateModal, setShowSellerDeactivateModal] = useState(false);
@@ -529,13 +541,14 @@ function ProjectsPage() {
     }
   };
 
-  const openEditModal = async (productId: string, product?: Product) => {
+  const openEditModal = async (productId: string, product?: Product, isRestoring: boolean = false) => {
     // Check if product is rejected before allowing edit
-    if (product?.status === "REJECTED") {
+    if (!isRestoring && product?.status === "REJECTED") {
       toast.error("Cannot edit rejected products. Please create a new product or resubmit the original.");
       return;
     }
 
+    setIsRestoringMode(isRestoring);
     setEditProductId(productId);
     setEditSubmitting(false);
     editGalleryAccumRef.current = []; // reset accumulator for fresh edit session
@@ -557,7 +570,7 @@ function ProjectsPage() {
       const prod = data.product || data;
 
       // Check if returned product is rejected
-      if (prod.status === "REJECTED") {
+      if (!isRestoring && prod.status === "REJECTED") {
         throw new Error("This product has been rejected and cannot be edited. Please create a new product instead.");
       }
 
@@ -591,6 +604,41 @@ function ProjectsPage() {
       setEditProductId(null); // clear the ID so modal doesn't open
       toast.error((err as Error).message || "Failed to load product");
     }
+  };
+
+  // ── Open restore modal directly from recycle-bin data (no API fetch) ───────
+  const openRestoreModal = (recycleBinProduct: RecycleBinProduct) => {
+    setIsRestoringMode(true);
+    setEditProductId(recycleBinProduct.id);
+    setEditSubmitting(false);
+    editGalleryAccumRef.current = [];
+
+    const featuredImg = recycleBinProduct.featuredImage || null;
+    const rawGallery: string[] = [
+      ...(Array.isArray(recycleBinProduct.galleryImages) ? recycleBinProduct.galleryImages : []),
+      ...(Array.isArray(recycleBinProduct.images) ? recycleBinProduct.images : []),
+    ];
+    const resolvedGallery = [...new Set(rawGallery)].filter((img) => img !== featuredImg);
+
+    setEditFormData({
+      title: recycleBinProduct.title || "",
+      description: recycleBinProduct.description || "",
+      price: recycleBinProduct.price?.toString() || "",
+      stock: recycleBinProduct.stock?.toString() || "",
+      category: recycleBinProduct.category || "",
+      images: [],
+      oldImages: [],
+      featuredImage: null,
+      oldFeaturedImage: featuredImg,
+      galleryImages: [],
+      oldGalleryImages: resolvedGallery,
+      featured: recycleBinProduct.featured ?? false,
+      tags: Array.isArray(recycleBinProduct.tags)
+        ? recycleBinProduct.tags.join(", ")
+        : (recycleBinProduct.tags || ""),
+      artistName: recycleBinProduct.artistName || "",
+    });
+    setShowEditModal(true);
   };
 
   const handleEditProduct = async () => {
@@ -645,6 +693,38 @@ function ProjectsPage() {
       if (editFormData.artistName) {
         form.append("artistName", editFormData.artistName.trim());
       }
+
+      // ── RESTORE MODE: restore the deleted product first, then apply edits ──
+      if (isRestoringMode && editProductId) {
+        // Step 1: Un-delete the product (sets status back to PENDING)
+        await restoreProduct(editProductId);
+
+        // Step 2: Apply any edits the seller made
+        try {
+          const updateRes = await fetch(`${BASE_URL}/api/products/${editProductId}`, {
+            method: "PUT",
+            headers: { "Authorization": `Bearer ${token}` },
+            body: form,
+          });
+          if (updateRes.ok) {
+            toast.success(`"${editFormData.title}" restored and submitted for admin review!`);
+          } else {
+            toast.success(`"${editFormData.title}" restored! It's now pending review. Some edits may not have saved.`, { duration: 6000 });
+          }
+        } catch {
+          toast.success(`"${editFormData.title}" restored and submitted for admin review!`);
+        }
+
+        setRecycleBinProducts(prev => prev.filter(p => p.id !== editProductId));
+        setShowEditModal(false);
+        setEditProductId(null);
+        setIsRestoringMode(false);
+        editGalleryAccumRef.current = [];
+        loadProducts();
+        return;
+      }
+
+      // ── NORMAL EDIT MODE ─────────────────────────────────────────────────
       // Debug: Log what we're sending
       console.log("Sending edit request for product:", editProductId);
       console.log("FormData contents:");
@@ -669,9 +749,12 @@ function ProjectsPage() {
         } catch {}
         throw new Error(errorMsg);
       }
+
       toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
+
       setShowEditModal(false);
       setEditProductId(null);
+      setIsRestoringMode(false);
       editGalleryAccumRef.current = []; // clear accumulator
       loadProducts();
     } catch (err: unknown) {
@@ -1235,14 +1318,24 @@ function ProjectsPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => handleRestoreProduct(product.id, product.title)}
-                        >
-                          <RotateCcw className="h-3 w-3" /> Restore
-                        </Button>
+                        <div className="flex gap-1.5 flex-wrap">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => setViewBinProduct(product)}
+                          >
+                            <Eye className="h-3 w-3" /> View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => openRestoreModal(product)}
+                          >
+                            <RotateCcw className="h-3 w-3" /> Restore
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1353,11 +1446,18 @@ function ProjectsPage() {
                   <CardHeader className="border-b sticky top-0 bg-background z-10">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-xl font-bold">
-                        {isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
+                        {isRestoringMode ? 'Edit & Restore Product' : isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
                       </CardTitle>
-                      <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
                     </div>
-                    {(isResubmit || isActive || isInactive) && (
+                    {isRestoringMode ? (
+                      <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs bg-green-50 border border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300">
+                        <RotateCcw className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                        <span>
+                          Review the product details below and make any edits needed before restoring. Once confirmed, the product will be submitted for admin review and go live once approved.
+                        </span>
+                      </div>
+                    ) : (isResubmit || isActive || isInactive) && (
                       <div className={`flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs ${
                         isResubmit ? 'bg-blue-50 border border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300'
                         : isInactive && (editingProduct?.stock ?? 0) <= 2 ? 'bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300'
@@ -1639,11 +1739,12 @@ function ProjectsPage() {
                     </div>
                     <div className="flex gap-4 pt-4 sticky bottom-0 bg-background/80 backdrop-blur-sm mt-4 border-t py-4">
                       <Button className="flex-1 h-11 text-base font-semibold shadow-lg shadow-primary/20" onClick={handleEditProduct} disabled={editSubmitting}>
-                        {editSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Save Changes"}
+                        {editSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : isRestoringMode ? "Save & Restore" : "Save Changes"}
                       </Button>
                       <Button variant="outline" className="h-11 px-8" onClick={() => {
                           editGalleryAccumRef.current = []; // reset on cancel
                           setShowEditModal(false);
+                          setIsRestoringMode(false);
                         }} disabled={editSubmitting}>Cancel</Button>
                     </div>
                   </CardContent>
@@ -1913,7 +2014,62 @@ function ProjectsPage() {
           </Card>
         </div>
       )}
-    </div>
+
+      {/* View Deleted Product Dialog */}
+      <Dialog open={!!viewBinProduct} onOpenChange={(open) => { if (!open) setViewBinProduct(null); }}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700">
+              Deleted
+            </span>
+            <span className="truncate">{viewBinProduct?.title}</span>
+          </DialogTitle>
+        </DialogHeader>
+        {viewBinProduct && (
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              {viewBinProduct.featuredImage ? (
+                <Image
+                  src={viewBinProduct.featuredImage}
+                  alt={viewBinProduct.title}
+                  width={96}
+                  height={96}
+                  unoptimized
+                  className="h-24 w-24 object-cover rounded-lg border shrink-0 opacity-80"
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image'; }}
+                />
+              ) : (
+                <div className="h-24 w-24 flex items-center justify-center bg-muted rounded-lg border shrink-0">
+                  <Package className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+              )}
+              <div className="space-y-1.5 text-sm">
+                <p className="font-semibold text-base">{viewBinProduct.title}</p>
+                {viewBinProduct.category && <p className="text-muted-foreground">{viewBinProduct.category}</p>}
+                <div className="flex flex-wrap gap-3">
+                  <span><span className="text-muted-foreground">Price:</span> <span className="font-semibold">${viewBinProduct.price}</span></span>
+                  <span><span className="text-muted-foreground">Stock:</span> <span className="font-semibold">{viewBinProduct.stock}</span></span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <span className={cn(
+                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                    viewBinProduct.deletedByRole === 'ADMIN' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                  )}>
+                    {viewBinProduct.deletedByRole === 'ADMIN' ? 'Deleted by Admin' : 'Deleted by You'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    on {new Date(viewBinProduct.deletedAt).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <ProductAuditHistory productId={viewBinProduct.id} productTitle={viewBinProduct.title} />
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  </div>
   );
 }
 
