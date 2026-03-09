@@ -94,7 +94,7 @@ export default function BankDetailsSettingsPage() {
   const fetchBankDetails = async () => {
     setIsLoading(true);
     try {
-      const data = await api.get("/seller-onboarding/bank-details");
+      const data = await api.get("/api/sellers/bank-details");
       setBankDetails(data.bankDetails ?? null);
       setPendingRequest(data.pendingChangeRequest ?? null);
     } catch (error: any) {
@@ -115,7 +115,7 @@ export default function BankDetailsSettingsPage() {
   async function onSubmit(values: ChangeRequestValues) {
     setIsSubmitting(true);
     try {
-      await api.post("/seller-onboarding/bank-details/change-request", {
+      await api.post("/api/sellers/bank-details/change-request", {
         bankName: values.bankName,
         accountName: values.accountName,
         bsb: values.bsb,
