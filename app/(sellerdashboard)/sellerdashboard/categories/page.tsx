@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw, Eye, Trash2, X } from "lucide-react";
 
 interface Category {
+  id?: string | null;
   categoryName: string;
   productCount?: number;    
   myProductCount?: number;
@@ -37,6 +38,14 @@ interface RejectedRequest {
   categoryName: string;
   rejectionMessage: string;
   rejectedAt: string;
+  status: string;
+}
+
+interface DeletedRequest {
+  id: string;
+  categoryName: string;
+  description?: string;
+  softDeletedAt: string;
   status: string;
 }
 
@@ -69,6 +78,7 @@ const CategoriesPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<PendingRequest | RejectedRequest | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletedRequests, setDeletedRequests] = useState<DeletedRequest[]>([]);
   const [activeTab, setActiveTab] = useState("available");
 
   const form = useForm<CategoryRequestForm>({
@@ -92,6 +102,7 @@ const CategoriesPage = () => {
         setCategories(response.data.approvedCategories || []);
         setPendingRequests(response.data.myPendingRequests || []);
         setRejectedRequests(response.data.myRejectedRequests || []);
+        setDeletedRequests(response.data.myDeletedRequests || []);
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -268,9 +279,10 @@ const CategoriesPage = () => {
           {/* Tab Switcher */}
           <div className="flex gap-1 border-b pb-4 flex-wrap">
             {([
-              { key: "available", label: "Available", count: categories.length,      icon: <CheckCircle2 className="h-4 w-4" /> },
+              { key: "available", label: "Available", count: categories.length,       icon: <CheckCircle2 className="h-4 w-4" /> },
               { key: "pending",   label: "Pending",   count: pendingRequests.length,  icon: <Clock className="h-4 w-4" /> },
               { key: "rejected",  label: "Rejected",  count: rejectedRequests.length, icon: <X className="h-4 w-4" /> },
+              { key: "removed",   label: "Removed",   count: deletedRequests.length,  icon: <Trash2 className="h-4 w-4" /> },
             ] as const).map(tab => (
               <Button
                 key={tab.key}
@@ -287,6 +299,7 @@ const CategoriesPage = () => {
                     ? "bg-primary-foreground/20 text-primary-foreground"
                     : tab.key === "pending" && tab.count > 0 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400"
                     : tab.key === "rejected" && tab.count > 0 ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                    : tab.key === "removed" && tab.count > 0 ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400"
                     : "bg-muted text-muted-foreground"
                 )}>
                   {tab.count}
@@ -337,6 +350,7 @@ const CategoriesPage = () => {
                           <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Origin</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">My Products</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-muted">
@@ -360,6 +374,11 @@ const CategoriesPage = () => {
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                                 <Package className="h-3 w-3" />{category.myProductCount || 0}
                               </span>
+                            </td>
+                            <td className="px-4 py-2">
+                              <Button variant="outline" size="sm" className="gap-1" disabled={!category.id} onClick={() => category.id && router.push(`/sellerdashboard/categories/${category.id}`)}>
+                                <Eye className="h-3 w-3" /> View
+                              </Button>
                             </td>
                           </tr>
                         ))}
@@ -486,6 +505,61 @@ const CategoriesPage = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )
+          )}
+
+          {/* Removed Tab */}
+          {activeTab === "removed" && (
+            deletedRequests.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
+                <Trash2 className="h-10 w-10 opacity-20" />
+                <p className="text-sm">No removed categories</p>
+                <p className="text-xs text-center max-w-xs">Categories you requested that were later removed by an admin will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-start gap-2 rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-900 p-3 text-sm text-orange-800 dark:text-orange-400">
+                  <Trash2 className="h-4 w-4 shrink-0 mt-0.5" />
+                  <p>These categories were previously live but have been removed by an admin. You can still view their full details and audit history.</p>
+                </div>
+                <div className="overflow-x-auto rounded-lg border bg-background">
+                  <table className="min-w-full divide-y divide-muted">
+                    <thead className="bg-orange-50/50 dark:bg-orange-950/20">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Description</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Removed On</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-muted">
+                      {deletedRequests.map((request, idx) => (
+                        <tr key={request.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-2 text-sm text-muted-foreground">{idx + 1}</td>
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-orange-700 dark:text-orange-400">{request.categoryName}</span>
+                              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400 border-orange-300 dark:border-orange-700 text-[10px]">Removed</Badge>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2">
+                            <p className="text-xs text-muted-foreground italic line-clamp-2 max-w-[240px]">{request.description ?? "—"}</p>
+                          </td>
+                          <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(request.softDeletedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          </td>
+                          <td className="px-4 py-2">
+                            <Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/sellerdashboard/categories/${request.id}`)}>
+                              <Eye className="h-3 w-3" /> View &amp; Logs
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )
           )}
