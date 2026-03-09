@@ -39,6 +39,7 @@ type CustomerDetail = {
 
 type ApiResponse = {
 	success: boolean;
+	count?: number;
 	user?: CustomerDetail;
 	users?: CustomerDetail[];
 	message?: string;
@@ -101,9 +102,10 @@ export default function CustomerDetailPage() {
 		if (!customerId) return;
 		const fetchCustomer = async () => {
 			try {
-				const res: ApiResponse = await apiClient(`/api/admin/users/${customerId}`);
+				const res: ApiResponse = await apiClient("/api/admin/users");
 				if (res.success) {
-					const data = res.user ?? (res.users?.[0] ?? null);
+					const all = res.users ?? (res.user ? [res.user] : []);
+					const data = all.find((u) => u.id === customerId) ?? null;
 					if (data) {
 						setCustomer(data);
 					} else {
