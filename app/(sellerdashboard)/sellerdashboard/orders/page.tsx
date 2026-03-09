@@ -420,7 +420,7 @@
 
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -647,7 +647,7 @@ export default function OrdersPage() {
   const [activeStatusOrder, setActiveStatusOrder] = useState<Order | null>(null);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
-  const [layout, setLayout] = useState<'table' | 'card'>("table");
+
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -963,15 +963,12 @@ export default function OrdersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">Manage customer purchases and shipping status.</p>
         </div>
-        <div className="flex gap-2 mt-2 md:mt-0">
-          <Button variant={layout === 'card' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('card')}>Card View</Button>
-          <Button variant={layout === 'table' ? 'default' : 'outline'} size="sm" onClick={() => setLayout('table')}>Tabular View</Button>
-        </div>
+
       </div>
 
       {orders.length === 0 ? (
         <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
-      ) : layout === 'card' ? (
+      ) : (
         <div className="grid gap-4">
           {paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
