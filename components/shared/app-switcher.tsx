@@ -35,7 +35,7 @@ export function AppSwitcher() {
 			const d = decoded as D | null;
 			const role = d?.role;
 			setDashboardHref(
-				role === "ADMIN"    ? "/admindashboard" :
+				(role === "ADMIN" || role === "SUPER_ADMIN") ? "/admindashboard" :
 				role === "CUSTOMER" ? "/customerdashboard/profile" :
 				"/sellerdashboard"
 			);
