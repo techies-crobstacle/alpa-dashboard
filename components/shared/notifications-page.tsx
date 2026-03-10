@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import {
 	Loader2, Bell, Package, ShoppingCart, UserCheck,
 	AlertCircle, CheckCircle2, Clock, AlertTriangle,
-	XCircle, Trash2, Star, Pencil,
+	XCircle, Trash2, Star, Pencil, Banknote,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -63,6 +63,12 @@ const getIcon = (n: Pick<Notification, "type" | "metadata" | "relatedType">) => 
 			return <UserCheck className="h-5 w-5 text-green-600" />;
 		case "PRODUCT_RECOMMENDATION":
 			return <Star className="h-5 w-5 text-indigo-600" />;
+		case "BANK_CHANGE_REQUESTED":
+			return <Banknote className="h-5 w-5 text-orange-600" />;
+		case "BANK_CHANGE_APPROVED":
+			return <Banknote className="h-5 w-5 text-green-600" />;
+		case "BANK_CHANGE_REJECTED":
+			return <Banknote className="h-5 w-5 text-red-600" />;
 		default:
 			return <Bell className="h-5 w-5 text-muted-foreground" />;
 	}
@@ -97,6 +103,12 @@ const getTypeColor = (n: Pick<Notification, "type" | "metadata" | "relatedType">
 			return "bg-green-100 text-green-800 border-green-200";
 		case "PRODUCT_RECOMMENDATION":
 			return "bg-indigo-100 text-indigo-800 border-indigo-200";
+		case "BANK_CHANGE_REQUESTED":
+			return "bg-orange-100 text-orange-800 border-orange-200";
+		case "BANK_CHANGE_APPROVED":
+			return "bg-green-100 text-green-800 border-green-200";
+		case "BANK_CHANGE_REJECTED":
+			return "bg-red-100 text-red-800 border-red-200";
 		default:
 			return "bg-muted text-muted-foreground";
 	}
@@ -137,6 +149,11 @@ const getDeepLink = (n: Notification, role: string | null): string | null => {
 			return "/sellerdashboard/profile";
 		case "PRODUCT_RECOMMENDATION":
 			return "/sellerdashboard/products";
+		case "BANK_CHANGE_REQUESTED":
+			return "/admindashboard/sellers/bank-change-requests";
+		case "BANK_CHANGE_APPROVED":
+		case "BANK_CHANGE_REJECTED":
+			return "/sellerdashboard/settings/bank-details";
 		case "GENERAL":
 			if (n.relatedType === "product") return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
 			return null;
@@ -312,6 +329,18 @@ export function NotificationsPage() {
 														<p className="text-xs text-muted-foreground mb-2">
 															Products: {(n.metadata.cancelledProducts as string[]).join(", ")}
 														</p>
+													)}
+
+												{/* BANK_CHANGE_REJECTED — admin review note */}
+												{n.type === "BANK_CHANGE_REJECTED" &&
+													typeof n.metadata?.reviewNote === "string" && (
+														<div className="flex gap-1.5 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2 text-xs text-red-800 dark:text-red-300 mb-2">
+															<XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+															<span>
+																<span className="font-medium">Admin note: </span>
+																{n.metadata.reviewNote as string}
+															</span>
+														</div>
 													)}
 
 												<div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
