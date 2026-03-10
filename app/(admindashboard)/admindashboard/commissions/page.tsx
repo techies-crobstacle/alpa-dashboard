@@ -52,6 +52,10 @@ import {
   ChevronRight,
   Filter,
   RefreshCw,
+  Send,
+  Building2,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -124,6 +128,39 @@ interface EarnedPagination {
   totalPages: number;
 }
 
+// ─── Payout Request types ─────────────────────────────────────────────────────
+interface PayoutBankDetails {
+  bankName: string | null;
+  accountName: string | null;
+  bsb: string | null;
+  accountNumber: string | null;
+}
+
+interface AdminPayoutRequest {
+  id: string;
+  sellerId: string;
+  requestedAmount: string;
+  redeemableAtRequest: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
+  sellerNote: string | null;
+  adminNote: string | null;
+  processedAt: string | null;
+  processedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  sellerName: string | null;
+  storeName: string | null;
+  businessName: string | null;
+  bankDetails: PayoutBankDetails | null;
+}
+
+interface PayoutPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface Seller {
   id: string;
   name?: string | null;
@@ -159,6 +196,21 @@ export default function AdminCommissionsPage() {
   const [earnedTo, setEarnedTo] = useState("");
   const [earnedSellerFilter, setEarnedSellerFilter] = useState<string>("ALL");
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  // ── Payout Requests state ──────────────────────────────────────────────────
+  const [payoutRequests, setPayoutRequests] = useState<AdminPayoutRequest[]>([]);
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutPagination, setPayoutPagination] = useState<PayoutPagination>({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [payoutPage, setPayoutPage] = useState(1);
+  const [payoutStatusFilter, setPayoutStatusFilter] = useState("ALL");
+  const [payoutFromFilter, setPayoutFromFilter] = useState("");
+  const [payoutToFilter, setPayoutToFilter] = useState("");
+  const [payoutSellerIdFilter, setPayoutSellerIdFilter] = useState("");
+  const [selectedPayout, setSelectedPayout] = useState<AdminPayoutRequest | null>(null);
+  const [payoutActionNote, setPayoutActionNote] = useState("");
+  const [payoutActioning, setPayoutActioning] = useState(false);
+  const [pendingPayoutCount, setPendingPayoutCount] = useState<number | null>(null);
+  const [approvedPayoutCount, setApprovedPayoutCount] = useState<number | null>(null);
 
   // ── Seller list for filter dropdown ───────────────────────────────────────
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -271,6 +323,67 @@ export default function AdminCommissionsPage() {
       toast.error(err?.message || "Failed to update status");
     } finally {
       setUpdatingStatusId(null);
+    }
+  };
+
+  // ── Payout Request fetchers ────────────────────────────────────────────────
+  const fetchPayoutRequests = useCallback(async (page = 1) => {
+    setPayoutLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      if (payoutStatusFilter !== "ALL") params.set("status", payoutStatusFilter);
+      if (payoutSellerIdFilter.trim()) params.set("sellerId", payoutSellerIdFilter.trim());
+      if (payoutFromFilter) params.set("from", payoutFromFilter);
+      if (payoutToFilter) params.set("to", payoutToFilter);
+      const res = await api.get(`/api/admin/commissions/payout-requests?${params.toString()}`);
+      setPayoutRequests(Array.isArray(res?.data) ? res.data : []);
+      if (res?.pagination) setPayoutPagination(res.pagination);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to load payout requests");
+    } finally {
+      setPayoutLoading(false);
+    }
+  }, [payoutStatusFilter, payoutSellerIdFilter, payoutFromFilter, payoutToFilter]);
+
+  const fetchPayoutCounts = async () => {
+    try {
+      const [pendingRes, approvedRes] = await Promise.all([
+        api.get("/api/admin/commissions/payout-requests?status=PENDING&limit=1"),
+        api.get("/api/admin/commissions/payout-requests?status=APPROVED&limit=1"),
+      ]);
+      setPendingPayoutCount(pendingRes?.pagination?.total ?? null);
+      setApprovedPayoutCount(approvedRes?.pagination?.total ?? null);
+    } catch {
+      // non-critical
+    }
+  };
+
+  const handlePayoutAction = async (status: "APPROVED" | "REJECTED" | "COMPLETED") => {
+    if (!selectedPayout) return;
+    setPayoutActioning(true);
+    try {
+      await api.put(`/api/admin/commissions/payout-requests/${selectedPayout.id}/status`, {
+        status,
+        ...(payoutActionNote.trim() ? { adminNote: payoutActionNote.trim() } : {}),
+      });
+      toast.success(`Payout request marked as ${status}`);
+      setSelectedPayout(null);
+      setPayoutActionNote("");
+      fetchPayoutRequests(payoutPage);
+      fetchPayoutCounts();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update payout request");
+    } finally {
+      setPayoutActioning(false);
+    }
+  };
+
+  const payoutBadgeStyle = (status: AdminPayoutRequest["status"]) => {
+    switch (status) {
+      case "PENDING":   return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-0 hover:bg-yellow-100";
+      case "APPROVED":  return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0 hover:bg-blue-100";
+      case "REJECTED":  return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0 hover:bg-red-100";
+      case "COMPLETED": return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0 hover:bg-green-100";
     }
   };
 
@@ -417,6 +530,9 @@ export default function AdminCommissionsPage() {
           </TabsTrigger>
           <TabsTrigger value="earned" className="gap-2" onClick={() => { fetchSellerList(); fetchEarned(1); fetchEarnedSummary(); }}>
             <DollarSign className="h-4 w-4" /> Commission Earned
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="gap-2" onClick={() => { fetchPayoutRequests(1); fetchPayoutCounts(); setPayoutPage(1); }}>
+            <Send className="h-4 w-4" /> Payout Requests
           </TabsTrigger>
         </TabsList>
 
@@ -1099,7 +1215,377 @@ export default function AdminCommissionsPage() {
 
         </TabsContent>
 
+        {/* ════════════════ TAB 3 — PAYOUT REQUESTS ══════════════════════ */}
+        <TabsContent value="payouts" className="space-y-6">
+
+          {/* Summary cards */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                  {pendingPayoutCount === null ? <Skeleton className="h-8 w-12" /> : pendingPayoutCount}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Approved Requests</CardTitle>
+                <CheckCircle className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {approvedPayoutCount === null ? <Skeleton className="h-8 w-12" /> : approvedPayoutCount}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Requests (This View)</CardTitle>
+                <Send className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {payoutLoading ? <Skeleton className="h-8 w-12" /> : payoutPagination.total}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters */}
+          <Card className="p-4">
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Filters</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">Status</Label>
+                <Select value={payoutStatusFilter} onValueChange={setPayoutStatusFilter}>
+                  <SelectTrigger className="w-[150px] h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Statuses</SelectItem>
+                    <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="APPROVED">Approved</SelectItem>
+                    <SelectItem value="REJECTED">Rejected</SelectItem>
+                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">Seller ID</Label>
+                <Input
+                  className="h-9 w-[180px]"
+                  placeholder="Search by seller ID"
+                  value={payoutSellerIdFilter}
+                  onChange={(e) => setPayoutSellerIdFilter(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">From</Label>
+                <Input type="date" className="h-9 w-[150px]" value={payoutFromFilter} onChange={(e) => setPayoutFromFilter(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">To</Label>
+                <Input type="date" className="h-9 w-[150px]" value={payoutToFilter} onChange={(e) => setPayoutToFilter(e.target.value)} />
+              </div>
+              <Button className="h-9 gap-2" onClick={() => { setPayoutPage(1); fetchPayoutRequests(1); }}>
+                <Search className="h-4 w-4" /> Apply
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 gap-2"
+                onClick={() => {
+                  setPayoutStatusFilter("ALL");
+                  setPayoutSellerIdFilter("");
+                  setPayoutFromFilter("");
+                  setPayoutToFilter("");
+                  setPayoutPage(1);
+                  setTimeout(() => fetchPayoutRequests(1), 0);
+                }}
+              >
+                <RefreshCw className="h-4 w-4" /> Reset
+              </Button>
+            </div>
+          </Card>
+
+          {/* Table */}
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead>Seller</TableHead>
+                    <TableHead>Store</TableHead>
+                    <TableHead>Requested</TableHead>
+                    <TableHead>Redeemable At Request</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payoutLoading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                      <TableRow key={i}>
+                        {Array.from({ length: 7 }).map((__, j) => (
+                          <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : payoutRequests.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                        No payout requests found. Try adjusting the filters or click Apply.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    payoutRequests.map((r) => (
+                      <TableRow
+                        key={r.id}
+                        className="hover:bg-muted/20 cursor-pointer"
+                        onClick={() => { setSelectedPayout(r); setPayoutActionNote(r.adminNote || ""); }}
+                      >
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{r.sellerName || "—"}</span>
+                            {r.businessName && <span className="text-xs text-muted-foreground">{r.businessName}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">{r.storeName || "—"}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-bold text-green-700 dark:text-green-400">
+                            ${parseFloat(r.requestedAmount).toFixed(2)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          ${parseFloat(r.redeemableAtRequest).toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={payoutBadgeStyle(r.status)}>{r.status}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                          {new Date(r.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            {(r.status === "PENDING" || r.status === "APPROVED") && (
+                              <Button
+                                size="sm" variant="outline"
+                                className="h-8 gap-1 text-xs border-green-300 text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
+                                onClick={(e) => { e.stopPropagation(); setSelectedPayout(r); setPayoutActionNote(r.adminNote || ""); }}
+                              >
+                                <ThumbsUp className="h-3 w-3" /> Review
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {!payoutLoading && payoutPagination.totalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t">
+                <p className="text-sm text-muted-foreground">
+                  Showing {((payoutPage - 1) * payoutPagination.limit) + 1}–{Math.min(payoutPage * payoutPagination.limit, payoutPagination.total)} of {payoutPagination.total} requests
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline" size="icon" className="h-8 w-8"
+                    disabled={payoutPage <= 1}
+                    onClick={() => { setPayoutPage(payoutPage - 1); fetchPayoutRequests(payoutPage - 1); }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium">{payoutPage} / {payoutPagination.totalPages}</span>
+                  <Button
+                    variant="outline" size="icon" className="h-8 w-8"
+                    disabled={payoutPage >= payoutPagination.totalPages}
+                    onClick={() => { setPayoutPage(payoutPage + 1); fetchPayoutRequests(payoutPage + 1); }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+
+        </TabsContent>
+
       </Tabs>
+
+      {/* ─── Payout Request Action Modal ──────────────────────────────────── */}
+      {selectedPayout && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !payoutActioning) setSelectedPayout(null); }}
+        >
+          <Card className="w-full max-w-lg shadow-2xl">
+            <CardHeader className="border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                  <Send className="h-5 w-5 text-primary" /> Payout Request
+                </CardTitle>
+                <Button
+                  variant="ghost" size="icon" className="h-8 w-8 rounded-full"
+                  onClick={() => setSelectedPayout(null)}
+                  disabled={payoutActioning}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-6 space-y-5">
+              {/* Request info */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground block text-xs">Seller</span>
+                  <span className="font-semibold">{selectedPayout.sellerName || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Store</span>
+                  <span className="font-semibold">{selectedPayout.storeName || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Requested Amount</span>
+                  <span className="font-bold text-green-600 dark:text-green-400">
+                    ${parseFloat(selectedPayout.requestedAmount).toFixed(2)} AUD
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Redeemable At Request</span>
+                  <span className="font-semibold">${parseFloat(selectedPayout.redeemableAtRequest).toFixed(2)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Status</span>
+                  <Badge className={payoutBadgeStyle(selectedPayout.status)}>{selectedPayout.status}</Badge>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-xs">Submitted</span>
+                  <span className="font-semibold">
+                    {new Date(selectedPayout.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                </div>
+              </div>
+
+              {selectedPayout.sellerNote && (
+                <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm">
+                  <span className="text-xs text-muted-foreground block mb-1">Seller Note</span>
+                  <p>{selectedPayout.sellerNote}</p>
+                </div>
+              )}
+
+              {/* Bank Details */}
+              {selectedPayout.bankDetails && (
+                <div className="rounded-lg border border-border px-4 py-3 text-sm space-y-1">
+                  <p className="font-semibold flex items-center gap-1.5 mb-2">
+                    <Building2 className="h-4 w-4 text-primary" /> Bank Transfer Details
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <span className="text-muted-foreground">Bank</span>
+                    <span className="font-medium">{selectedPayout.bankDetails.bankName || "—"}</span>
+                    <span className="text-muted-foreground">Account Name</span>
+                    <span className="font-medium">{selectedPayout.bankDetails.accountName || "—"}</span>
+                    <span className="text-muted-foreground">BSB</span>
+                    <span className="font-mono font-medium">{selectedPayout.bankDetails.bsb || "—"}</span>
+                    <span className="text-muted-foreground">Account No.</span>
+                    <span className="font-mono font-medium">{selectedPayout.bankDetails.accountNumber || "—"}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Admin note */}
+              {(selectedPayout.status === "PENDING" || selectedPayout.status === "APPROVED") && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="admin-note">Admin Note (optional)</Label>
+                  <Input
+                    id="admin-note"
+                    placeholder="e.g. Paid via ANZ transfer — ref TXN98765"
+                    value={payoutActionNote}
+                    onChange={(e) => setPayoutActionNote(e.target.value)}
+                    disabled={payoutActioning}
+                  />
+                </div>
+              )}
+
+              {selectedPayout.adminNote && selectedPayout.status !== "PENDING" && selectedPayout.status !== "APPROVED" && (
+                <div className="rounded-lg bg-muted/40 px-4 py-3 text-sm">
+                  <span className="text-xs text-muted-foreground block mb-1">Admin Note</span>
+                  <p>{selectedPayout.adminNote}</p>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-2 justify-end pt-2 border-t">
+                <Button variant="outline" onClick={() => setSelectedPayout(null)} disabled={payoutActioning}>
+                  Close
+                </Button>
+                {selectedPayout.status === "PENDING" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="gap-2 border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      disabled={payoutActioning}
+                      onClick={() => handlePayoutAction("REJECTED")}
+                    >
+                      {payoutActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsDown className="h-4 w-4" />}
+                      Reject
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                      disabled={payoutActioning}
+                      onClick={() => handlePayoutAction("APPROVED")}
+                    >
+                      {payoutActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className="h-4 w-4" />}
+                      Approve
+                    </Button>
+                    <Button
+                      className="gap-2"
+                      disabled={payoutActioning}
+                      onClick={() => handlePayoutAction("COMPLETED")}
+                    >
+                      {payoutActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                      Mark Completed
+                    </Button>
+                  </>
+                )}
+                {selectedPayout.status === "APPROVED" && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="gap-2 border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      disabled={payoutActioning}
+                      onClick={() => handlePayoutAction("REJECTED")}
+                    >
+                      {payoutActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsDown className="h-4 w-4" />}
+                      Reject
+                    </Button>
+                    <Button
+                      className="gap-2"
+                      disabled={payoutActioning}
+                      onClick={() => handlePayoutAction("COMPLETED")}
+                    >
+                      {payoutActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                      Mark Completed
+                    </Button>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
     </div>
   );
