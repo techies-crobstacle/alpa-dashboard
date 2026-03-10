@@ -7,7 +7,7 @@
 // import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp } from "lucide-react";
 // import Image from "next/image";
 
-// const BASE_URL = "http://127.0.0.1:5000";
+// const BASE_URL = "https://alpa-be.onrender.com";
 
 // function getAuthHeaders() {
 //   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -168,7 +168,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
 
-const BASE_URL = "http://127.0.0.1:5000";
+const BASE_URL = "https://alpa-be.onrender.com";
 
 function getAuthHeaders() {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -179,10 +179,23 @@ function getAuthHeaders() {
 }
 
 type OrderItem = {
-  product: { images?: string[]; title?: string };
+  id?: string;
+  product?: { 
+    id?: string;
+    images?: string[]; 
+    title?: string; 
+    price?: string;
+    sellerId?: string;
+  };
   title?: string;
   quantity: number;
   price?: string;
+  // New fields from multi-seller structure
+  subOrderStatus?: string;
+  sellerId?: string;
+  sellerName?: string;
+  trackingNumber?: string;
+  estimatedDelivery?: string;
 };
 
 // NEW: Sub-order type for multi-seller orders
@@ -193,11 +206,19 @@ type SubOrder = {
   status: string;
   trackingNumber?: string;
   estimatedDelivery?: string;
-  subtotal: number;
-  items: OrderItem[];
+  subtotal: string | number;
+  itemCount: number;
+  items: {
+    id: string;
+    productId: string;
+    productTitle: string;
+    productImages: string[];
+    quantity: number;
+    price: string;
+  }[];
   statusReason?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type Order = {
@@ -361,7 +382,7 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    ${subOrder.subtotal.toFixed(2)} • {subOrder.items.length} item{subOrder.items.length !== 1 ? 's' : ''}
+                    ${typeof subOrder.subtotal === 'string' ? subOrder.subtotal : subOrder.subtotal.toFixed(2)} • {subOrder.itemCount || subOrder.items.length} item{(subOrder.itemCount || subOrder.items.length) !== 1 ? 's' : ''}
                   </div>
                   {subOrder.trackingNumber && (
                     <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
@@ -772,9 +793,37 @@ const CustomerOrdersPage = () => {
                         {renderValue(order.status).toUpperCase()}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">${renderValue(order.totalAmount)}</td>
                     <td className="px-4 py-3">
-                      {order.trackingNumber ? (
+                      <div className="flex flex-col text-right">
+                        <span className="font-semibold">₹{renderValue(order.totalAmount)}</span>
+                        {order.subOrders && order.subOrders.length > 1 && (
+                          <span className="text-xs text-muted-foreground">
+                            {order.subOrders.length} sellers
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {order.subOrders && order.subOrders.length > 1 ? (
+                        // Multi-seller order - show tracking summary
+                        <div className="flex flex-col">
+                          {(() => {
+                            const trackedOrders = order.subOrders.filter(sub => sub.trackingNumber);
+                            if (trackedOrders.length === 0) {
+                              return <span className="text-muted-foreground">No tracking</span>;
+                            } else if (trackedOrders.length === order.subOrders.length) {
+                              return <span className="text-green-600 text-sm flex items-center gap-1">
+                                <Truck className="h-3 w-3" /> All shipped
+                              </span>;
+                            } else {
+                              return <span className="text-amber-600 text-sm flex items-center gap-1">
+                                <Truck className="h-3 w-3" /> {trackedOrders.length}/{order.subOrders.length} shipped
+                              </span>;
+                            }
+                          })()}
+                        </div>
+                      ) : order.trackingNumber ? (
+                        // Single seller order with tracking
                         <div className="flex flex-col">
                           <span className="font-medium flex items-center gap-1"><Truck className="h-4 w-4" /> {renderValue(order.trackingNumber)}</span>
                           <span className="text-xs text-muted-foreground">Est: {fmtDate(order.estimatedDelivery)}</span>
@@ -932,29 +981,105 @@ const CustomerOrdersPage = () => {
                               <CardTitle className="text-lg">Items</CardTitle>
                             </CardHeader>
                             <CardContent>
-                              <div className="space-y-3">
-                                {order.items?.map((item, i) => (
-                                  <div key={i} className="flex items-center gap-4 p-3 rounded-lg border">
-                                    {item.product?.images?.[0] && (
-                                      <Image 
-                                        src={item.product.images[0]} 
-                                        alt={renderValue(item.product.title || "Product image")} 
-                                        width={64} 
-                                        height={64} 
-                                        className="rounded object-cover" 
-                                        unoptimized 
-                                      />
-                                    )}
-                                    <div className="flex-1">
-                                      <p className="font-medium">{renderValue(item.product?.title || item.title)}</p>
-                                      <p className="text-sm text-muted-foreground">Quantity: {renderValue(item.quantity)}</p>
+                              {order.subOrders && order.subOrders.length > 0 ? (
+                                // Multi-seller order - group by sellers
+                                <div className="space-y-6">
+                                  {order.subOrders.map((subOrder, subIndex) => (
+                                    <div key={subOrder.id} className="space-y-3">
+                                      <div className="flex items-center justify-between pb-2 border-b">
+                                        <div className="flex items-center gap-3">
+                                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <Package className="h-4 w-4 text-primary" />
+                                          </div>
+                                          <div>
+                                            <h3 className="font-semibold text-sm">{subOrder.sellerName}</h3>
+                                            <p className="text-xs text-muted-foreground">
+                                              ${typeof subOrder.subtotal === 'string' ? subOrder.subtotal : subOrder.subtotal.toFixed(2)} • 
+                                              {subOrder.itemCount || subOrder.items.length} item{(subOrder.itemCount || subOrder.items.length) !== 1 ? 's' : ''}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <Badge variant={getStatusBadgeVariant(subOrder.status)} className="text-xs">
+                                          {subOrder.status.toUpperCase()}
+                                        </Badge>
+                                      </div>
+                                      
+                                      <div className="space-y-3 pl-6">
+                                        {subOrder.items.map((item, i) => (
+                                          <div key={i} className="flex items-center gap-4 p-3 rounded-lg border bg-muted/20">
+                                            {item.productImages?.[0] && (
+                                              <Image 
+                                                src={item.productImages[0]} 
+                                                alt={item.productTitle || "Product image"} 
+                                                width={64} 
+                                                height={64} 
+                                                className="rounded object-cover" 
+                                                unoptimized 
+                                              />
+                                            )}
+                                            <div className="flex-1">
+                                              <p className="font-medium">{item.productTitle}</p>
+                                              <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                                            </div>
+                                            <div className="text-right">
+                                              <p className="font-medium">${item.price}</p>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      {subOrder.trackingNumber && (
+                                        <div className="ml-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                          <div className="flex items-center gap-2 text-blue-700">
+                                            <Truck className="h-4 w-4" />
+                                            <span className="font-medium">Tracking: {subOrder.trackingNumber}</span>
+                                          </div>
+                                          {subOrder.estimatedDelivery && (
+                                            <p className="text-xs text-blue-600 mt-1">
+                                              Estimated delivery: {new Date(subOrder.estimatedDelivery).toLocaleDateString()}
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
-                                    <div className="text-right">
-                                      <p className="font-medium">${renderValue(item.price)}</p>
+                                  ))}
+                                </div>
+                              ) : (
+                                // Single seller order or legacy structure
+                                <div className="space-y-3">
+                                  {order.items?.map((item, i) => (
+                                    <div key={i} className="flex items-center gap-4 p-3 rounded-lg border">
+                                      {item.product?.images?.[0] && (
+                                        <Image 
+                                          src={item.product.images[0]} 
+                                          alt={renderValue(item.product.title || "Product image")} 
+                                          width={64} 
+                                          height={64} 
+                                          className="rounded object-cover" 
+                                          unoptimized 
+                                        />
+                                      )}
+                                      <div className="flex-1">
+                                        <p className="font-medium">{renderValue(item.product?.title || item.title)}</p>
+                                        <p className="text-sm text-muted-foreground">Quantity: {renderValue(item.quantity)}</p>
+                                        {item.sellerName && (
+                                          <p className="text-xs text-blue-600 mt-1">
+                                            Sold by: {item.sellerName}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="font-medium">${renderValue(item.price)}</p>
+                                        {item.subOrderStatus && (
+                                          <Badge variant="secondary" className="text-xs mt-1">
+                                            {item.subOrderStatus}
+                                          </Badge>
+                                        )}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         </div>

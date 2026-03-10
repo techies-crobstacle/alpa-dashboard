@@ -100,6 +100,7 @@ interface CommissionEarned {
   orderValue: string;
   commissionRate: string;
   commissionAmount: string;
+  netPayable: string;
   status: "PENDING" | "PAID" | "CANCELLED";
   createdAt: string;
   updatedAt: string;
@@ -109,6 +110,7 @@ interface CommissionEarnedSummary {
   totalOrders: number;
   totalOrderValue: number;
   totalCommissionEarned: number;
+  totalNetPayable: number;
   totalPaid: number;
   totalPending: number;
   totalCancelled: number;
@@ -120,6 +122,13 @@ interface EarnedPagination {
   limit: number;
   total: number;
   totalPages: number;
+}
+
+interface Seller {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  sellerProfile?: { storeName?: string | null; businessName?: string | null } | null;
 }
 
 // ─── page ─────────────────────────────────────────────────────────────────────
@@ -148,7 +157,29 @@ export default function AdminCommissionsPage() {
   const [earnedStatusFilter, setEarnedStatusFilter] = useState<string>("ALL");
   const [earnedFrom, setEarnedFrom] = useState("");
   const [earnedTo, setEarnedTo] = useState("");
+  const [earnedSellerFilter, setEarnedSellerFilter] = useState<string>("ALL");
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+
+  // ── Seller list for filter dropdown ───────────────────────────────────────
+  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [loadingSellers, setLoadingSellers] = useState(false);
+  const sellersLoadedRef = useRef(false);
+
+  const fetchSellerList = async () => {
+    if (sellersLoadedRef.current) return;
+    setLoadingSellers(true);
+    try {
+      const res = await api.get("/api/users/all");
+      const list: Seller[] = (Array.isArray(res) ? res : res.users || [])
+        .filter((u: any) => u.role === "SELLER");
+      setSellers(list);
+      sellersLoadedRef.current = true;
+    } catch {
+      // non-critical — filter just won't show names
+    } finally {
+      setLoadingSellers(false);
+    }
+  };
 
   // ── fetch ──────────────────────────────────────────────────────────────────
   const fetchCommissions = async () => {
@@ -178,6 +209,7 @@ export default function AdminCommissionsPage() {
     try {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (earnedStatusFilter !== "ALL") params.set("status", earnedStatusFilter);
+      if (earnedSellerFilter !== "ALL") params.set("sellerId", earnedSellerFilter);
       if (earnedFrom) params.set("from", earnedFrom);
       if (earnedTo) params.set("to", earnedTo);
       const res = await api.get(`/api/admin/commissions/earned?${params.toString()}`);
@@ -188,23 +220,45 @@ export default function AdminCommissionsPage() {
     } finally {
       setEarnedLoading(false);
     }
-  }, [earnedStatusFilter, earnedFrom, earnedTo]);
+  }, [earnedStatusFilter, earnedSellerFilter, earnedFrom, earnedTo]);
 
   const fetchEarnedSummary = useCallback(async () => {
     setSummaryLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (earnedFrom) params.set("from", earnedFrom);
-      if (earnedTo) params.set("to", earnedTo);
-      const query = params.toString();
-      const res = await api.get(`/api/admin/commissions/earned/summary${query ? `?${query}` : ""}`);
-      if (res?.summary) setEarnedSummary(res.summary);
+      if (earnedSellerFilter !== "ALL") {
+        // The summary endpoint doesn't support sellerId — compute client-side
+        // from all records for this seller (fetch up to 1000 which covers any real seller)
+        const params = new URLSearchParams({ page: "1", limit: "1000" });
+        params.set("sellerId", earnedSellerFilter);
+        if (earnedFrom) params.set("from", earnedFrom);
+        if (earnedTo) params.set("to", earnedTo);
+        const res = await api.get(`/api/admin/commissions/earned?${params.toString()}`);
+        const records: CommissionEarned[] = Array.isArray(res?.data) ? res.data : [];
+        const computed: CommissionEarnedSummary = {
+          totalOrders: records.length,
+          totalOrderValue: records.reduce((s, r) => s + parseFloat(r.orderValue || "0"), 0),
+          totalCommissionEarned: records.reduce((s, r) => s + parseFloat(r.commissionAmount || "0"), 0),
+          totalNetPayable: records.reduce((s, r) => s + parseFloat(r.netPayable || String(parseFloat(r.orderValue || "0") - parseFloat(r.commissionAmount || "0"))), 0),
+          totalPaid: records.filter((r) => r.status === "PAID").reduce((s, r) => s + parseFloat(r.commissionAmount || "0"), 0),
+          totalPending: records.filter((r) => r.status === "PENDING").reduce((s, r) => s + parseFloat(r.commissionAmount || "0"), 0),
+          totalCancelled: records.filter((r) => r.status === "CANCELLED").reduce((s, r) => s + parseFloat(r.commissionAmount || "0"), 0),
+          uniqueSellers: 1,
+        };
+        setEarnedSummary(computed);
+      } else {
+        const params = new URLSearchParams();
+        if (earnedFrom) params.set("from", earnedFrom);
+        if (earnedTo) params.set("to", earnedTo);
+        const query = params.toString();
+        const res = await api.get(`/api/admin/commissions/earned/summary${query ? `?${query}` : ""}`);
+        if (res?.summary) setEarnedSummary(res.summary);
+      }
     } catch (err: any) {
       toast.error(err?.message || "Failed to load commission summary");
     } finally {
       setSummaryLoading(false);
     }
-  }, [earnedFrom, earnedTo]);
+  }, [earnedSellerFilter, earnedFrom, earnedTo]);
 
   const handleMarkAsPaid = async (id: string) => {
     setUpdatingStatusId(id);
@@ -361,7 +415,7 @@ export default function AdminCommissionsPage() {
           <TabsTrigger value="plans" className="gap-2">
             <Percent className="h-4 w-4" /> Commission Plans
           </TabsTrigger>
-          <TabsTrigger value="earned" className="gap-2" onClick={() => { fetchEarned(1); fetchEarnedSummary(); }}>
+          <TabsTrigger value="earned" className="gap-2" onClick={() => { fetchSellerList(); fetchEarned(1); fetchEarnedSummary(); }}>
             <DollarSign className="h-4 w-4" /> Commission Earned
           </TabsTrigger>
         </TabsList>
@@ -776,36 +830,38 @@ export default function AdminCommissionsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Total Earned</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Gross Revenue</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalCommissionEarned.toFixed(2)}` : "—"}
+                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalOrderValue.toFixed(2)}` : "—"}
                 </div>
                 {earnedSummary && <p className="text-xs text-muted-foreground mt-1">{earnedSummary.totalOrders} orders</p>}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <CardTitle className="text-sm font-medium">Commission Earned</CardTitle>
+                <Percent className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalPaid.toFixed(2)}` : "—"}
+                <div className="text-2xl font-bold text-primary">
+                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalCommissionEarned.toFixed(2)}` : "—"}
                 </div>
+                {earnedSummary && <p className="text-xs text-muted-foreground mt-1">${earnedSummary.totalPending.toFixed(2)} pending</p>}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Total Pending</CardTitle>
-                <Clock className="h-4 w-4 text-yellow-500" />
+                <CardTitle className="text-sm font-medium">Total Payable to Sellers</CardTitle>
+                <DollarSign className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalPending.toFixed(2)}` : "—"}
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                  {summaryLoading ? <Skeleton className="h-8 w-24" /> : earnedSummary ? `$${earnedSummary.totalNetPayable.toFixed(2)}` : "—"}
                 </div>
+                <p className="text-xs text-muted-foreground mt-1">gross − commission</p>
               </CardContent>
             </Card>
             <Card>
@@ -827,6 +883,26 @@ export default function AdminCommissionsPage() {
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Filters</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">Seller</Label>
+                <Select value={earnedSellerFilter} onValueChange={setEarnedSellerFilter}>
+                  <SelectTrigger className="w-[200px] h-9">
+                    <SelectValue placeholder="All Sellers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All Sellers</SelectItem>
+                    {loadingSellers ? (
+                      <SelectItem value="__loading__" disabled>Loading sellers…</SelectItem>
+                    ) : (
+                      sellers.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.sellerProfile?.storeName || s.sellerProfile?.businessName || s.name || s.email || s.id}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs text-muted-foreground">Status</Label>
@@ -867,6 +943,7 @@ export default function AdminCommissionsPage() {
                 variant="outline"
                 className="h-9 gap-2"
                 onClick={() => {
+                  setEarnedSellerFilter("ALL");
                   setEarnedStatusFilter("ALL");
                   setEarnedFrom("");
                   setEarnedTo("");
@@ -891,6 +968,7 @@ export default function AdminCommissionsPage() {
                     <TableHead>Order Value</TableHead>
                     <TableHead>Rate</TableHead>
                     <TableHead>Commission</TableHead>
+                    <TableHead className="text-green-700 dark:text-green-400 font-semibold">Net Payable</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead className="text-right">Action</TableHead>
@@ -900,14 +978,14 @@ export default function AdminCommissionsPage() {
                   {earnedLoading ? (
                     Array.from({ length: 6 }).map((_, i) => (
                       <TableRow key={i}>
-                        {Array.from({ length: 9 }).map((__, j) => (
+                        {Array.from({ length: 10 }).map((__, j) => (
                           <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
                         ))}
                       </TableRow>
                     ))
                   ) : earned.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                      <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
                         No commission records found. Try adjusting the filters or click Apply.
                       </TableCell>
                     </TableRow>
@@ -936,7 +1014,12 @@ export default function AdminCommissionsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="font-bold text-primary">${parseFloat(r.commissionAmount).toFixed(2)}</span>
+                          <span className="font-medium text-muted-foreground">${parseFloat(r.commissionAmount).toFixed(2)}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-bold text-green-700 dark:text-green-400">
+                            ${r.netPayable ? parseFloat(r.netPayable).toFixed(2) : (parseFloat(r.orderValue) - parseFloat(r.commissionAmount)).toFixed(2)}
+                          </span>
                         </TableCell>
                         <TableCell>
                           {r.status === "PAID" ? (

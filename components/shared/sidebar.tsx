@@ -23,6 +23,8 @@ import {
 	ShoppingCart,
 	ClipboardList,
 	Bell,
+	Wallet,
+	Banknote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -33,8 +35,9 @@ const adminSidebarItems = [
 	{ title: "Orders",      href: "/admindashboard/orders",       icon: ShoppingCart,    badge: null },
 	{ title: "Products",    href: "/admindashboard/products",             icon: Package,  badge: null },
 	{ title: "Categories",  href: "/admindashboard/categories",          icon: Tag,      badge: null },
-	{ title: "Sellers",     href: "/admindashboard/sellers",      icon: Store,           badge: null },
-	{ title: "Customers",   href: "/admindashboard/customers",    icon: Users,           badge: null },
+	{ title: "Sellers",     href: "/admindashboard/sellers",                          icon: Store,     badge: null },
+	{ title: "Bank Requests", href: "/admindashboard/sellers/bank-change-requests",  icon: Banknote,  badge: null },
+	{ title: "Customers",   href: "/admindashboard/customers",                        icon: Users,     badge: null },
 	{ title: "Coupons",     href: "/admindashboard/coupon",       icon: Ticket,          badge: null },
 	{ title: "Shipping",    href: "/admindashboard/shipping",     icon: Truck,           badge: null },
 	{ title: "GST",         href: "/admindashboard/gst",          icon: Percent,         badge: null },
@@ -52,6 +55,7 @@ const sellerSidebarItems = [
 	{ title: "Products",   href: "/sellerdashboard/products",   icon: Package,         badge: null },
 	{ title: "Categories", href: "/sellerdashboard/categories", icon: Tag,             badge: null },
 	{ title: "Orders",     href: "/sellerdashboard/orders",     icon: ShoppingCart,    badge: null },
+	{ title: "Earnings",   href: "/sellerdashboard/earnings",   icon: Wallet,          badge: null },
 	{ title: "Profile",       href: "/sellerdashboard/profile",        icon: User,    badge: null },
 	{ title: "Notifications", href: "/sellerdashboard/notifications",  icon: Bell,    badge: null },
 	{ title: "Settings",      href: "/sellerdashboard/settings",       icon: Settings, badge: null },

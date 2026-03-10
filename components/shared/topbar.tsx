@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, LogOut, CheckCircle2, AlertTriangle, XCircle, Star, Pencil } from "lucide-react";
+import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, LogOut, CheckCircle2, AlertTriangle, XCircle, Star, Pencil, Banknote } from "lucide-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
@@ -60,6 +60,12 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 			return <UserCheck className="h-4 w-4 text-green-600" />;
 		case "PRODUCT_RECOMMENDATION":
 			return <Star className="h-4 w-4 text-indigo-600" />;
+		case "BANK_CHANGE_REQUESTED":
+			return <Banknote className="h-4 w-4 text-orange-600" />;
+		case "BANK_CHANGE_APPROVED":
+			return <Banknote className="h-4 w-4 text-green-600" />;
+		case "BANK_CHANGE_REJECTED":
+			return <Banknote className="h-4 w-4 text-red-600" />;
 		default:
 			return <Bell className="h-4 w-4 text-gray-600" />;
 	}
@@ -119,6 +125,11 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 					return "/sellerdashboard/profile";
 				case "PRODUCT_RECOMMENDATION":
 					return "/sellerdashboard/products";
+				case "BANK_CHANGE_REQUESTED":
+					return `/admindashboard/sellers/bank-change-requests${id ? `?highlight=${id}` : ""}`;
+				case "BANK_CHANGE_APPROVED":
+				case "BANK_CHANGE_REJECTED":
+					return "/sellerdashboard/settings/bank-details";
 				case "GENERAL":
 					if (n.relatedType === "product") return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
 					return null;
