@@ -126,7 +126,7 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 				case "PRODUCT_RECOMMENDATION":
 					return "/sellerdashboard/products";
 				case "BANK_CHANGE_REQUESTED":
-					return "/admindashboard/sellers/bank-change-requests";
+					return `/admindashboard/sellers/bank-change-requests${id ? `?highlight=${id}` : ""}`;
 				case "BANK_CHANGE_APPROVED":
 				case "BANK_CHANGE_REJECTED":
 					return "/sellerdashboard/settings/bank-details";

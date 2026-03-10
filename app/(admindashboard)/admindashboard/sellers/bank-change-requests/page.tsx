@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -154,6 +155,10 @@ function BankDetailsGrid({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function BankChangeRequestsPage() {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
+  const highlightRef = useRef<HTMLDivElement | null>(null);
+
   const [requests, setRequests] = useState<BankChangeRequest[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     total: 0,
@@ -163,6 +168,7 @@ export default function BankChangeRequestsPage() {
   });
   const [statusFilter, setStatusFilter] = useState<BankChangeStatus | "ALL">("ALL");
   const [isLoading, setIsLoading] = useState(true);
+  const [highlightedRequest, setHighlightedRequest] = useState<BankChangeRequest | null>(null);
 
   // Approve state
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -199,6 +205,28 @@ export default function BankChangeRequestsPage() {
     [statusFilter]
   );
 
+  // ── Fetch single highlighted request from notification deep-link ───────────
+
+  useEffect(() => {
+    if (!highlightId) return;
+    api.get(`/api/admin/bank-change-requests/${highlightId}`)
+      .then((data) => {
+        const req: BankChangeRequest = data.request ?? data;
+        setHighlightedRequest(req);
+      })
+      .catch(() => {
+        // Non-critical — falls back to normal list
+      });
+  }, [highlightId]);
+
+  // ── Scroll to highlighted card once it renders ─────────────────────────────
+
+  useEffect(() => {
+    if (highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightedRequest]);
+
   useEffect(() => {
     fetchRequests(1);
   }, [fetchRequests]);
@@ -213,6 +241,12 @@ export default function BankChangeRequestsPage() {
         description: "The seller's bank details have been updated.",
       });
       await fetchRequests(pagination.page);
+      // Refresh the highlighted card too if it was the actioned request
+      if (highlightId === requestId) {
+        api.get(`/api/admin/bank-change-requests/${requestId}`)
+          .then((d) => setHighlightedRequest(d.request ?? d))
+          .catch(() => {});
+      }
     } catch (err: any) {
       toast.error("Approval failed", {
         description: err.message || "Please try again.",
@@ -244,6 +278,12 @@ export default function BankChangeRequestsPage() {
       setRejectingId(null);
       setReviewNote("");
       await fetchRequests(pagination.page);
+      // Refresh the highlighted card too if it was the actioned request
+      if (highlightId === rejectingId) {
+        api.get(`/api/admin/bank-change-requests/${rejectingId}`)
+          .then((d) => setHighlightedRequest(d.request ?? d))
+          .catch(() => {});
+      }
     } catch (err: any) {
       toast.error("Rejection failed", {
         description: err.message || "Please try again.",
@@ -269,6 +309,71 @@ export default function BankChangeRequestsPage() {
       </div>
 
       <Separator />
+
+      {/* Highlighted request from notification deep-link */}
+      {highlightedRequest && (
+        <div ref={highlightRef}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Opened from notification
+          </p>
+          <Card className="border-2 border-orange-400 dark:border-orange-600 shadow-md">
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle className="text-base">{highlightedRequest.seller.user.name}</CardTitle>
+                  <CardDescription>{highlightedRequest.seller.user.email}</CardDescription>
+                  <CardDescription>{highlightedRequest.seller.storeName}</CardDescription>
+                </div>
+                {statusBadge(highlightedRequest.status)}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <BankDetailsGrid label="Current" details={highlightedRequest.seller.bankDetails} />
+                <BankDetailsGrid label="Requested" details={highlightedRequest.newBankDetails} />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Reason</p>
+                <p className="text-sm">{highlightedRequest.reason}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Submitted{" "}
+                {new Date(highlightedRequest.createdAt).toLocaleDateString("en-AU", {
+                  day: "numeric", month: "long", year: "numeric",
+                })}
+              </p>
+              {highlightedRequest.status === "PENDING" && (
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => handleApprove(highlightedRequest.id)}
+                    disabled={approvingId === highlightedRequest.id}
+                  >
+                    {approvingId === highlightedRequest.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                    ) : (
+                      <Check className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => openRejectDialog(highlightedRequest.id)}
+                    disabled={approvingId === highlightedRequest.id}
+                  >
+                    <X className="h-3.5 w-3.5 mr-1" />
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Separator className="mt-6" />
+        </div>
+      )}
 
       {/* Status filter tabs */}
       <Tabs
