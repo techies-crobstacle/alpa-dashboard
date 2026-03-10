@@ -24,6 +24,7 @@ import {
 	ClipboardList,
 	Bell,
 	Wallet,
+	Banknote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -34,8 +35,9 @@ const adminSidebarItems = [
 	{ title: "Orders",      href: "/admindashboard/orders",       icon: ShoppingCart,    badge: null },
 	{ title: "Products",    href: "/admindashboard/products",             icon: Package,  badge: null },
 	{ title: "Categories",  href: "/admindashboard/categories",          icon: Tag,      badge: null },
-	{ title: "Sellers",     href: "/admindashboard/sellers",      icon: Store,           badge: null },
-	{ title: "Customers",   href: "/admindashboard/customers",    icon: Users,           badge: null },
+	{ title: "Sellers",     href: "/admindashboard/sellers",                          icon: Store,     badge: null },
+	{ title: "Bank Requests", href: "/admindashboard/sellers/bank-change-requests",  icon: Banknote,  badge: null },
+	{ title: "Customers",   href: "/admindashboard/customers",                        icon: Users,     badge: null },
 	{ title: "Coupons",     href: "/admindashboard/coupon",       icon: Ticket,          badge: null },
 	{ title: "Shipping",    href: "/admindashboard/shipping",     icon: Truck,           badge: null },
 	{ title: "GST",         href: "/admindashboard/gst",          icon: Percent,         badge: null },

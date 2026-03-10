@@ -29,7 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertCircle, Banknote, Clock, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Banknote, CheckCircle2, Clock, Eye, EyeOff, History, XCircle } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,18 @@ interface PendingChangeRequest {
   reason: string;
   status: "PENDING";
   createdAt: string;
+}
+
+type BankChangeStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+interface HistoryRequest {
+  id: string;
+  newBankDetails: BankDetails;
+  reason: string;
+  status: BankChangeStatus;
+  reviewNote: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ─── Change-request form schema ──────────────────────────────────────────────
@@ -66,6 +78,34 @@ const changeRequestSchema = z.object({
 
 type ChangeRequestValues = z.infer<typeof changeRequestSchema>;
 
+// ─── Status badge helper ──────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: BankChangeStatus }) {
+  switch (status) {
+    case "PENDING":
+      return (
+        <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
+          <Clock className="h-3 w-3 mr-1" />
+          Pending
+        </Badge>
+      );
+    case "APPROVED":
+      return (
+        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 border-green-300 dark:border-green-700">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Approved
+        </Badge>
+      );
+    case "REJECTED":
+      return (
+        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border-red-300 dark:border-red-700">
+          <XCircle className="h-3 w-3 mr-1" />
+          Rejected
+        </Badge>
+      );
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function BankDetailsSettingsPage() {
@@ -75,6 +115,9 @@ export default function BankDetailsSettingsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const [history, setHistory] = useState<HistoryRequest[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const form = useForm<ChangeRequestValues>({
     resolver: zodResolver(changeRequestSchema),
@@ -106,8 +149,24 @@ export default function BankDetailsSettingsPage() {
     }
   };
 
+  // ── Fetch request history ─────────────────────────────────────────────────
+
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const data = await api.get("/api/sellers/bank-change-requests");
+      setHistory(data.requests ?? []);
+    } catch {
+      // History is supplementary — fail silently, don't interrupt the main view
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchBankDetails();
+    fetchHistory();
   }, []);
 
   // ── Submit change request ─────────────────────────────────────────────────
@@ -130,8 +189,8 @@ export default function BankDetailsSettingsPage() {
 
       setDialogOpen(false);
       form.reset();
-      // Refresh to show the pending banner
-      await fetchBankDetails();
+      // Refresh both the current details and history
+      await Promise.all([fetchBankDetails(), fetchHistory()]);
     } catch (error: any) {
       const msg: string = error.message || "";
 
@@ -146,7 +205,7 @@ export default function BankDetailsSettingsPage() {
         });
         setDialogOpen(false);
         form.reset();
-        await fetchBankDetails();
+        await Promise.all([fetchBankDetails(), fetchHistory()]);
       } else {
         toast.error("Submission failed", {
           description: msg || "Please check your details and try again.",
@@ -262,6 +321,83 @@ export default function BankDetailsSettingsPage() {
           <p className="mt-2 text-xs text-muted-foreground">
             You cannot submit a new request while one is under review.
           </p>
+        )}
+      </div>
+
+      {/* ── Request history ──────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <History className="h-4 w-4 text-muted-foreground" />
+          <h4 className="text-sm font-medium">Request History</h4>
+        </div>
+
+        {historyLoading ? (
+          <div className="space-y-2">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : history.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            You haven't submitted any bank change requests yet.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {history.map((req) => (
+              <div
+                key={req.id}
+                className="rounded-lg border p-4 text-sm space-y-2"
+              >
+                {/* Row 1: status + date */}
+                <div className="flex items-center justify-between gap-2">
+                  <StatusBadge status={req.status} />
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(req.createdAt).toLocaleDateString("en-AU", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+
+                {/* Row 2: requested details */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                  <span className="text-muted-foreground">Bank</span>
+                  <span className="font-medium">{req.newBankDetails.bankName}</span>
+                  <span className="text-muted-foreground">Account name</span>
+                  <span className="font-medium">{req.newBankDetails.accountName}</span>
+                  <span className="text-muted-foreground">BSB</span>
+                  <span className="font-mono">{req.newBankDetails.bsb}</span>
+                  <span className="text-muted-foreground">Account no.</span>
+                  <span className="font-mono">{req.newBankDetails.accountNumber}</span>
+                </div>
+
+                {/* Row 3: reason */}
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Reason: </span>
+                  {req.reason}
+                </p>
+
+                {/* Row 4: review note (if rejected) */}
+                {req.status === "REJECTED" && req.reviewNote && (
+                  <div className="flex gap-1.5 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2 text-xs text-red-800 dark:text-red-300">
+                    <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      <span className="font-medium">Admin note: </span>
+                      {req.reviewNote}
+                    </span>
+                  </div>
+                )}
+
+                {req.status === "APPROVED" && (
+                  <div className="flex gap-1.5 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-3 py-2 text-xs text-green-800 dark:text-green-300">
+                    <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>These details were approved and applied to your account.</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

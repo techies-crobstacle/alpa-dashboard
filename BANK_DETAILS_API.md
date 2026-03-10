@@ -1,12 +1,26 @@
-# Bank Details — Integration Guide
+# Bank Details — API Integration Guide
 
-> **Audience:** Frontend / Dashboard team  
+> **Audience:** Frontend / Dashboard Team  
 > **Base URL:** All seller endpoints are prefixed with `/seller-onboarding`, admin endpoints with `/admin`  
-> **Auth:** Every protected endpoint requires a Bearer token in the `Authorization` header
+> **Auth:** Every protected endpoint requires a Bearer token in the `Authorization` header  
+> **Last Updated:** March 10, 2026
 
 ```
 Authorization: Bearer <jwt_token>
 ```
+
+---
+
+## Quick Reference
+
+| # | Who | Method | Endpoint | Purpose |
+|---|-----|--------|----------|---------|
+| 1 | Seller | `GET` | `/seller-onboarding/bank-details` | Fetch masked current bank details + any pending request |
+| 2 | Seller | `POST` | `/seller-onboarding/bank-details/change-request` | Submit a change request (requires current password) |
+| 3 | Seller | `GET` | `/seller-onboarding/bank-change-requests` | Full history of the seller's own change requests |
+| 4 | Admin | `GET` | `/admin/bank-change-requests` | List all change requests (filterable, paginated) |
+| 5 | Admin | `POST` | `/admin/bank-change-requests/:id/approve` | Approve a request — atomically updates live bank details |
+| 6 | Admin | `POST` | `/admin/bank-change-requests/:id/reject` | Reject a request — live bank details unchanged |
 
 ---
 
@@ -15,11 +29,14 @@ Authorization: Bearer <jwt_token>
 1. [Overview & Flow](#1-overview--flow)
 2. [Seller — Get Bank Details](#2-seller--get-bank-details)
 3. [Seller — Request Bank Details Change](#3-seller--request-bank-details-change)
-4. [Admin — List Bank Change Requests](#4-admin--list-bank-change-requests)
-5. [Admin — Approve a Request](#5-admin--approve-a-request)
-6. [Admin — Reject a Request](#6-admin--reject-a-request)
-7. [Status & Error Reference](#7-status--error-reference)
-8. [UI Implementation Notes](#8-ui-implementation-notes)
+4. [Seller — Get Request History](#4-seller--get-request-history)
+5. [Admin — List Bank Change Requests](#5-admin--list-bank-change-requests)
+6. [Admin — Approve a Request](#6-admin--approve-a-request)
+7. [Admin — Reject a Request](#7-admin--reject-a-request)
+8. [Status & Error Reference](#8-status--error-reference)
+9. [UI Implementation Notes](#9-ui-implementation-notes)
+
+> **Note — Initial Onboarding:** `POST /seller-onboarding/bank-details` is a separate endpoint used only during the seller onboarding wizard (Step 7). It is **not** part of this change-request flow and does not require a password or admin approval.
 
 ---
 
@@ -190,7 +207,98 @@ Content-Type: application/json
 
 ---
 
-## 4. Admin — List Bank Change Requests
+## 4. Seller — Get Request History
+
+Returns the authenticated seller's **complete history** of bank change requests, ordered most-recent first. Results are always scoped to the calling seller — other sellers' data is never returned.
+
+Use this to populate the "Request History" section on the seller's settings page, showing past approved and rejected requests along with any admin review notes.
+
+### Request
+
+```
+GET /seller-onboarding/bank-change-requests
+Authorization: Bearer <seller_token>
+```
+
+### Query Parameters
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page` | number | `1` | Page number |
+| `limit` | number | `20` | Items per page (max 100) |
+
+**Example:**
+```
+GET /seller-onboarding/bank-change-requests?page=1&limit=20
+```
+
+### Success Response `200`
+
+```json
+{
+  "success": true,
+  "requests": [
+    {
+      "id": "clxyz123abc",
+      "newBankDetails": {
+        "bankName": "ANZ Bank",
+        "accountName": "John Smith",
+        "bsb": "013-000",
+        "accountNumber": "87654321"
+      },
+      "reason": "Switched to a new bank account",
+      "status": "REJECTED",
+      "reviewNote": "The BSB provided does not appear to be valid. Please resubmit.",
+      "createdAt": "2026-03-01T10:30:00.000Z",
+      "updatedAt": "2026-03-02T09:00:00.000Z"
+    },
+    {
+      "id": "clabc456def",
+      "newBankDetails": {
+        "bankName": "Commonwealth Bank",
+        "accountName": "John Smith",
+        "bsb": "062-000",
+        "accountNumber": "11223344"
+      },
+      "reason": "Opening a new business account",
+      "status": "APPROVED",
+      "reviewNote": null,
+      "createdAt": "2026-01-15T08:00:00.000Z",
+      "updatedAt": "2026-01-16T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "total": 2,
+    "page": 1,
+    "limit": 20,
+    "pages": 1
+  }
+}
+```
+
+### Fields per Request Object
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | string | Request ID |
+| `newBankDetails` | object | `bankName`, `accountName`, `bsb`, `accountNumber` |
+| `reason` | string | Seller's stated reason |
+| `status` | `PENDING` \| `APPROVED` \| `REJECTED` | Current status |
+| `reviewNote` | string \| null | Admin's note — `null` if no note or not yet reviewed |
+| `createdAt` | ISO datetime | When submitted |
+| `updatedAt` | ISO datetime | When last actioned |
+
+### Error Responses
+
+| Status | Reason |
+|--------|--------|
+| `401` | Token missing or expired |
+| `404` | Seller profile not found |
+| `500` | Server error |
+
+---
+
+## 5. Admin — List Bank Change Requests
 
 Retrieve all bank change requests with optional status filtering and pagination.
 
@@ -266,7 +374,7 @@ GET /admin/bank-change-requests?status=APPROVED&page=2&limit=10
 
 ---
 
-## 5. Admin — Approve a Request
+## 6. Admin — Approve a Request
 
 Approves a pending bank change request. This **atomically** updates the seller's live bank details and marks the request as `APPROVED` in a single database transaction.
 
@@ -305,7 +413,7 @@ None required.
 
 ---
 
-## 6. Admin — Reject a Request
+## 7. Admin — Reject a Request
 
 Rejects a pending bank change request. The seller's live bank details are **not** modified.
 
@@ -353,7 +461,7 @@ Content-Type: application/json
 
 ---
 
-## 7. Status & Error Reference
+## 8. Status & Error Reference
 
 ### `BankChangeStatus` Enum
 
@@ -377,7 +485,7 @@ Content-Type: application/json
 
 ---
 
-## 8. UI Implementation Notes
+## 9. UI Implementation Notes
 
 ### Seller Dashboard — Bank Details Section
 
@@ -426,6 +534,19 @@ Suggested page layout:
    - ❌ **Reject** → opens a small modal to enter an optional `reviewNote`, then `POST /admin/bank-change-requests/:id/reject`
 4. After approve/reject, refresh the list
 
+### Seller Dashboard — Request History Page
+
+1. **On page load:** Call `GET /seller-onboarding/bank-change-requests`
+2. **Display a timeline or table** of past requests, most-recent first
+3. **Per row show:**
+   - Date submitted (`createdAt`)
+   - Requested bank details (`newBankDetails`)
+   - Reason
+   - Status badge: `PENDING` (yellow) / `APPROVED` (green) / `REJECTED` (red)
+   - If `status === "REJECTED"` and `reviewNote` is not `null`: show the admin's note in a highlighted block beneath the row
+4. **Pagination:** use `page` / `limit` query params if the seller has many requests; display total from `pagination.total`
+5. **Empty state:** If `requests` is an empty array, show "No bank change requests yet"
+
 ---
 
-*Generated: March 9, 2026*
+*Last Updated: March 10, 2026*
