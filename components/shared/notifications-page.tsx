@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import {
 	Loader2, Bell, Package, ShoppingCart, UserCheck,
 	AlertCircle, CheckCircle2, Clock, AlertTriangle,
-	XCircle, Trash2, Star, Pencil,
+	XCircle, Trash2, Star, Pencil, ClipboardList,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -45,6 +45,11 @@ const getIcon = (n: Pick<Notification, "type" | "metadata" | "relatedType">) => 
 			return <Package className="h-5 w-5 text-blue-600" />;
 		case "ORDER_CANCELLED":
 			return <XCircle className="h-5 w-5 text-red-600" />;
+		case "CATEGORY_REQUEST":
+		case "CATEGORY_REQUEST_RESUBMITTED":
+			return <ClipboardList className="h-5 w-5 text-purple-600" />;
+		case "SELLER_APPLICATION":
+			return <UserCheck className="h-5 w-5 text-indigo-600" />;
 		case "PRODUCT_STATUS_CHANGED":
 			if (status === "ACTIVE") return <CheckCircle2 className="h-5 w-5 text-green-600" />;
 			if (status === "REJECTED") return <XCircle className="h-5 w-5 text-red-600" />;
@@ -79,6 +84,11 @@ const getTypeColor = (n: Pick<Notification, "type" | "metadata" | "relatedType">
 			return "bg-blue-100 text-blue-800 border-blue-200";
 		case "ORDER_CANCELLED":
 			return "bg-red-100 text-red-800 border-red-200";
+		case "CATEGORY_REQUEST":
+		case "CATEGORY_REQUEST_RESUBMITTED":
+			return "bg-purple-100 text-purple-800 border-purple-200";
+		case "SELLER_APPLICATION":
+			return "bg-indigo-100 text-indigo-800 border-indigo-200";
 		case "PRODUCT_STATUS_CHANGED":
 			if (status === "ACTIVE") return "bg-green-100 text-green-800 border-green-200";
 			if (status === "REJECTED") return "bg-red-100 text-red-800 border-red-200";

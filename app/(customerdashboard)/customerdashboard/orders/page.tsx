@@ -7,7 +7,7 @@
 // import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp } from "lucide-react";
 // import Image from "next/image";
 
-// const BASE_URL = "https://alpa-be.onrender.com";
+// const BASE_URL = "http://127.0.0.1:5000";
 
 // function getAuthHeaders() {
 //   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -168,7 +168,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
 
-const BASE_URL = "https://alpa-be.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 function getAuthHeaders() {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -184,14 +184,30 @@ type OrderItem = {
   quantity: number;
   price?: string;
 };
+
+// NEW: Sub-order type for multi-seller orders
+type SubOrder = {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  status: string;
+  trackingNumber?: string;
+  estimatedDelivery?: string;
+  subtotal: number;
+  items: OrderItem[];
+  statusReason?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type Order = {
   id: any;
   createdAt: any;
-  status: any;
-  items?: OrderItem[];
-  totalAmount: any;
-  trackingNumber?: any;
-  estimatedDelivery?: any;
+  status: any; // Will need aggregation logic for mixed statuses
+  items?: OrderItem[]; // All items across all sellers
+  totalAmount: any; // Total across all sellers
+  trackingNumber?: any; // Legacy field, prefer subOrders tracking
+  estimatedDelivery?: any; // Legacy field, prefer subOrders delivery
   paymentMethod?: any;
   shippingAddress?: any;
   shippingCity?: any;
@@ -200,11 +216,35 @@ type Order = {
   shippingPhone?: any;
   shippingAddressLine?: any;
   statusReason?: any;
+  subOrders?: SubOrder[]; // NEW: Sub-orders per seller
 };
 
-const OrderProgressTracker = ({ status }: { status: any }) => {
+const OrderProgressTracker = ({ order }: { order: Order }) => {
   const statuses = ['confirmed', 'processing', 'shipped', 'delivered'];
-  const statusStr = typeof status === 'string' ? status.toLowerCase() : '';
+  
+  // For multi-seller orders, determine aggregated status
+  const getAggregatedStatus = (order: Order): string => {
+    if (!order.subOrders || order.subOrders.length === 0) {
+      return typeof order.status === 'string' ? order.status.toLowerCase() : '';
+    }
+    
+    const subOrderStatuses = order.subOrders.map(sub => sub.status.toLowerCase());
+    
+    // If any cancelled/refunded, show that status
+    if (subOrderStatuses.some(status => status === 'cancelled')) return 'cancelled';
+    if (subOrderStatuses.some(status => status === 'refund' || status === 'partial_refund')) {
+      return subOrderStatuses.includes('partial_refund') ? 'partial_refund' : 'refund';
+    }
+    
+    // For progression: use the minimum status (least progressed)
+    const statusIndexes = subOrderStatuses.map(status => statuses.indexOf(status)).filter(idx => idx !== -1);
+    if (statusIndexes.length === 0) return '';
+    
+    const minIndex = Math.min(...statusIndexes);
+    return statuses[minIndex];
+  };
+  
+  const statusStr = getAggregatedStatus(order);
   const isCancelled = statusStr === 'cancelled';
   const isRefund = statusStr === 'refund' || statusStr === 'partial_refund';
 
@@ -302,6 +342,49 @@ const OrderProgressTracker = ({ status }: { status: any }) => {
           );
         })}
       </div>
+
+      {/* Multi-seller sub-order status breakdown */}
+      {order.subOrders && order.subOrders.length > 1 && (
+        <div className="mt-6 pt-4 border-t space-y-3">
+          <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Order Details by Seller
+          </h4>
+          <div className="grid gap-3">
+            {order.subOrders.map((subOrder, index) => (
+              <div key={subOrder.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">{subOrder.sellerName}</span>
+                    <Badge variant={getStatusBadgeVariant(subOrder.status)} className="text-xs">
+                      {subOrder.status.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    ${subOrder.subtotal.toFixed(2)} • {subOrder.items.length} item{subOrder.items.length !== 1 ? 's' : ''}
+                  </div>
+                  {subOrder.trackingNumber && (
+                    <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                      <Truck className="h-3 w-3" />
+                      Tracking: {subOrder.trackingNumber}
+                      {subOrder.estimatedDelivery && (
+                        <span className="text-muted-foreground">
+                          • Est: {new Date(subOrder.estimatedDelivery).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {subOrder.statusReason && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {subOrder.statusReason}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -732,7 +815,7 @@ const CustomerOrdersPage = () => {
                               <CardTitle className="text-lg">Order Progress</CardTitle>
                             </CardHeader>
                             <CardContent>
-                              <OrderProgressTracker status={order.status} />
+                              <OrderProgressTracker order={order} />
                             </CardContent>
                           </Card>
 

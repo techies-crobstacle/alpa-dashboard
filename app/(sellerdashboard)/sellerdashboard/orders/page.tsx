@@ -22,12 +22,20 @@ import {
   isTerminalStatus,
 } from "@/lib/orderStatusRules";
 
-const BASE_URL = "https://alpa-be.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 // --- API HELPERS ---
-const getAuthHeaders = () => {
-  // const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWppZjNrOTEwMDAyd296eDdma3BidWhxIiwidXNlclR5cGUiOiJzZWxsZXIiLCJyb2xlIjoiU0VMTEVSIiwiaWF0IjoxNzY2NDg0NTEzLCJleHAiOjE3NjkwNzY1MTN9.Y82RBMLKkta1bb1Lj7ZsWjKdHky4AwQe1lg80_yjjCk";
+const getAuthHeaders = (): HeadersInit => {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+  
+  if (!token) {
+    console.warn("No authentication token found");
+    toast.error("Please log in again to access orders");
+    return {
+      "Content-Type": "application/json"
+    };
+  }
+  
   return {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${token}`,
@@ -45,12 +53,13 @@ type OrderItem = {
 };
 type Order = {
   id: any;
+  parentOrderId?: any; // NEW: Reference to parent order for multi-seller orders
   createdAt: any;
   customerName?: any;
   status: any;
   statusReason?: any;
   items?: OrderItem[];
-  totalAmount: any;
+  totalAmount: any; // Now represents seller's portion (subtotal)
   trackingNumber?: any;
   estimatedDelivery?: any;
   paymentMethod?: any;
@@ -112,6 +121,11 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Failed to update status");
       }
+      
+      // Handle new response structure with subOrder field
+      const responseData = await res.json();
+      const updatedSubOrder = responseData.subOrder || responseData.order; // Backward compatibility
+      
       // If shipping, persist tracking info via the dedicated tracking endpoint
       if (selectedStatus === "SHIPPED" && trackingNumber && estimatedDelivery) {
         await fetch(`${BASE_URL}/api/seller/orders/tracking/${order.id}`, {
@@ -120,7 +134,14 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
           body: JSON.stringify({ trackingNumber, estimatedDelivery }),
         });
       }
-      toast.success(`Order updated to ${getStatusLabel(selectedStatus)}`);
+      
+      // Show success message with updated status
+      const statusLabel = getStatusLabel(selectedStatus);
+      if (updatedSubOrder?.trackingNumber && selectedStatus === "SHIPPED") {
+        toast.success(`Order updated to ${statusLabel}. Tracking: ${updatedSubOrder.trackingNumber}`);
+      } else {
+        toast.success(`Order updated to ${statusLabel}`);
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -223,6 +244,8 @@ export default function OrdersPage() {
     // Only declare expandedOrderId once at the top of the component
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [activeStatusOrder, setActiveStatusOrder] = useState<Order | null>(null);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingData, setTrackingData] = useState({ trackingNumber: "", estimatedDelivery: "" });
@@ -274,16 +297,93 @@ export default function OrdersPage() {
   }, []);
 
   // 1. GET Orders
-  const fetchOrders = async () => {
+  const fetchOrders = async (isRetry: boolean = false) => {
     try {
       setLoading(true);
-      const res = await fetch(`${BASE_URL}/api/seller/orders`, { headers: getAuthHeaders() });
+      setError(null);
+
+      const res = await fetch(`${BASE_URL}/api/seller/orders`, { 
+        headers: getAuthHeaders(),
+        cache: 'no-cache' // Prevent caching issues
+      });
+      
+      if (!res.ok) {
+        let errorMessage = `HTTP ${res.status}: ${res.statusText}`;
+        
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          errorMessage = await res.text().catch(() => errorMessage);
+        }
+
+        // Handle specific error cases
+        if (res.status === 401) {
+          setError("Authentication failed. Please log in again.");
+          toast.error("Authentication failed. Please log in again.");
+          return;
+        } else if (res.status === 403) {
+          setError("Access denied. You don't have permission to view orders.");
+          toast.error("Access denied. You don't have permission to view orders.");
+          return;
+        } else if (res.status >= 500) {
+          if (errorMessage.includes('findMany')) {
+            setError("Database connection issue. The server is experiencing problems.");
+            toast.error("Database connection issue. Please try again later.");
+          } else {
+            setError(`Server error: ${errorMessage}`);
+            toast.error("Server error. Please try again later.");
+          }
+          console.error(`Server error ${res.status}:`, errorMessage);
+          return;
+        }
+        throw new Error(errorMessage);
+      }
+      
       const data = await res.json();
+      console.log("Orders data received:", data); // Debug log
+      
+      if (!data.success && data.message) {
+        throw new Error(data.message);
+      }
+      
       setOrders(data.orders || []);
-    } catch {
-      toast.error("Failed to load orders");
+      setRetryCount(0); // Reset retry count on success
+      
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+      
+      let errorMessage = "Unknown error occurred";
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = "Unable to connect to server. Please check your connection.";
+        toast.error("Unable to connect to server. Please check your connection.");
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        if (errorMessage.includes('findMany')) {
+          errorMessage = "Database connection issue. The server is experiencing problems.";
+          toast.error("Database connection issue detected. Please contact support if this persists.");
+        } else {
+          toast.error(`Failed to load orders: ${errorMessage}`);
+        }
+      }
+      
+      setError(errorMessage);
+      setOrders([]); // Set empty array as fallback
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Retry function with exponential backoff
+  const handleRetry = () => {
+    if (retryCount < 3) {
+      setRetryCount(prev => prev + 1);
+      toast.info(`Retrying... (${retryCount + 1}/3)`);
+      setTimeout(() => fetchOrders(true), 1000 * Math.pow(2, retryCount)); // Exponential backoff
+    } else {
+      toast.error("Max retries reached. Please contact support.");
     }
   };
 
@@ -417,6 +517,44 @@ export default function OrdersPage() {
     </div>
   );
 
+  // Error state
+  if (error && !loading) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+            <p className="text-muted-foreground">Manage customer purchases and shipping status.</p>
+          </div>
+        </div>
+
+        <Card className="p-8 text-center">
+          <div className="flex flex-col items-center space-y-4">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">Unable to Load Orders</h3>
+              <p className="text-muted-foreground max-w-md">{error}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => fetchOrders()} disabled={loading}>
+                <RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Try Again
+              </Button>
+              {retryCount > 0 && retryCount < 3 && (
+                <Button variant="outline" onClick={handleRetry} disabled={loading}>
+                  Auto Retry ({retryCount}/3)
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              If this problem persists, please contact support with error code: DB_CONNECTION_ERROR
+            </p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   // Helper to render shipping address safely
   function renderOrderDetails(order: Order) {
     let addr: any = {};
@@ -542,14 +680,30 @@ export default function OrdersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">Manage customer purchases and shipping status.</p>
         </div>
-
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchOrders()} disabled={loading}>
+            <RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      {orders.length === 0 ? (
-        <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
-      ) : (
-        <div className="grid gap-4">
-          {paginatedOrders.map((order) => (
+      {orders.length === 0 && !error ? (
+        <Card className="p-12 text-center">
+          <div className="flex flex-col items-center space-y-4">
+            <Package className="h-12 w-12 text-muted-foreground" />
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold">No Orders Found</h3>
+              <p className="text-muted-foreground">You haven't received any orders yet, or they might not be loading properly.</p>
+            </div>
+            <Button variant="outline" onClick={() => fetchOrders()} disabled={loading}>
+              <RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Orders
+            </Button>
+          </div>
+        </Card>
+      ) : orders.length > 0 ? (
+        <div className="grid gap-4">{paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
@@ -640,7 +794,7 @@ export default function OrdersPage() {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* Pagination */}
       {!loading && orders.length > 0 && (
