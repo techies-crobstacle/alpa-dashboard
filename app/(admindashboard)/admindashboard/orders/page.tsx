@@ -32,31 +32,77 @@ type Seller = {
   email: string;
 };
 
+type Product = {
+  id: string;
+  title: string;
+  images?: string[];
+  price: string;
+  sellerId: string;
+};
+
 type OrderItem = {
-  product?: {
-    title?: string;
-    images?: string[];
-  };
-  title?: string;
+  id: string;
+  orderId: string;
+  subOrderId?: string | null;
+  productId: string;
   quantity: number;
+  price: string;
+  createdAt: string;
+  product: Product;
+};
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string;
+  createdAt: string;
 };
 
 type Order = {
-  id: any;
-  createdAt: any;
-  customerName?: any;
-  status: any;
-  items?: OrderItem[];
-  totalAmount: any;
-  trackingNumber?: any;
-  estimatedDelivery?: any;
-  paymentMethod?: any;
-  statusReason?: any;
+  id: string;
+  subOrderId?: string | null;
+  parentOrderId?: string | null;
+  sellerId: string;
+  status: string;
+  trackingNumber?: string | null;
+  estimatedDelivery?: string | null;
+  statusReason?: string | null;
+  subtotal: string;
+  createdAt: string;
+  updatedAt: string;
+  type: 'DIRECT' | 'SUB_ORDER';
+  totalAmount: string;
+  paymentMethod: string;
+  paymentStatus: string;
   shippingAddress?: any;
-  shippingCity?: any;
-  shippingState?: any;
-  shippingPostcode?: any;
-  shippingPhone?: any;
+  shippingAddressLine: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingZipCode: string;
+  shippingCountry: string;
+  shippingPhone: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  user: User;
+  items: OrderItem[];
+  isSubOrder: boolean;
+  sellerSpecific: boolean;
+};
+
+type OrdersResponse = {
+  success: boolean;
+  orders: Order[];
+  count: number;
+  sellerId?: string;
+  breakdown: {
+    directOrders: number;
+    subOrders: number;
+    total: number;
+  };
+  note?: string;
 };
 
 // ─── Status Update Modal ──────────────────────────────────────────────────────
@@ -218,6 +264,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingSellers, setLoadingSellers] = useState(true);
+  const [breakdown, setBreakdown] = useState<{directOrders: number; subOrders: number; total: number} | null>(null);
   const [activeStatusOrder, setActiveStatusOrder] = useState<Order | null>(null);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [trackingNumber, setTrackingNumber] = useState<string>("");
@@ -272,15 +319,19 @@ export default function AdminOrdersPage() {
   const fetchOrders = async (sellerId: string) => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/admin/orders/by-seller/${sellerId}`, {
-        headers: {
-          Authorization: ""
-        }
-      });
-      setOrders(Array.isArray(res) ? res : res.orders || []);
+      const res: OrdersResponse = await api.get(`/api/admin/orders/by-seller/${sellerId}`);
+      if (res.success) {
+        setOrders(res.orders || []);
+        setBreakdown(res.breakdown);
+      } else {
+        setOrders([]);
+        setBreakdown(null);
+        toast.error("Failed to load orders");
+      }
     } catch {
       toast.error("Failed to load orders");
       setOrders([]);
+      setBreakdown(null);
     } finally {
       setLoading(false);
     }
@@ -416,51 +467,13 @@ export default function AdminOrdersPage() {
             <Skeleton className="h-10 w-[250px] rounded-md" />
           </div>
           <Skeleton className="h-9 w-28 rounded-md" />
-          <Skeleton className="h-9 w-32 rounded-md" />
         </div>
       </div>
       {/* Order card skeletons */}
       <div className="grid gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="overflow-hidden">
-            <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="space-y-1.5">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-6 w-24 rounded-full" />
-              </div>
-              <Skeleton className="h-9 w-24 rounded-md" />
-            </div>
-            <CardContent className="p-6">
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-24" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-28" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                </div>
-                <div className="space-y-2">
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-6 w-28 rounded-full" />
-                  <Skeleton className="h-4 w-36" />
-                  <Skeleton className="h-9 w-full rounded-md mt-2" />
-                </div>
-              </div>
-            </CardContent>
+            <Skeleton className="h-32 w-full" />
           </Card>
         ))}
       </div>
@@ -471,8 +484,15 @@ export default function AdminOrdersPage() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
-          <p className="text-muted-foreground">View and manage orders by seller.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Orders by Seller</h1>
+          <p className="text-muted-foreground">
+            View and manage orders for selected seller
+            {breakdown && (
+              <span className="ml-2 text-sm">
+                ({breakdown.directOrders} direct, {breakdown.subOrders} sub-orders, {breakdown.total} total)
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex flex-col md:flex-row gap-4 md:items-end w-full md:w-auto md:justify-end justify-between">
           {/* Seller Dropdown */}
@@ -527,8 +547,15 @@ export default function AdminOrdersPage() {
               </div>
             )}
           </div>
-
-
+          <Button
+            variant="outline"
+            onClick={() => selectedSeller && fetchOrders(selectedSeller)}
+            disabled={loading || !selectedSeller}
+            className="gap-2"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+            Refresh
+          </Button>
         </div>
       </div>
 
@@ -560,6 +587,7 @@ export default function AdminOrdersPage() {
                       <Skeleton className="h-3 w-24" />
                       <Skeleton className="h-4 w-full" />
                       <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
                     </div>
                     <div className="space-y-2">
                       <Skeleton className="h-3 w-28" />
@@ -569,6 +597,7 @@ export default function AdminOrdersPage() {
                     <div className="space-y-2">
                       <Skeleton className="h-3 w-20" />
                       <Skeleton className="h-6 w-28 rounded-full" />
+                      <Skeleton className="h-4 w-36" />
                       <Skeleton className="h-9 w-full rounded-md mt-2" />
                     </div>
                   </div>
@@ -579,6 +608,7 @@ export default function AdminOrdersPage() {
         ) : orders.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
         ) : (
+
           paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
@@ -587,17 +617,47 @@ export default function AdminOrdersPage() {
                     <Package className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="font-bold">Order #{order.id?.slice(-6)?.toUpperCase?.()}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold">Order #{order.id.slice(-6).toUpperCase()}</p>
+                      <Badge 
+                        variant={order.type === 'DIRECT' ? 'default' : 'secondary'} 
+                        className="text-xs px-2 py-0.5"
+                      >
+                        {order.type}
+                      </Badge>
+                      {order.isSubOrder && (
+                        <Badge variant="outline" className="text-xs px-2 py-0.5">
+                          Sub-Order
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Calendar className="h-3 w-3" /> 
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                    {order.parentOrderId && (
+                      <p className="text-xs text-blue-600 font-medium">
+                        Parent: #{order.parentOrderId.slice(-6).toUpperCase()}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-sm font-medium flex items-center gap-1"><ClipboardList className="h-4 w-4" /> Customer</p>
-                    <p className="text-sm text-muted-foreground">{order.customerName || "Guest"}</p>
+                    <p className="text-sm font-medium flex items-center gap-1">
+                      <ClipboardList className="h-4 w-4" /> Customer
+                    </p>
+                    <p className="text-sm text-muted-foreground">{order.customerName}</p>
+                    <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
                   </div>
-                  <Badge variant={order.status === "delivered" ? "default" : "secondary"} className="flex items-center gap-1">
-                    <Hash className="h-3 w-3" /> {order.status?.toUpperCase?.()}
+                  <div className="text-right">
+                    <p className="text-sm font-medium flex items-center gap-1">
+                      <DollarSign className="h-4 w-4" /> Total
+                    </p>
+                    <p className="text-sm font-semibold">₹{parseFloat(order.totalAmount).toLocaleString()}</p>
+                  </div>
+                  <Badge variant={getStatusBadgeVariant(order.status)} className="flex items-center gap-1">
+                    <Hash className="h-3 w-3" /> {getStatusLabel(order.status)}
                   </Badge>
                 </div>
                 <div>
@@ -608,32 +668,86 @@ export default function AdminOrdersPage() {
               </div>
 
               <CardContent className="p-6">
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-4 gap-6">
                   {/* Items Summary */}
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Order Items</Label>
+                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                      <ClipboardList className="h-3 w-3" /> Order Items
+                    </Label>
                     <div className="text-sm space-y-1">
-                      {order.items?.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          {item.product?.images?.[0] && (
+                      {order.items.map((item, i) => (
+                        <div key={item.id || i} className="flex items-center gap-2">
+                          {item.product.images?.[0] && (
                             <Image
                               src={item.product.images[0]}
-                              alt={item.product.title || "Product image"}
+                              alt={item.product.title}
                               width={40}
                               height={40}
                               className="w-10 h-10 object-cover rounded"
                             />
                           )}
-                          <span>{item.product?.title || item.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
+                          <div className="flex-1 min-w-0">
+                            <p className="truncate font-medium">{item.product.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              ₹{parseFloat(item.price).toLocaleString()} x {item.quantity}
+                            </p>
+                          </div>
                         </div>
                       ))}
-                      {/* <p className="font-bold pt-2 border-t flex items-center gap-1"><DollarSign className="h-3 w-3" /> Total: ${order.totalAmount}</p> */}
                     </div>
                   </div>
 
-                  {/* Actions: Update Status */}
+                  {/* Shipping Information */}
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> Shipping Details
+                    </Label>
+                    <div className="text-sm space-y-1">
+                      <p className="font-medium">{order.shippingAddressLine}</p>
+                      <p className="text-muted-foreground">
+                        {order.shippingCity}, {order.shippingState}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {order.shippingZipCode}, {order.shippingCountry}
+                      </p>
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <span>📞</span> {order.shippingPhone}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Payment & Status Information */}
                   <div className="space-y-3">
-                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Management</Label>
+                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                      <CreditCard className="h-3 w-3" /> Payment & Status
+                    </Label>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Payment:</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={order.paymentStatus === 'PAID' ? 'default' : 'destructive'} className="text-xs">
+                            {order.paymentStatus}
+                          </Badge>
+                          <span className="text-xs">{order.paymentMethod}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs space-y-1">
+                        <p><span className="text-muted-foreground">Subtotal:</span> ₹{parseFloat(order.subtotal).toLocaleString()}</p>
+                        {order.shippingAddress?.orderSummary && (
+                          <>
+                            <p><span className="text-muted-foreground">Shipping:</span> ₹{parseFloat(order.shippingAddress.orderSummary.shippingCost || '0').toLocaleString()}</p>
+                            <p><span className="text-muted-foreground">GST ({order.shippingAddress.orderSummary.gstPercentage}%):</span> ₹{parseFloat(order.shippingAddress.orderSummary.gstAmount || '0').toLocaleString()}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: Management */}
+                  <div className="space-y-3">
+                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                      <ClipboardList className="h-3 w-3" /> Management
+                    </Label>
                     {isTerminalStatus(order.status) ? (
                       <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg text-sm text-muted-foreground">
                         <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -644,18 +758,16 @@ export default function AdminOrdersPage() {
                         <ClipboardList className="h-4 w-4" /> Update Status
                       </Button>
                     )}
-                  </div>
-
-                  {/* Actions: Tracking */}
-                  <div className="space-y-3">
-                    <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><Truck className="h-3 w-3" /> Shipping</Label>
+                    
                     {order.trackingNumber ? (
-                       <div className="bg-blue-50 p-3 rounded-md text-sm border border-blue-100">
-                          <p className="flex items-center gap-2 text-blue-700 font-medium">
-                            <Truck className="h-4 w-4" /> {order.trackingNumber}
-                          </p>
+                      <div className="bg-blue-50 p-3 rounded-md text-sm border border-blue-100">
+                        <p className="flex items-center gap-2 text-blue-700 font-medium">
+                          <Truck className="h-4 w-4" /> {order.trackingNumber}
+                        </p>
+                        {order.estimatedDelivery && (
                           <p className="text-blue-600/80 text-xs mt-1">Est: {fmtDate(order.estimatedDelivery)}</p>
-                       </div>
+                        )}
+                      </div>
                     ) : !isTerminalStatus(order.status) ? (
                       <Button variant="outline" className="w-full gap-2" onClick={() => setActiveTrackingOrder(order)}>
                         <Truck className="h-4 w-4" /> Add Tracking
@@ -663,7 +775,23 @@ export default function AdminOrdersPage() {
                     ) : (
                       <p className="text-sm text-muted-foreground">No tracking info.</p>
                     )}
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full gap-2" 
+                      onClick={() => handleDownloadInvoice(order.id)}
+                      disabled={downloadingInvoiceId === order.id}
+                    >
+                      {downloadingInvoiceId === order.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Invoice
+                    </Button>
                   </div>
+
+
                 </div>
               </CardContent>
             </Card>

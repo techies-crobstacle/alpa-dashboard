@@ -1,158 +1,3 @@
-"use client";
-// import React, { useEffect, useState } from "react";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Badge } from "@/components/ui/badge";
-// import { Button } from "@/components/ui/button";
-// import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-// import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, ChevronUp } from "lucide-react";
-// import Image from "next/image";
-
-// const BASE_URL = "https://alpa-be.onrender.com";
-
-// function getAuthHeaders() {
-//   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-//   return {
-//     "Content-Type": "application/json",
-//     "Authorization": `Bearer ${token}`,
-//   };
-// }
-
-// type OrderItem = {
-//   product: { images?: string[]; title?: string };
-//   title?: string;
-//   quantity: number;
-//   price?: string;
-// };
-// type Order = {
-//   id: string;
-//   createdAt: string;
-//   status: string;
-//   items?: OrderItem[];
-//   totalAmount: number;
-//   trackingNumber?: string;
-//   estimatedDelivery?: string;
-//   paymentMethod?: string;
-//   shippingAddress?: string;
-// };
-
-// const CustomerOrdersPage = () => {
-//   const [orders, setOrders] = useState<Order[]>([]);
-//   const [loading, setLoading] = useState(true);
-//   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
-
-//   useEffect(() => {
-//     fetchOrders();
-//   }, []);
-
-//   const fetchOrders = async () => {
-//     try {
-//       setLoading(true);
-//       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-//       const res = await fetch(`${BASE_URL}/api/orders/my-orders`, {
-//         headers: {
-//           "Content-Type": "application/json",
-//           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-//         },
-//       });
-//       const data = await res.json();
-//       setOrders(data.orders || []);
-//     } catch {
-//       setOrders([]);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
-
-//   return (
-//     <div className="p-6 max-w-7xl mx-auto space-y-6">
-//       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-//         <div>
-//           <h1 className="text-3xl font-bold tracking-tight">My Orders</h1>
-//           <p className="text-muted-foreground">View your order history and track your shipments.</p>
-//         </div>
-//       </div>
-//       {orders.length === 0 ? (
-//         <Card className="p-12 text-center text-muted-foreground">No orders found.</Card>
-//       ) : (
-//         <div className="overflow-x-auto rounded-lg border bg-background">
-//           <Table>
-//             <TableHeader>
-//               <TableRow>
-//                 <TableHead>Order #</TableHead>
-//                 <TableHead>Date</TableHead>
-//                 <TableHead>Status</TableHead>
-//                 <TableHead>Total</TableHead>
-//                 <TableHead>Tracking</TableHead>
-//                 <TableHead>View</TableHead>
-//               </TableRow>
-//             </TableHeader>
-//             <TableBody>
-//               {orders.map((order) => (
-//                 <React.Fragment key={order.id}>
-//                   <TableRow>
-//                     <TableCell>#{order.id.slice(-6).toUpperCase()}</TableCell>
-//                     <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-//                     <TableCell>
-//                       <Badge variant={order.status === "delivered" ? "default" : "secondary"}>{order.status.toUpperCase()}</Badge>
-//                     </TableCell>
-//                     <TableCell>${order.totalAmount}</TableCell>
-//                     <TableCell>
-//                       {order.trackingNumber ? (
-//                         <div className="flex flex-col">
-//                           <span className="font-medium flex items-center gap-1"><Truck className="h-4 w-4" /> {order.trackingNumber}</span>
-//                           <span className="text-xs text-muted-foreground">Est: {order.estimatedDelivery}</span>
-//                         </div>
-//                       ) : (
-//                         <span className="text-muted-foreground">No tracking</span>
-//                       )}
-//                     </TableCell>
-//                     <TableCell>
-//                       <Button variant="outline" size="sm" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
-//                         {expandedOrderId === order.id ? <><Eye className="h-4 w-4" /> Hide <ChevronUp className="h-4 w-4" /></> : <><Eye className="h-4 w-4" /> View <ChevronDown className="h-4 w-4" /></>}
-//                       </Button>
-//                     </TableCell>
-//                   </TableRow>
-//                   {expandedOrderId === order.id && (
-//                     <TableRow>
-//                       <TableCell colSpan={6} className="bg-muted/40 p-0">
-//                         <div className="p-4 space-y-2">
-//                           <div><strong>Status:</strong> {order.status}</div>
-//                           <div><strong>Created At:</strong> {new Date(order.createdAt).toLocaleString()}</div>
-//                           <div><strong>Total Amount:</strong> ${order.totalAmount}</div>
-//                           <div><strong>Payment Method:</strong> {order.paymentMethod}</div>
-//                           <div><strong>Shipping Address:</strong> {order.shippingAddress}</div>
-//                           <div><strong>Tracking Number:</strong> {order.trackingNumber || 'N/A'}</div>
-//                           <div><strong>Estimated Delivery:</strong> {order.estimatedDelivery ? new Date(order.estimatedDelivery).toLocaleString() : 'N/A'}</div>
-//                           <div><strong>Items:</strong>
-//                             <ul className="list-disc ml-6">
-//                               {order.items?.map((item, i) => (
-//                                 <li key={i}>
-//                                   {item.product?.title || item.title} x {item.quantity} @ ${item.price}
-//                                   {item.product?.images?.[0] && (
-//                                     <Image src={item.product.images[0]} alt={item.product.title || "Product image"} width={32} height={32} className="inline ml-2 rounded object-cover" unoptimized />
-//                                   )}
-//                                 </li>
-//                               ))}
-//                             </ul>
-//                           </div>
-//                         </div>
-//                       </TableCell>
-//                     </TableRow>
-//                   )}
-//                 </React.Fragment>
-//               ))}
-//             </TableBody>
-//           </Table>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
-
-// export default CustomerOrdersPage;
-
 
 "use client"
 import React, { useEffect, useState } from "react";
@@ -179,34 +24,37 @@ function getAuthHeaders() {
 }
 
 type OrderItem = {
-  id?: string;
-  product?: { 
-    id?: string;
-    images?: string[]; 
-    title?: string; 
-    price?: string;
-    sellerId?: string;
-  };
-  title?: string;
+  title: string;
+  id: string;
+  orderId: string;
+  subOrderId?: string | null;
+  productId: string;
   quantity: number;
-  price?: string;
-  // New fields from multi-seller structure
-  subOrderStatus?: string;
-  sellerId?: string;
-  sellerName?: string;
-  trackingNumber?: string;
-  estimatedDelivery?: string;
+  price: string;
+  createdAt: string;
+  product: { 
+    id: string;
+    title: string;
+    images: string[];
+    price: string;
+    sellerId: string;
+  };
+  subOrderStatus?: string | null;
+  sellerId: string;
+  sellerName: string;
+  trackingNumber?: string | null;
+  estimatedDelivery?: string | null;
 };
 
 // NEW: Sub-order type for multi-seller orders
 type SubOrder = {
-  id: string;
+  id: string | null;
   sellerId: string;
   sellerName: string;
   status: string;
-  trackingNumber?: string;
-  estimatedDelivery?: string;
-  subtotal: string | number;
+  trackingNumber?: string | null;
+  estimatedDelivery?: string | null;
+  subtotal: number;
   itemCount: number;
   items: {
     id: string;
@@ -222,22 +70,50 @@ type SubOrder = {
 };
 
 type Order = {
-  id: any;
-  createdAt: any;
-  status: any; // Will need aggregation logic for mixed statuses
-  items?: OrderItem[]; // All items across all sellers
-  totalAmount: any; // Total across all sellers
-  trackingNumber?: any; // Legacy field, prefer subOrders tracking
-  estimatedDelivery?: any; // Legacy field, prefer subOrders delivery
-  paymentMethod?: any;
-  shippingAddress?: any;
-  shippingCity?: any;
-  shippingState?: any;
-  shippingPostcode?: any;
-  shippingPhone?: any;
-  shippingAddressLine?: any;
-  statusReason?: any;
-  subOrders?: SubOrder[]; // NEW: Sub-orders per seller
+  id: string;
+  userId: string;
+  type: "DIRECT" | "MULTI_SELLER";
+  totalAmount: string;
+  status: string;
+  trackingNumber?: string | null;
+  estimatedDelivery?: string | null;
+  statusReason?: string | null;
+  paymentMethod: string;
+  stripePaymentIntentId?: string;
+  paypalOrderId?: string | null;
+  paymentStatus: string;
+  couponCode?: string | null;
+  discountAmount?: string | null;
+  originalTotal?: string | null;
+  shippingAddress: {
+    addressLine: string;
+    orderSummary: {
+      subtotal: string;
+      gstAmount: string;
+      grandTotal: string;
+      gstDetails: any;
+      gstInclusive: boolean;
+      shippingCost: string;
+      gstPercentage: string;
+      subtotalExGST: string;
+      shippingMethod: any;
+    };
+  };
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddressLine: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingZipCode: string;
+  shippingCountry: string;
+  shippingPhone: string;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItem[];
+  subOrders: SubOrder[];
+  sellerCount: number;
+  itemCount: number;
 };
 
 const OrderProgressTracker = ({ order }: { order: Order }) => {
@@ -246,7 +122,7 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
   // For multi-seller orders, determine aggregated status
   const getAggregatedStatus = (order: Order): string => {
     if (!order.subOrders || order.subOrders.length === 0) {
-      return typeof order.status === 'string' ? order.status.toLowerCase() : '';
+      return order.status.toLowerCase();
     }
     
     const subOrderStatuses = order.subOrders.map(sub => sub.status.toLowerCase());
@@ -259,7 +135,7 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
     
     // For progression: use the minimum status (least progressed)
     const statusIndexes = subOrderStatuses.map(status => statuses.indexOf(status)).filter(idx => idx !== -1);
-    if (statusIndexes.length === 0) return '';
+    if (statusIndexes.length === 0) return order.status.toLowerCase();
     
     const minIndex = Math.min(...statusIndexes);
     return statuses[minIndex];
@@ -373,7 +249,7 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
           </h4>
           <div className="grid gap-3">
             {order.subOrders.map((subOrder, index) => (
-              <div key={subOrder.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+              <div key={subOrder.id || index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">{subOrder.sellerName}</span>
@@ -451,7 +327,7 @@ const CancelOrderModal = ({
           <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Order <strong>#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : order.id}</strong>
+          Order <strong>#{order.id.slice(-6).toUpperCase()}</strong>
         </p>
         <div className="space-y-2">
           <Label htmlFor="cancelReason">
@@ -641,7 +517,11 @@ const CustomerOrdersPage = () => {
         },
       });
       const data = await res.json();
-      setOrders(data.orders || []);
+      if (data.success) {
+        setOrders(data.orders || []);
+      } else {
+        setOrders([]);
+      }
     } catch {
       setOrders([]);
     } finally {
@@ -652,46 +532,35 @@ const CustomerOrdersPage = () => {
   const parseShippingAddress = (order: Order): Record<string, string> => {
     const result: Record<string, string> = {};
 
-    // Extract fields from the nested shippingAddress object
-    const addr = order.shippingAddress;
-    if (addr && typeof addr === "object") {
-      const fieldMap: Record<string, string> = {
-        address: "Address",
-        street: "Street",
-        suburb: "Suburb",
-        city: "City",
-        state: "State",
-        postcode: "Postcode",
-        country: "Country",
-        fullAddress: "Full Address",
-        orderSummary: "Summary",
-        firstName: "First Name",
-        lastName: "Last Name",
-        phone: "Phone",
-        email: "Email",
-      };
-      for (const [key, label] of Object.entries(fieldMap)) {
-        if (addr[key] && typeof addr[key] === "string") {
-          result[label] = addr[key];
-        }
-      }
-    } else if (addr && typeof addr === "string") {
-      result["Address"] = addr;
+    // Extract fields from the new API structure
+    if (order.shippingAddressLine) {
+      result["Address Line"] = order.shippingAddressLine;
+    }
+    if (order.shippingCity) {
+      result["City"] = order.shippingCity;
+    }
+    if (order.shippingState) {
+      result["State"] = order.shippingState;
+    }
+    if (order.shippingZipCode) {
+      result["Zip Code"] = order.shippingZipCode;
+    }
+    if (order.shippingCountry) {
+      result["Country"] = order.shippingCountry;
+    }
+    if (order.shippingPhone) {
+      result["Phone"] = order.shippingPhone;
+    }
+    if (order.customerName) {
+      result["Customer Name"] = order.customerName;
+    }
+    if (order.customerEmail) {
+      result["Email"] = order.customerEmail;
     }
 
-    // Also merge top-level shipping fields
-    const topLevelMap: [keyof Order, string][] = [
-      ["shippingAddressLine", "Address Line"],
-      ["shippingCity", "City"],
-      ["shippingState", "State"],
-      ["shippingPostcode", "Postcode"],
-      ["shippingPhone", "Phone"],
-    ];
-    for (const [field, label] of topLevelMap) {
-      const val = order[field];
-      if (val && typeof val === "string") {
-        result[label] = val;
-      }
+    // Also include the addressLine from shippingAddress object if available
+    if (order.shippingAddress?.addressLine) {
+      result["Full Address"] = order.shippingAddress.addressLine;
     }
 
     return result;
@@ -786,19 +655,19 @@ const CustomerOrdersPage = () => {
               {orders.map((order) => (
                 <React.Fragment key={order.id}>
                   <tr className="border-b hover:bg-muted/50">
-                    <td className="px-4 py-3">#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : 'N/A'}</td>
-                    <td className="px-4 py-3">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}</td>
+                    <td className="px-4 py-3">#{order.id.slice(-6).toUpperCase()}</td>
+                    <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3">
-                      <Badge variant={order.status === "delivered" ? "default" : order.status === "cancelled" ? "destructive" : "secondary"}>
-                        {renderValue(order.status).toUpperCase()}
+                      <Badge variant={order.status === "DELIVERED" ? "default" : order.status === "CANCELLED" ? "destructive" : "secondary"}>
+                        {order.status.toUpperCase()}
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col text-right">
-                        <span className="font-semibold">₹{renderValue(order.totalAmount)}</span>
-                        {order.subOrders && order.subOrders.length > 1 && (
+                        <span className="font-semibold">₹{order.totalAmount}</span>
+                        {order.sellerCount > 1 && (
                           <span className="text-xs text-muted-foreground">
-                            {order.subOrders.length} sellers
+                            {order.sellerCount} sellers
                           </span>
                         )}
                       </div>
@@ -825,8 +694,8 @@ const CustomerOrdersPage = () => {
                       ) : order.trackingNumber ? (
                         // Single seller order with tracking
                         <div className="flex flex-col">
-                          <span className="font-medium flex items-center gap-1"><Truck className="h-4 w-4" /> {renderValue(order.trackingNumber)}</span>
-                          <span className="text-xs text-muted-foreground">Est: {fmtDate(order.estimatedDelivery)}</span>
+                          <span className="font-medium flex items-center gap-1"><Truck className="h-4 w-4" /> {order.trackingNumber}</span>
+                          <span className="text-xs text-muted-foreground">Est: {order.estimatedDelivery ? fmtDate(order.estimatedDelivery) : 'N/A'}</span>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">No tracking</span>
@@ -877,27 +746,43 @@ const CustomerOrdersPage = () => {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
                                   <span className="text-sm text-muted-foreground">Status</span>
-                                  <p className="font-medium">{renderValue(order.status).toUpperCase()}</p>
+                                  <p className="font-medium">{order.status.toUpperCase()}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Created At</span>
-                                  <p className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A'}</p>
+                                  <p className="font-medium">{new Date(order.createdAt).toLocaleString()}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Total Amount</span>
-                                  <p className="font-medium">${renderValue(order.totalAmount)}</p>
+                                  <p className="font-medium">₹{order.totalAmount}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Payment Method</span>
-                                  <p className="font-medium">{renderValue(order.paymentMethod)}</p>
+                                  <p className="font-medium">{order.paymentMethod}</p>
                                 </div>
                                 <div>
-                                  <span className="text-sm text-muted-foreground">Tracking Number</span>
-                                  <p className="font-medium">{renderValue(order.trackingNumber)}</p>
+                                  <span className="text-sm text-muted-foreground">Payment Status</span>
+                                  <p className="font-medium">{order.paymentStatus}</p>
+                                </div>
+                                {order.trackingNumber && (
+                                  <div>
+                                    <span className="text-sm text-muted-foreground">Tracking Number</span>
+                                    <p className="font-medium">{order.trackingNumber}</p>
+                                  </div>
+                                )}
+                                {order.estimatedDelivery && (
+                                  <div>
+                                    <span className="text-sm text-muted-foreground">Estimated Delivery</span>
+                                    <p className="font-medium">{fmtDate(order.estimatedDelivery)}</p>
+                                  </div>
+                                )}
+                                <div>
+                                  <span className="text-sm text-muted-foreground">Seller Count</span>
+                                  <p className="font-medium">{order.sellerCount}</p>
                                 </div>
                                 <div>
-                                  <span className="text-sm text-muted-foreground">Estimated Delivery</span>
-                                  <p className="font-medium">{fmtDate(order.estimatedDelivery)}</p>
+                                  <span className="text-sm text-muted-foreground">Item Count</span>
+                                  <p className="font-medium">{order.itemCount}</p>
                                 </div>
                               </div>
 
@@ -932,7 +817,7 @@ const CustomerOrdersPage = () => {
                                 );
                               })()}
                               {/* Cancel Order Button (opens modal with mandatory reason) */}
-                              {typeof order.status === 'string' && order.status.toLowerCase() === "confirmed" && (
+                              {order.status.toLowerCase() === "confirmed" && (
                                 <Button
                                   variant="destructive"
                                   onClick={() => setCancelModalOrder(order)}
@@ -943,7 +828,7 @@ const CustomerOrdersPage = () => {
                               )}
 
                               {/* Request Refund Button (DELIVERED orders only) */}
-                              {typeof order.status === 'string' && order.status.toLowerCase() === "delivered" && (
+                              {order.status.toLowerCase() === "delivered" && (
                                 <Button
                                   variant="outline"
                                   onClick={() => setRefundModalOrder(order)}
@@ -985,7 +870,7 @@ const CustomerOrdersPage = () => {
                                 // Multi-seller order - group by sellers
                                 <div className="space-y-6">
                                   {order.subOrders.map((subOrder, subIndex) => (
-                                    <div key={subOrder.id} className="space-y-3">
+                                    <div key={subOrder.id || subIndex} className="space-y-3">
                                       <div className="flex items-center justify-between pb-2 border-b">
                                         <div className="flex items-center gap-3">
                                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -994,12 +879,12 @@ const CustomerOrdersPage = () => {
                                           <div>
                                             <h3 className="font-semibold text-sm">{subOrder.sellerName}</h3>
                                             <p className="text-xs text-muted-foreground">
-                                              ${typeof subOrder.subtotal === 'string' ? subOrder.subtotal : subOrder.subtotal.toFixed(2)} • 
-                                              {subOrder.itemCount || subOrder.items.length} item{(subOrder.itemCount || subOrder.items.length) !== 1 ? 's' : ''}
+                                              ₹{subOrder.subtotal} • 
+                                              {subOrder.itemCount} item{subOrder.itemCount !== 1 ? 's' : ''}
                                             </p>
                                           </div>
                                         </div>
-                                        <Badge variant={getStatusBadgeVariant(subOrder.status)} className="text-xs">
+                                        <Badge variant={subOrder.status === "DELIVERED" ? "default" : subOrder.status === "CANCELLED" ? "destructive" : "secondary"} className="text-xs">
                                           {subOrder.status.toUpperCase()}
                                         </Badge>
                                       </div>
@@ -1022,20 +907,20 @@ const CustomerOrdersPage = () => {
                                               <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                                             </div>
                                             <div className="text-right">
-                                              <p className="font-medium">${item.price}</p>
+                                              <p className="font-medium">₹{item.price}</p>
                                             </div>
                                           </div>
                                         ))}
                                       </div>
 
                                       {subOrder.trackingNumber && (
-                                        <div className="ml-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                          <div className="flex items-center gap-2 text-blue-700">
+                                        <div className="ml-6 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                                          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                                             <Truck className="h-4 w-4" />
                                             <span className="font-medium">Tracking: {subOrder.trackingNumber}</span>
                                           </div>
                                           {subOrder.estimatedDelivery && (
-                                            <p className="text-xs text-blue-600 mt-1">
+                                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                                               Estimated delivery: {new Date(subOrder.estimatedDelivery).toLocaleDateString()}
                                             </p>
                                           )}
@@ -1045,14 +930,14 @@ const CustomerOrdersPage = () => {
                                   ))}
                                 </div>
                               ) : (
-                                // Single seller order or legacy structure
+                                // Single seller order - display items directly
                                 <div className="space-y-3">
-                                  {order.items?.map((item, i) => (
+                                  {order.items.map((item, i) => (
                                     <div key={i} className="flex items-center gap-4 p-3 rounded-lg border">
-                                      {item.product?.images?.[0] && (
+                                      {item.product.images?.[0] && (
                                         <Image 
                                           src={item.product.images[0]} 
-                                          alt={renderValue(item.product.title || "Product image")} 
+                                          alt={item.product.title || "Product image"} 
                                           width={64} 
                                           height={64} 
                                           className="rounded object-cover" 
@@ -1060,21 +945,14 @@ const CustomerOrdersPage = () => {
                                         />
                                       )}
                                       <div className="flex-1">
-                                        <p className="font-medium">{renderValue(item.product?.title || item.title)}</p>
-                                        <p className="text-sm text-muted-foreground">Quantity: {renderValue(item.quantity)}</p>
-                                        {item.sellerName && (
-                                          <p className="text-xs text-blue-600 mt-1">
-                                            Sold by: {item.sellerName}
-                                          </p>
-                                        )}
+                                        <p className="font-medium">{item.product.title}</p>
+                                        <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
+                                        <p className="text-xs text-blue-600 mt-1">
+                                          Sold by: {item.sellerName}
+                                        </p>
                                       </div>
                                       <div className="text-right">
-                                        <p className="font-medium">${renderValue(item.price)}</p>
-                                        {item.subOrderStatus && (
-                                          <Badge variant="secondary" className="text-xs mt-1">
-                                            {item.subOrderStatus}
-                                          </Badge>
-                                        )}
+                                        <p className="font-medium">₹{item.price}</p>
                                       </div>
                                     </div>
                                   ))}

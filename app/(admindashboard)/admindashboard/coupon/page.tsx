@@ -366,7 +366,7 @@ export default function CouponPage() {
             {coupons.filter(c => c.isActive && !isExpired(c.expiresAt)).length}
           </p>
         </div>
-        <div className="rounded-lg border bg-card p-5 border-yellow-200 dark:border-yellow-900 bg-yellow-50/50 dark:bg-yellow-900/10">
+        <div className="rounded-lg border bg-card p-5 border-yellow-200 dark:border-yellow-900 dark:bg-yellow-900/10">
           <p className="text-xs font-medium text-muted-foreground">Expired</p>
           <p className="text-3xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">
             {coupons.filter(c => isExpired(c.expiresAt)).length}

@@ -43,31 +43,65 @@ const getAuthHeaders = (): HeadersInit => {
 };
 
 type OrderItem = {
-  product: {
-    images?: string[];
-    title?: string;
-  };
-  title?: string;
+  id: string;
+  orderId: string;
+  subOrderId?: string | null;
+  productId: string;
   quantity: number;
-  price?: string;
+  price: string;
+  createdAt: string;
+  product: {
+    id: string;
+    title: string;
+    images: string[];
+    price: string;
+    sellerId: string;
+  };
 };
+
 type Order = {
-  id: any;
-  parentOrderId?: any; // NEW: Reference to parent order for multi-seller orders
-  createdAt: any;
-  customerName?: any;
-  status: any;
-  statusReason?: any;
-  items?: OrderItem[];
-  totalAmount: any; // Now represents seller's portion (subtotal)
-  trackingNumber?: any;
-  estimatedDelivery?: any;
-  paymentMethod?: any;
-  shippingAddress?: any;
-  shippingCity?: any;
-  shippingState?: any;
-  shippingPostcode?: any;
-  shippingPhone?: any;
+  id: string;
+  parentOrderId?: string | null;
+  type: "DIRECT" | "SUB_ORDER";
+  status: string;
+  trackingNumber?: string | null;
+  estimatedDelivery?: string | null;
+  statusReason?: string | null;
+  subtotal: string | number;
+  items: OrderItem[];
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+  };
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: {
+    addressLine: string;
+    orderSummary: {
+      subtotal: string;
+      gstAmount: string;
+      grandTotal: string;
+      gstDetails: any;
+      gstInclusive: boolean;
+      shippingCost: string;
+      gstPercentage: string;
+      subtotalExGST: string;
+      shippingMethod: any;
+    };
+  };
+  shippingAddressLine: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingZipCode: string;
+  shippingCountry: string;
+  shippingPhone: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 // ─── Status Update Modal ──────────────────────────────────────────────────────
@@ -593,8 +627,7 @@ export default function OrdersPage() {
     const shipping = summary.shippingCost ?? summary.shipping ?? summary.shippingMethod?.price ?? "";
     const discount = summary.discount ?? "";
     const gst = summary.gst ?? summary.tax ?? "";
-    const total = order.totalAmount;
-    // const total = summary.total ?? summary.grandTotal ?? order.totalAmount ?? "";
+    const total = order.subtotal;
 
     return (
       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -604,12 +637,15 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Info</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : order.id}</span></div>
-            <div className="flex justify-between items-center"><span className="text-muted-foreground">Status</span><Badge variant="secondary">{String(order.status).toUpperCase()}</Badge></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "N/A"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span className="font-medium">{renderValue(order.paymentMethod)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">#{order.id.slice(-6).toUpperCase()}</span></div>
+            <div className="flex justify-between items-center"><span className="text-muted-foreground">Status</span><Badge variant="secondary">{order.status.toUpperCase()}</Badge></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{order.type === "DIRECT" ? "Direct Order" : "Sub-order"}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span className="font-medium">{order.paymentMethod}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Payment Status</span><span className="font-medium">{order.paymentStatus}</span></div>
             {order.trackingNumber && <div className="flex justify-between"><span className="text-muted-foreground">Tracking</span><span className="font-medium">{order.trackingNumber}</span></div>}
             {order.estimatedDelivery && <div className="flex justify-between"><span className="text-muted-foreground">Est. Delivery</span><span className="font-medium">{fmtDate(order.estimatedDelivery)}</span></div>}
+            {order.parentOrderId && <div className="flex justify-between"><span className="text-muted-foreground">Parent Order</span><span className="font-medium">#{order.parentOrderId.slice(-6).toUpperCase()}</span></div>}
           </CardContent>
         </Card>
 
@@ -619,18 +655,14 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Shipping Address</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            {name && <div className="flex justify-between"><span className="text-muted-foreground">Name</span><span className="font-medium">{name}</span></div>}
-            {addressRows.map(({ key, label }, i) => (
-              <div key={i} className="flex justify-between"><span className="text-muted-foreground">{label}</span><span className="font-medium text-right max-w-[60%] truncate">{String(addr[key])}</span></div>
-            ))}
-            {!name && addressRows.length === 0 && (
-              <>
-                {order.shippingCity && <div className="flex justify-between"><span className="text-muted-foreground">City</span><span className="font-medium">{order.shippingCity}</span></div>}
-                {order.shippingState && <div className="flex justify-between"><span className="text-muted-foreground">State</span><span className="font-medium">{order.shippingState}</span></div>}
-                {order.shippingPostcode && <div className="flex justify-between"><span className="text-muted-foreground">Postcode</span><span className="font-medium">{order.shippingPostcode}</span></div>}
-                {order.shippingPhone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium">{order.shippingPhone}</span></div>}
-              </>
-            )}
+            <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span className="font-medium">{order.customerName}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="font-medium">{order.customerEmail}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium">{order.customerPhone}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Address</span><span className="font-medium text-right max-w-[60%]">{order.shippingAddressLine}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">City</span><span className="font-medium">{order.shippingCity}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">State</span><span className="font-medium">{order.shippingState}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Zip Code</span><span className="font-medium">{order.shippingZipCode}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Country</span><span className="font-medium">{order.shippingCountry}</span></div>
           </CardContent>
         </Card>
 
@@ -640,16 +672,16 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Totals</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            {subtotal !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">${subtotal}</span></div>}
-            {shipping !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium">${typeof shipping === "object" ? JSON.stringify(shipping) : shipping}</span></div>}
-            {discount !== "" && Number(discount) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="font-medium text-green-600">-${discount}</span></div>}
-            {gst !== "" && <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span className="font-medium">${gst}</span></div>}
-            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Grand Total</span><span>${total}</span></div>
+            {subtotal !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">₹{subtotal}</span></div>}
+            {shipping !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium">₹{typeof shipping === "object" ? JSON.stringify(shipping) : shipping}</span></div>}
+            {discount !== "" && Number(discount) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="font-medium text-green-600">-₹{discount}</span></div>}
+            {gst !== "" && <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span className="font-medium">₹{gst}</span></div>}
+            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>My Order Total</span><span>₹{total}</span></div>
             {order.items && order.items.length > 0 && (
               <div className="border-t pt-2 space-y-1">
                 <p className="text-muted-foreground font-medium mb-1">Items</p>
                 {order.items.map((item, i) => (
-                  <div key={i} className="flex justify-between text-xs"><span className="truncate max-w-[60%]">{item.product?.title || item.title} x{item.quantity}</span><span>${item.price}</span></div>
+                  <div key={i} className="flex justify-between text-xs"><span className="truncate max-w-[60%]">{item.product.title} x{item.quantity}</span><span>₹{item.price}</span></div>
                 ))}
               </div>
             )}
@@ -673,6 +705,7 @@ export default function OrdersPage() {
       </div>
     );
   }
+  
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -720,9 +753,18 @@ export default function OrdersPage() {
                     <p className="text-sm font-medium flex items-center gap-1"><ClipboardList className="h-4 w-4" /> Customer</p>
                     <p className="text-sm text-muted-foreground">{order.customerName || "Guest"}</p>
                   </div>
-                  <Badge variant={order.status === "delivered" ? "default" : "secondary"} className="flex items-center gap-1">
-                    <Hash className="h-3 w-3" /> {order.status.toUpperCase()}
-                  </Badge>
+                  <div className="flex flex-col items-center gap-1">
+                    <Badge variant={order.status === "delivered" ? "default" : "secondary"} className="flex items-center gap-1">
+                      <Hash className="h-3 w-3" /> {order.status.toUpperCase()}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {order.type === "DIRECT" ? "Direct" : "Sub-order"}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-primary">₹{order.subtotal}</p>
+                    <p className="text-xs text-muted-foreground">{order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
+                  </div>
                 </div>
                 <div>
                   <Button variant="outline" size="sm" className="flex items-center gap-1" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
@@ -738,9 +780,9 @@ export default function OrdersPage() {
                   <div className="space-y-2">
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Order Items</Label>
                     <div className="text-sm space-y-1">
-                      {order.items?.map((item, i) => (
+                      {order.items.map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
-                          {item.product?.images?.[0] && (
+                          {item.product.images?.[0] && (
                             <Image
                               src={item.product.images[0]}
                               alt={item.product.title || "Product image"}
@@ -750,10 +792,9 @@ export default function OrdersPage() {
                               unoptimized
                             />
                           )}
-                          <span>{renderValue(item.product?.title || item.title)} <span className="text-muted-foreground">x {renderValue(item.quantity)}</span></span>
+                          <span>{item.product.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
                         </div>
                       ))}
-                      {/* <p className="font-bold pt-2 border-t flex items-center gap-1"><DollarSign className="h-3 w-3" /> Total: ${renderValue(order.totalAmount)}</p> */}
                     </div>
                   </div>
                   {/* Actions: Update Status */}
