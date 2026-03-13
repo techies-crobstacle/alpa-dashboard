@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle, TrendingUp, ShoppingCart, FileDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Image from "next/image";
 
@@ -290,6 +290,9 @@ export default function OrdersPage() {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterStatus, setFilterStatus] = useState("ALL");
 
   const renderValue = (val: any) => {
     if (val === null || val === undefined) return "N/A";
@@ -304,8 +307,17 @@ export default function OrdersPage() {
     return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   };
 
-  const totalPages = Math.max(1, Math.ceil(orders.length / itemsPerPage));
-  const paginatedOrders = orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const filteredOrders = orders.filter((o) => {
+    if (filterStatus !== "ALL" && o.status.toUpperCase() !== filterStatus) return false;
+    // Use local date string (YYYY-MM-DD) to avoid UTC/timezone drift
+    const orderLocalDate = new Date(o.createdAt).toLocaleDateString("en-CA"); // "YYYY-MM-DD"
+    if (filterDateFrom && orderLocalDate < filterDateFrom) return false;
+    if (filterDateTo && orderLocalDate > filterDateTo) return false;
+    return true;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
+  const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.min(Math.max(1, page), totalPages));
@@ -331,6 +343,11 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setExpandedOrderId(null);
+  }, [filterDateFrom, filterDateTo, filterStatus]);
 
   // 1. GET Orders
   const fetchOrders = async (isRetry: boolean = false) => {
@@ -501,6 +518,33 @@ export default function OrdersPage() {
           <Skeleton className="h-9 w-28 rounded-md" />
           <Skeleton className="h-9 w-32 rounded-md" />
         </div>
+      </div>
+
+      {/* Stats skeleton */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-8 w-20" />
+                </div>
+                <Skeleton className="h-10 w-10 rounded-full" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Card key={i}>
+            <CardContent className="pt-4 pb-4 text-center space-y-2">
+              <Skeleton className="h-8 w-10 mx-auto" />
+              <Skeleton className="h-5 w-20 mx-auto rounded-full" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Order card skeletons */}
@@ -707,7 +751,116 @@ export default function OrdersPage() {
       </div>
     );
   }
-  
+
+  // --- CSV Export Helpers ---
+  const downloadCSV = (csvContent: string, filename: string) => {
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const escapeCsvValue = (val: unknown): string => {
+    const str = val === null || val === undefined ? "" : String(val);
+    return str.includes(",") || str.includes('"') || str.includes("\n")
+      ? `"${str.replace(/"/g, '""')}"`
+      : str;
+  };
+
+  const handleExportOrders = () => {
+    if (filteredOrders.length === 0) { toast.error("No orders to export."); return; }
+    const headers = [
+      "Order ID", "Date", "Customer Name", "Customer Email", "Customer Phone",
+      "Status", "Payment Method", "Payment Status", "Items Count",
+      "Shipping Address", "City", "State", "ZIP", "Country",
+      "Order Total (₹)",
+    ];
+    const rows = filteredOrders.map((o) => [
+      o.id.slice(-6).toUpperCase(),
+      new Date(o.createdAt).toLocaleDateString("en-IN"),
+      o.customerName || "",
+      o.customerEmail || "",
+      o.customerPhone || "",
+      o.status.toUpperCase(),
+      o.paymentMethod || "",
+      o.paymentStatus || "",
+      o.items.reduce((s, i) => s + i.quantity, 0),
+      o.shippingAddressLine || "",
+      o.shippingCity || "",
+      o.shippingState || "",
+      o.shippingZipCode || "",
+      o.shippingCountry || "",
+      parseFloat(String(o.subtotal) || "0").toFixed(2),
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(escapeCsvValue).join(",")).join("\n");
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCSV(csv, `orders-report-${date}.csv`);
+    toast.success(`Exported ${filteredOrders.length} orders to CSV.`);
+  };
+
+  const handleExportTopProducts = () => {
+    if (filteredOrders.length === 0) { toast.error("No orders to analyse."); return; }
+    // Aggregate product sales across all orders
+    const productMap = new Map<string, { title: string; productId: string; unitsSold: number; revenue: number }>();
+    for (const order of filteredOrders) {
+      for (const item of order.items) {
+        const key = item.productId;
+        const existing = productMap.get(key);
+        const itemRevenue = parseFloat(String(item.price) || "0") * item.quantity;
+        if (existing) {
+          existing.unitsSold += item.quantity;
+          existing.revenue += itemRevenue;
+        } else {
+          productMap.set(key, {
+            title: item.product.title || "Unknown",
+            productId: item.productId,
+            unitsSold: item.quantity,
+            revenue: itemRevenue,
+          });
+        }
+      }
+    }
+    const sorted = Array.from(productMap.values()).sort((a, b) => b.revenue - a.revenue);
+    const headers = ["Rank", "Product ID", "Product Name", "Units Sold", "Total Revenue (₹)"];
+    const rows = sorted.map((p, i) => [
+      i + 1,
+      p.productId.slice(-8).toUpperCase(),
+      p.title,
+      p.unitsSold,
+      p.revenue.toFixed(2),
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(escapeCsvValue).join(",")).join("\n");
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCSV(csv, `top-products-by-sales-${date}.csv`);
+    toast.success(`Exported ${sorted.length} products ranked by sales.`);
+  };
+
+  const hasActiveFilters = filterDateFrom !== "" || filterDateTo !== "" || filterStatus !== "ALL";
+
+  // --- Overview statistics computed from filtered orders ---
+  const totalGrossValue = filteredOrders.reduce((sum, o) => sum + parseFloat(String(o.subtotal) || "0"), 0);
+  const avgOrderValue = filteredOrders.length > 0 ? totalGrossValue / filteredOrders.length : 0;
+  const totalItemsSold = filteredOrders.reduce((sum, o) => sum + o.items.reduce((s, item) => s + item.quantity, 0), 0);
+  const statusCounts = filteredOrders.reduce<Record<string, number>>((acc, o) => {
+    const s = o.status.toUpperCase();
+    acc[s] = (acc[s] || 0) + 1;
+    return acc;
+  }, {});
+  const statusDisplayOrder = ["PENDING", "PROCESSING", "DELIVERED", "COMPLETED", "CANCELLED", "RETURNED", "REFUNDED"];
+  const sortedStatusEntries = Object.entries(statusCounts)
+    .filter(([s]) => statusDisplayOrder.includes(s))
+    .sort(([a], [b]) => {
+      const ai = statusDisplayOrder.indexOf(a);
+      const bi = statusDisplayOrder.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -715,13 +868,131 @@ export default function OrdersPage() {
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-muted-foreground">Manage customer purchases and shipping status.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => fetchOrders()} disabled={loading}>
             <RefreshCcw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          <Button variant="outline" size="sm" onClick={handleExportOrders} disabled={filteredOrders.length === 0}>
+            <FileDown className="h-4 w-4 mr-2" />
+            Export Orders
+          </Button>
         </div>
       </div>
+
+
+      {/* ── Order Overview ─────────────────────────────────────────── */}
+      {filteredOrders.length > 0 && (
+        <>
+          {/* Key Metrics */}
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Orders</p>
+                    <p className="text-2xl font-bold mt-1">{orders.length}</p>
+                    {hasActiveFilters && <p className="text-xs text-muted-foreground mt-0.5">{filteredOrders.length} filtered</p>}
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Avg. Order Value</p>
+                    <p className="text-2xl font-bold mt-1">₹{avgOrderValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Items Sold</p>
+                    <p className="text-2xl font-bold mt-1">{totalItemsSold}</p>
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center">
+                    <ShoppingCart className="h-5 w-5 text-orange-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Status Breakdown */}
+          {sortedStatusEntries.length > 0 && (
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+              {sortedStatusEntries.map(([status, count]) => (
+                <Card key={status}>
+                  <CardContent className="pt-4 pb-4 text-center">
+                    <p className="text-2xl font-bold">{count}</p>
+                    <Badge variant={getStatusBadgeVariant(status.toLowerCase())} className="mt-1.5 text-xs">
+                      {getStatusLabel(status)}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Filters ─────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-2 pt-4">
+          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Filter Orders</CardTitle>
+        </CardHeader>
+        <CardContent className="pb-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">From Date</Label>
+              <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="h-9 text-sm w-[160px]" />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">To Date</Label>
+              <Input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} className="h-9 text-sm w-[160px]" min={filterDateFrom || undefined} />
+            </div>
+            <div className="h-9 w-px bg-border self-end mb-0.5 hidden sm:block" />
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-medium">Order Status</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="h-9 text-sm w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Statuses</SelectItem>
+                  {["PENDING","PROCESSING","CONFIRMED","SHIPPED","DELIVERED","COMPLETED","CANCELLED","RETURNED","REFUNDED"].map((s) => (
+                    <SelectItem key={s} value={s}>{getStatusLabel(s)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-2 ml-auto">
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("ALL"); }}>
+                  <X className="h-3.5 w-3.5" /> Clear
+                </Button>
+              )}
+              {orders.length > 0 && (
+                <span className="text-xs text-muted-foreground self-center">
+                  <span className="font-semibold text-foreground">{filteredOrders.length}</span> {filteredOrders.length === 1 ? "result" : "results"}
+                </span>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      
 
       {orders.length === 0 && !error ? (
         <Card className="p-12 text-center">
@@ -737,7 +1008,20 @@ export default function OrdersPage() {
             </Button>
           </div>
         </Card>
-      ) : orders.length > 0 ? (
+      ) : filteredOrders.length === 0 && hasActiveFilters ? (
+        <Card className="p-10 text-center">
+          <div className="flex flex-col items-center space-y-3">
+            <Package className="h-10 w-10 text-muted-foreground" />
+            <div className="space-y-1">
+              <h3 className="text-base font-semibold">No Orders Match Your Filters</h3>
+              <p className="text-muted-foreground text-sm">Try adjusting the date range or status filter.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("ALL"); }}>
+              <X className="h-3.5 w-3.5 mr-1.5" /> Clear Filters
+            </Button>
+          </div>
+        </Card>
+      ) : filteredOrders.length > 0 ? (
         <div className="grid gap-4">{paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
@@ -845,16 +1129,16 @@ export default function OrdersPage() {
       ) : null}
 
       {/* Pagination */}
-      {!loading && orders.length > 0 && (
+      {!loading && filteredOrders.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span>
               Showing{" "}
-              <span className="font-medium text-foreground">{Math.min((currentPage - 1) * itemsPerPage + 1, orders.length)}</span>
+              <span className="font-medium text-foreground">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredOrders.length)}</span>
               {"–"}
-              <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, orders.length)}</span>
+              <span className="font-medium text-foreground">{Math.min(currentPage * itemsPerPage, filteredOrders.length)}</span>
               {" of "}
-              <span className="font-medium text-foreground">{orders.length}</span>
+              <span className="font-medium text-foreground">{filteredOrders.length}</span>
               {" orders"}
             </span>
             <div className="flex items-center gap-1.5">

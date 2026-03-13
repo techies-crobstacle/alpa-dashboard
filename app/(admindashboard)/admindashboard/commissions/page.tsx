@@ -56,6 +56,7 @@ import {
   Building2,
   ThumbsUp,
   ThumbsDown,
+  Download,
 } from "lucide-react";
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -196,6 +197,7 @@ export default function AdminCommissionsPage() {
   const [earnedTo, setEarnedTo] = useState("");
   const [earnedSellerFilter, setEarnedSellerFilter] = useState<string>("ALL");
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [exportingEarnedCsv, setExportingEarnedCsv] = useState(false);
 
   // ── Payout Requests state ──────────────────────────────────────────────────
   const [payoutRequests, setPayoutRequests] = useState<AdminPayoutRequest[]>([]);
@@ -211,6 +213,7 @@ export default function AdminCommissionsPage() {
   const [payoutActioning, setPayoutActioning] = useState(false);
   const [pendingPayoutCount, setPendingPayoutCount] = useState<number | null>(null);
   const [approvedPayoutCount, setApprovedPayoutCount] = useState<number | null>(null);
+  const [exportingPayoutCsv, setExportingPayoutCsv] = useState(false);
 
   // ── Seller list for filter dropdown ───────────────────────────────────────
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -311,6 +314,135 @@ export default function AdminCommissionsPage() {
       setSummaryLoading(false);
     }
   }, [earnedSellerFilter, earnedFrom, earnedTo]);
+
+  const handleExportEarnedCsv = async () => {
+    setExportingEarnedCsv(true);
+    try {
+      const allRecords: CommissionEarned[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+      do {
+        const params = new URLSearchParams({ page: String(currentPage), limit: "100" });
+        if (earnedStatusFilter !== "ALL") params.set("status", earnedStatusFilter);
+        if (earnedSellerFilter !== "ALL") params.set("sellerId", earnedSellerFilter);
+        if (earnedFrom) params.set("from", earnedFrom);
+        if (earnedTo) params.set("to", earnedTo);
+        const res = await api.get(`/api/admin/commissions/earned?${params.toString()}`);
+        const pageRecords: CommissionEarned[] = Array.isArray(res?.data) ? res.data : [];
+        allRecords.push(...pageRecords);
+        if (res?.pagination) totalPages = res.pagination.totalPages;
+        currentPage++;
+      } while (currentPage <= totalPages);
+
+      if (allRecords.length === 0) {
+        toast.info("No records to export for the current filters.");
+        return;
+      }
+
+      const headers = ["Order ID", "Seller Name", "Business Name", "Store Name", "Customer Name", "Customer Email", "Order Value", "Commission Rate (%)", "Commission Amount", "Net Payable", "Status", "Date"];
+      const rows = allRecords.map((r) => [
+        r.orderId,
+        r.sellerName || r.sellerFullName || "",
+        r.businessName || "",
+        r.storeName || "",
+        r.customerName || "",
+        r.customerEmail || "",
+        parseFloat(r.orderValue).toFixed(2),
+        parseFloat(r.commissionRate).toFixed(2),
+        parseFloat(r.commissionAmount).toFixed(2),
+        r.netPayable ? parseFloat(r.netPayable).toFixed(2) : (parseFloat(r.orderValue) - parseFloat(r.commissionAmount)).toFixed(2),
+        r.status,
+        new Date(r.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
+      ]);
+
+      const escape = (val: string) => `"${val.replace(/"/g, '""')}"`;
+      const csvContent = [
+        headers.map(escape).join(","),
+        ...rows.map((row) => row.map((cell) => escape(String(cell))).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const sellerLabel = earnedSellerFilter !== "ALL"
+        ? `-${sellers.find((s) => s.id === earnedSellerFilter)?.sellerProfile?.storeName || sellers.find((s) => s.id === earnedSellerFilter)?.name || earnedSellerFilter}`
+        : "-all-sellers";
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `commission-earned${sellerLabel}-${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${allRecords.length} record${allRecords.length !== 1 ? "s" : ""} to CSV.`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to export CSV");
+    } finally {
+      setExportingEarnedCsv(false);
+    }
+  };
+
+  const handleExportPayoutCsv = async () => {
+    setExportingPayoutCsv(true);
+    try {
+      const allRecords: AdminPayoutRequest[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+      do {
+        const params = new URLSearchParams({ page: String(currentPage), limit: "100" });
+        if (payoutStatusFilter !== "ALL") params.set("status", payoutStatusFilter);
+        if (payoutSellerIdFilter.trim()) params.set("sellerId", payoutSellerIdFilter.trim());
+        if (payoutFromFilter) params.set("from", payoutFromFilter);
+        if (payoutToFilter) params.set("to", payoutToFilter);
+        const res = await api.get(`/api/admin/commissions/payout-requests?${params.toString()}`);
+        const pageRecords: AdminPayoutRequest[] = Array.isArray(res?.data) ? res.data : [];
+        allRecords.push(...pageRecords);
+        if (res?.pagination) totalPages = res.pagination.totalPages;
+        currentPage++;
+      } while (currentPage <= totalPages);
+
+      if (allRecords.length === 0) {
+        toast.info("No records to export for the current filters.");
+        return;
+      }
+
+      const headers = ["Seller Name", "Business Name", "Store Name", "Requested Amount", "Redeemable At Request", "Status", "Seller Note", "Admin Note", "Submitted Date", "Processed Date"];
+      const rows = allRecords.map((r) => [
+        r.sellerName || "",
+        r.businessName || "",
+        r.storeName || "",
+        parseFloat(r.requestedAmount).toFixed(2),
+        parseFloat(r.redeemableAtRequest).toFixed(2),
+        r.status,
+        r.sellerNote || "",
+        r.adminNote || "",
+        new Date(r.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
+        r.processedAt ? new Date(r.processedAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }) : "",
+      ]);
+
+      const escape = (val: string) => `"${val.replace(/"/g, '""')}"`;
+      const csvContent = [
+        headers.map(escape).join(","),
+        ...rows.map((row) => row.map((cell) => escape(String(cell))).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `payout-requests-${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${allRecords.length} payout request${allRecords.length !== 1 ? "s" : ""} to CSV.`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to export CSV");
+    } finally {
+      setExportingPayoutCsv(false);
+    }
+  };
 
   const handleMarkAsPaid = async (id: string) => {
     setUpdatingStatusId(id);
@@ -995,11 +1127,11 @@ export default function AdminCommissionsPage() {
 
           {/* Filters */}
           <Card className="p-4">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Filters</span>
+            </div>
             <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Filters</span>
-              </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs text-muted-foreground">Seller</Label>
                 <Select value={earnedSellerFilter} onValueChange={setEarnedSellerFilter}>
@@ -1068,6 +1200,17 @@ export default function AdminCommissionsPage() {
                 }}
               >
                 <RefreshCw className="h-4 w-4" /> Reset
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 gap-2 ml-auto"
+                onClick={handleExportEarnedCsv}
+                disabled={exportingEarnedCsv || earnedLoading}
+              >
+                {exportingEarnedCsv
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting...</>
+                  : <><Download className="h-4 w-4" /> Export CSV</>
+                }
               </Button>
             </div>
           </Card>
@@ -1256,12 +1399,12 @@ export default function AdminCommissionsPage() {
           </div>
 
           {/* Filters */}
-          <Card className="p-4">
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Filters</span>
+            </div>
             <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Filters</span>
-              </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs text-muted-foreground">Status</Label>
                 <Select value={payoutStatusFilter} onValueChange={setPayoutStatusFilter}>
@@ -1310,6 +1453,17 @@ export default function AdminCommissionsPage() {
                 }}
               >
                 <RefreshCw className="h-4 w-4" /> Reset
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 gap-2 ml-auto"
+                onClick={handleExportPayoutCsv}
+                disabled={exportingPayoutCsv || payoutLoading}
+              >
+                {exportingPayoutCsv
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting...</>
+                  : <><Download className="h-4 w-4" /> Export CSV</>
+                }
               </Button>
             </div>
           </Card>
