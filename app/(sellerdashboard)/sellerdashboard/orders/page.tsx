@@ -61,7 +61,9 @@ type OrderItem = {
 
 type Order = {
   id: string;
+  displaySubId?: string | null;
   parentOrderId?: string | null;
+  parentDisplayId?: string | null;
   type: "DIRECT" | "SUB_ORDER";
   status: string;
   trackingNumber?: string | null;
@@ -195,7 +197,7 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
             <div>
               <CardTitle className="text-lg">Update Order Status</CardTitle>
               <CardDescription className="mt-0.5">
-                Order #{typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}
+                {order.displaySubId ?? `#${typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}`}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -637,7 +639,7 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Info</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">#{order.id.slice(-6).toUpperCase()}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">{order.displaySubId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
             <div className="flex justify-between items-center"><span className="text-muted-foreground">Status</span><Badge variant="secondary">{order.status.toUpperCase()}</Badge></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{order.type === "DIRECT" ? "Direct Order" : "Sub-order"}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</span></div>
@@ -645,7 +647,7 @@ export default function OrdersPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Payment Status</span><span className="font-medium">{order.paymentStatus}</span></div>
             {order.trackingNumber && <div className="flex justify-between"><span className="text-muted-foreground">Tracking</span><span className="font-medium">{order.trackingNumber}</span></div>}
             {order.estimatedDelivery && <div className="flex justify-between"><span className="text-muted-foreground">Est. Delivery</span><span className="font-medium">{fmtDate(order.estimatedDelivery)}</span></div>}
-            {order.parentOrderId && <div className="flex justify-between"><span className="text-muted-foreground">Parent Order</span><span className="font-medium">#{order.parentOrderId.slice(-6).toUpperCase()}</span></div>}
+            {order.parentOrderId && <div className="flex justify-between"><span className="text-muted-foreground">Parent Order</span><span className="font-medium">{order.parentDisplayId ?? `#${order.parentOrderId.slice(-6).toUpperCase()}`}</span></div>}
           </CardContent>
         </Card>
 
@@ -744,8 +746,13 @@ export default function OrdersPage() {
                     <Package className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="font-bold">Order #{order.id.slice(-6).toUpperCase()}</p>
+                    <p className="font-bold">
+                      {order.displaySubId ?? `#${order.id.slice(-6).toUpperCase()}`}
+                    </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(order.createdAt).toLocaleDateString()}</p>
+                    {order.parentDisplayId && (
+                      <p className="text-xs text-primary/70 font-medium">Parent: {order.parentDisplayId}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">

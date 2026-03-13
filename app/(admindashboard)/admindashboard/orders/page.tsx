@@ -61,6 +61,8 @@ type User = {
 
 type Order = {
   id: string;
+  displaySubId?: string | null;
+  parentDisplayId?: string | null;
   subOrderId?: string | null;
   parentOrderId?: string | null;
   sellerId: string;
@@ -108,7 +110,9 @@ type OrdersResponse = {
 
 type DetailedSubOrder = {
   subOrderId: string;
+  subDisplayId: string;
   parentOrderId: string;
+  parentDisplayId: string;
   sellerId: string;
   sellerName: string;
   sellerEmail: string;
@@ -142,6 +146,7 @@ type DetailedSubOrder = {
 
 type DetailedOrder = {
   id: string;
+  displayId: string;
   orderType: string;
   overallStatus: string;
   legacyStatus: string;
@@ -200,7 +205,12 @@ type DetailedOrder = {
 type DetailedOrdersResponse = {
   success: boolean;
   orders: DetailedOrder[];
-  count: number;
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
 };
 
 // ─── Status Update Modal ──────────────────────────────────────────────────────
@@ -368,6 +378,7 @@ export default function AdminOrdersPage() {
   const [loadingAll, setLoadingAll] = useState(false);
   const [allOrdersPage, setAllOrdersPage] = useState(1);
   const [allOrdersPerPage, setAllOrdersPerPage] = useState(10);
+  const [allOrdersTotal, setAllOrdersTotal] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatusOrder, setActiveStatusOrder] = useState<Order | null>(null);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
@@ -416,13 +427,16 @@ export default function AdminOrdersPage() {
       const res: DetailedOrdersResponse = await api.get("/api/admin/orders/detailed");
       if (res.success) {
         setAllOrders(res.orders || []);
+        setAllOrdersTotal(res.pagination?.total ?? (res.orders?.length ?? 0));
       } else {
         setAllOrders([]);
+        setAllOrdersTotal(0);
         toast.error("Failed to load all orders");
       }
     } catch {
       toast.error("Failed to load all orders");
       setAllOrders([]);
+      setAllOrdersTotal(0);
     } finally {
       setLoadingAll(false);
     }
@@ -673,7 +687,7 @@ export default function AdminOrdersPage() {
                 )} */}
               </>
             ) : (
-              <span>All orders across every seller — {allOrders.length} total</span>
+              <span>All orders across every seller — {allOrdersTotal} total</span>
             )}
           </p>
         </div>
@@ -846,7 +860,7 @@ export default function AdminOrdersPage() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold">Order #{order.id.slice(-6).toUpperCase()}</p>
+                        <p className="font-bold">Order {order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</p>
                         <Badge variant="secondary" className="text-xs px-2 py-0.5">{order.orderType}</Badge>
                         <Badge
                           variant={order.paymentStatus === "PAID" ? "default" : "destructive"}
@@ -927,6 +941,9 @@ export default function AdminOrdersPage() {
                                 </div>
                               )}
                               <div className="min-w-0">
+                                <p className="font-semibold text-xs text-primary/80 truncate">
+                                  {sub.subDisplayId ?? sub.subOrderId.slice(-6).toUpperCase()}
+                                </p>
                                 <p className="font-medium text-sm truncate">
                                   {sub.seller?.storeName || sub.sellerName || "—"}
                                 </p>
@@ -1172,27 +1189,26 @@ export default function AdminOrdersPage() {
                     <Package className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold">Order #{order.id.slice(-6).toUpperCase()}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold">
+                        {order.isSubOrder
+                          ? (order.displaySubId ?? `#${order.subOrderId?.slice(-6).toUpperCase() ?? order.id.slice(-6).toUpperCase()}`)
+                          : `#${order.id.slice(-6).toUpperCase()}`}
+                      </p>
                       <Badge 
                         variant={order.type === 'DIRECT' ? 'default' : 'secondary'} 
                         className="text-xs px-2 py-0.5"
                       >
-                        {order.type}
+                        {order.type === 'DIRECT' ? 'Direct' : 'Sub-Order'}
                       </Badge>
-                      {order.isSubOrder && (
-                        <Badge variant="outline" className="text-xs px-2 py-0.5">
-                          Sub-Order
-                        </Badge>
-                      )}
                     </div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> 
                       {new Date(order.createdAt).toLocaleDateString()}
                     </p>
                     {order.parentOrderId && (
-                      <p className="text-xs text-blue-600 font-medium">
-                        Parent: #{order.parentOrderId.slice(-6).toUpperCase()}
+                      <p className="text-xs text-primary/70 font-medium">
+                        Parent: {order.parentDisplayId ?? `#${order.parentOrderId.slice(-6).toUpperCase()}`}
                       </p>
                     )}
                   </div>
@@ -1229,6 +1245,11 @@ export default function AdminOrdersPage() {
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1">
                       <ClipboardList className="h-3 w-3" /> Order Items
                     </Label>
+                    {order.isSubOrder && order.displaySubId && (
+                      <p className="text-xs font-semibold text-primary/80 bg-primary/5 rounded px-2 py-0.5 w-fit">
+                        {order.displaySubId}
+                      </p>
+                    )}
                     <div className="text-sm space-y-1">
                       {order.items.map((item, i) => (
                         <div key={item.id || i} className="flex items-center gap-2">
