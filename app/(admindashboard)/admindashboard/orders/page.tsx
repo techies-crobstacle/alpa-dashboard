@@ -558,11 +558,27 @@ export default function AdminOrdersPage() {
 
 
 
-  const filteredOrders = searchQuery.trim()
-    ? orders.filter((o) => o.id.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+  const q = searchQuery.trim().toLowerCase();
+  const filteredOrders = q
+    ? orders.filter((o) =>
+        o.id.toLowerCase().includes(q) ||
+        (o.subOrderId ?? "").toLowerCase().includes(q) ||
+        (o.parentOrderId ?? "").toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.customerEmail.toLowerCase().includes(q)
+      )
     : orders;
-  const filteredAllOrders = searchQuery.trim()
-    ? allOrders.filter((o) => o.id.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+  const filteredAllOrders = q
+    ? allOrders.filter((o) =>
+        o.id.toLowerCase().includes(q) ||
+        o.customer.name.toLowerCase().includes(q) ||
+        o.customer.email.toLowerCase().includes(q) ||
+        o.subOrders.some(
+          (s) =>
+            s.subOrderId.toLowerCase().includes(q) ||
+            s.sellerName.toLowerCase().includes(q)
+        )
+      )
     : allOrders;
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
   const paginatedOrders = filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
