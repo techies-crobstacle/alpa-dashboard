@@ -46,6 +46,7 @@ import {
   History,
   X,
   Loader2,
+  Download,
 } from "lucide-react";
 
 // --- types ---
@@ -124,6 +125,8 @@ export default function SellerEarningsPage() {
   const [payoutAmount, setPayoutAmount] = useState("");
   const [payoutNote, setPayoutNote] = useState("");
   const [submittingPayout, setSubmittingPayout] = useState(false);
+
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const [payoutHistory, setPayoutHistory] = useState<PayoutHistoryRecord[]>([]);
   const [payoutHistoryLoading, setPayoutHistoryLoading] = useState(false);
@@ -223,6 +226,66 @@ export default function SellerEarningsPage() {
       toast.error(err?.message || "Failed to submit payout request");
     } finally {
       setSubmittingPayout(false);
+    }
+  };
+
+  const handleExportCSV = async () => {
+    setExportingCsv(true);
+    try {
+      const allRecords: EarningRecord[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
+
+      do {
+        const params = new URLSearchParams({ page: String(currentPage), limit: "100" });
+        if (statusFilter !== "ALL") params.set("status", statusFilter);
+        if (fromDate) params.set("from", fromDate);
+        if (toDate) params.set("to", toDate);
+        const res = await api.get(`/api/commissions/earned/my?${params.toString()}`);
+        const pageRecords: EarningRecord[] = Array.isArray(res?.data) ? res.data : [];
+        allRecords.push(...pageRecords);
+        if (res?.pagination) totalPages = res.pagination.totalPages;
+        currentPage++;
+      } while (currentPage <= totalPages);
+
+      if (allRecords.length === 0) {
+        toast.info("No records to export for the current filters.");
+        return;
+      }
+
+      const headers = ["Order ID", "Customer Name", "Order Value", "Commission Rate (%)", "Commission Amount", "Net Payable", "Status", "Date"];
+      const rows = allRecords.map((r) => [
+        r.orderId,
+        r.customerName || "",
+        parseFloat(r.orderValue).toFixed(2),
+        parseFloat(r.commissionRate).toFixed(2),
+        parseFloat(r.commissionAmount).toFixed(2),
+        r.netPayable ? parseFloat(r.netPayable).toFixed(2) : (parseFloat(r.orderValue) - parseFloat(r.commissionAmount)).toFixed(2),
+        r.status,
+        new Date(r.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
+      ]);
+
+      const escape = (val: string) => `"${val.replace(/"/g, '""')}"`;
+      const csvContent = [
+        headers.map(escape).join(","),
+        ...rows.map((row) => row.map((cell) => escape(String(cell))).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `commission-records-${dateStr}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${allRecords.length} record${allRecords.length !== 1 ? "s" : ""} to CSV.`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to export CSV");
+    } finally {
+      setExportingCsv(false);
     }
   };
 
@@ -398,12 +461,12 @@ export default function SellerEarningsPage() {
             </div>
           )}
 
-          <Card className="p-4">
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Filters</span>
+            </div>
             <div className="flex flex-wrap gap-3 items-end">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Filters</span>
-              </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs text-muted-foreground">Status</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -431,6 +494,17 @@ export default function SellerEarningsPage() {
               </Button>
               <Button variant="outline" className="h-9 gap-2" onClick={handleReset}>
                 <RefreshCw className="h-4 w-4" /> Reset
+              </Button>
+              <Button
+                variant="outline"
+                className="h-9 gap-2 ml-auto"
+                onClick={handleExportCSV}
+                disabled={exportingCsv || loading}
+              >
+                {exportingCsv
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting...</>
+                  : <><Download className="h-4 w-4" /> Export CSV</>
+                }
               </Button>
             </div>
           </Card>
