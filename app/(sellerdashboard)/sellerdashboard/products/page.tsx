@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 import { ProductAuditHistory } from "@/components/shared/product-audit-history";
 
 // --- CONFIGURATION ---
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
 
 // --- HELPER: Get Auth Token ---
 const getAuthToken = () => {

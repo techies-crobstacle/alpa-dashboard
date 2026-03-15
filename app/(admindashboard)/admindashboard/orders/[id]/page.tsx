@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   ArrowLeft, Package, Truck, Loader2, X, ClipboardList, DollarSign,
   MapPin, Calendar, Hash, Download, AlertTriangle, CheckCircle2,
-  CreditCard, Box,
+  CreditCard, Box, Store,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import {
@@ -36,6 +36,28 @@ type OrderItem = {
   price?: any;
 };
 
+type SubOrderInfo = {
+  subOrderId: string;
+  subDisplayId?: string | null;
+  sellerName?: string | null;
+  sellerEmail?: string | null;
+  seller?: {
+    storeName?: string | null;
+    businessName?: string | null;
+    storeLogo?: string | null;
+  } | null;
+  status?: string | null;
+  subtotal?: string | null;
+  trackingNumber?: string | null;
+  estimatedDelivery?: string | null;
+  items: {
+    id: string;
+    quantity: number;
+    price: string;
+    product: { title: string; featuredImage?: string | null };
+  }[];
+};
+
 type Order = {
   id: any;
   createdAt: any;
@@ -54,6 +76,14 @@ type Order = {
   shippingState?: any;
   shippingPostcode?: any;
   shippingPhone?: any;
+  // enriched from detailed API
+  displayId?: string | null;
+  subOrders?: SubOrderInfo[];
+  // seller info for direct / by-seller orders
+  sellerName?: string | null;
+  seller?: { storeName?: string | null; storeLogo?: string | null } | null;
+  displaySubId?: string | null;
+  parentDisplayId?: string | null;
 };
 
 // ── Status Update Modal ────────────────────────────────────────────────────────
@@ -62,10 +92,12 @@ function StatusUpdateModal({
   order,
   onClose,
   onSuccess,
+  orderIdOverride,
 }: {
   order: Order;
   onClose: () => void;
   onSuccess: () => void;
+  orderIdOverride?: string;
 }) {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
@@ -94,11 +126,12 @@ function StatusUpdateModal({
     const { valid, errors } = validateStatusUpdate(selectedStatus, payload);
     if (!valid) { setValidationErrors(errors); return; }
     setLoading(true);
+    const effectiveId = orderIdOverride ?? order.id;
     try {
-      await api.put(`/api/seller/orders/update-status/${order.id}`, payload);
+      await api.put(`/api/admin/orders/update-status/${effectiveId}`, payload);
       // If shipping, persist tracking info via the dedicated tracking endpoint
       if (selectedStatus === "SHIPPED" && trackingNumber && estimatedDelivery) {
-        await api.put(`/api/seller/orders/tracking/${order.id}`, {
+        await api.put(`/api/admin/orders/tracking/${effectiveId}`, {
           trackingNumber,
           estimatedDelivery,
         });
@@ -208,10 +241,12 @@ function TrackingModal({
   order,
   onClose,
   onSuccess,
+  orderIdOverride,
 }: {
   order: Order;
   onClose: () => void;
   onSuccess: () => void;
+  orderIdOverride?: string;
 }) {
   const [trackingNumber, setTrackingNumber] = useState("");
   const [estimatedDelivery, setEstimatedDelivery] = useState("");
@@ -221,8 +256,9 @@ function TrackingModal({
     const { valid, errors } = validateStatusUpdate("SHIPPED", { trackingNumber, estimatedDelivery });
     if (!valid) { toast.error(errors[0]); return; }
     setLoading(true);
+    const effectiveId = orderIdOverride ?? order.id;
     try {
-      await api.put(`/api/seller/orders/tracking/${order.id}`, { trackingNumber, estimatedDelivery });
+      await api.put(`/api/admin/orders/tracking/${effectiveId}`, { trackingNumber, estimatedDelivery });
       toast.success("Tracking information updated");
       onSuccess();
       onClose();
@@ -266,6 +302,87 @@ function TrackingModal({
   );
 }
 
+// ── Map DetailedOrder → Order (used when navigating from All Orders tab) ────────
+
+function mapDetailedToOrder(d: any): Order {
+  // Keep sub-orders intact for seller-grouped rendering
+  const mappedSubOrders: SubOrderInfo[] =
+    d.subOrders && d.subOrders.length > 0
+      ? d.subOrders.map((sub: any) => ({
+          subOrderId: sub.subOrderId,
+          subDisplayId: sub.subDisplayId ?? null,
+          sellerName: sub.sellerName ?? sub.seller?.name ?? null,
+          sellerEmail: sub.sellerEmail ?? null,
+          seller: sub.seller
+            ? {
+                storeName: sub.seller.storeName ?? null,
+                businessName: sub.seller.businessName ?? null,
+                storeLogo: sub.seller.storeLogo ?? null,
+              }
+            : null,
+          status: sub.status ?? null,
+          subtotal: sub.subtotal ?? null,
+          trackingNumber: sub.trackingNumber ?? null,
+          estimatedDelivery: sub.estimatedDelivery ?? null,
+          items: (sub.items ?? []).map((item: any) => ({
+            id: item.id,
+            quantity: item.quantity,
+            price: item.price,
+            product: {
+              title: item.product?.title ?? "Unknown",
+              featuredImage: item.product?.featuredImage ?? null,
+            },
+          })),
+        }))
+      : [];
+
+  // Flat items fallback for direct single-seller orders
+  const flatItems =
+    mappedSubOrders.length === 0
+      ? (d.items ?? []).map((item: any) => ({
+          id: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          product: {
+            title: item.product?.title,
+            images: item.product?.featuredImage ? [item.product.featuredImage] : [],
+          },
+        }))
+      : [];
+
+  return {
+    id: d.id,
+    displayId: d.displayId ?? null,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
+    customerName: d.customer?.name,
+    customerEmail: d.customer?.email,
+    status: d.overallStatus ?? d.status ?? "PENDING",
+    items: flatItems,
+    subOrders: mappedSubOrders.length > 0 ? mappedSubOrders : undefined,
+    totalAmount: d.totalAmount,
+    trackingNumber:
+      d.trackingNumber ?? d.subOrders?.[0]?.trackingNumber ?? null,
+    estimatedDelivery:
+      d.estimatedDelivery ?? d.subOrders?.[0]?.estimatedDelivery ?? null,
+    paymentMethod: d.paymentMethod,
+    statusReason: d.statusReason ?? d.subOrders?.[0]?.statusReason ?? null,
+    // seller for direct orders
+    sellerName: d.sellerName ?? d.seller?.name ?? null,
+    seller: d.seller ?? null,
+    shippingAddress: d.shippingAddress
+      ? {
+          addressLine: d.shippingAddress.line,
+          city: d.shippingAddress.city,
+          state: d.shippingAddress.state,
+          zipCode: d.shippingAddress.zipCode,
+          country: d.shippingAddress.country,
+          phone: d.shippingAddress.phone,
+        }
+      : null,
+  };
+}
+
 // ── Detail Page (inner) ────────────────────────────────────────────────────────
 
 function OrderDetailContent() {
@@ -281,16 +398,26 @@ function OrderDetailContent() {
   const [notFound, setNotFound] = useState(false);
   const [activeStatusModal, setActiveStatusModal] = useState(false);
   const [activeTrackingModal, setActiveTrackingModal] = useState(false);
+  const [activeSubStatusSub, setActiveSubStatusSub] = useState<SubOrderInfo | null>(null);
+  const [activeSubTrackingSub, setActiveSubTrackingSub] = useState<SubOrderInfo | null>(null);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   const fetchOrder = async () => {
-    if (!sellerId) { setNotFound(true); setLoading(false); return; }
     setLoading(true);
     try {
-      const res = await api.get(`/api/admin/orders/by-seller/${sellerId}`);
-      const orders: Order[] = Array.isArray(res) ? res : res.orders ?? [];
-      const found = orders.find((o) => String(o.id) === String(orderId));
-      if (found) { setOrder(found); } else { setNotFound(true); }
+      if (sellerId) {
+        // Navigate from "By Seller" tab — use seller-scoped endpoint
+        const res = await api.get(`/api/admin/orders/by-seller/${sellerId}`);
+        const orders: Order[] = Array.isArray(res) ? res : res.orders ?? [];
+        const found = orders.find((o) => String(o.id) === String(orderId));
+        if (found) { setOrder(found); } else { setNotFound(true); }
+      } else {
+        // Navigate from "All Orders" tab — use detailed endpoint
+        const res = await api.get("/api/admin/orders/detailed");
+        const allOrders: any[] = Array.isArray(res) ? res : res.orders ?? [];
+        const found = allOrders.find((o: any) => String(o.id) === String(orderId));
+        if (found) { setOrder(mapDetailedToOrder(found)); } else { setNotFound(true); }
+      }
     } catch {
       toast.error("Failed to load order");
       setNotFound(true);
@@ -307,7 +434,7 @@ function OrderDetailContent() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${order.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/orders/invoice/${order.id}`,
         { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
       );
       if (!response.ok) {
@@ -426,6 +553,7 @@ function OrderDetailContent() {
   }
 
   const terminal = isTerminalStatus(order.status);
+  const isMultiSeller = order.subOrders && order.subOrders.length > 0;
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -438,7 +566,7 @@ function OrderDetailContent() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Order #{typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}
+              Order #{order.displayId ?? (typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id)}
             </h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
@@ -454,12 +582,13 @@ function OrderDetailContent() {
           <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm px-3 py-1">
             {getStatusLabel(order.status)}
           </Badge>
-          {!terminal && (
+          {/* For multi-seller orders, status/tracking is managed per sub-order below */}
+          {!terminal && !isMultiSeller && (
             <Button onClick={() => setActiveStatusModal(true)}>
               <ClipboardList className="h-4 w-4 mr-2" /> Update Status
             </Button>
           )}
-          {!order.trackingNumber && !terminal && (
+          {!order.trackingNumber && !terminal && !isMultiSeller && (
             <Button variant="outline" onClick={() => setActiveTrackingModal(true)}>
               <Truck className="h-4 w-4 mr-2" /> Add Tracking
             </Button>
@@ -622,46 +751,198 @@ function OrderDetailContent() {
         </Card>
       )}
 
-      {/* ── Order Items ── */}
-      <Card>
-        <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b rounded-t-lg">
-          <Box className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Items</span>
-        </div>
-        <CardContent className="p-0">
-          {order.items && order.items.length > 0 ? (
-            <div className="divide-y">
-              {order.items.map((item, i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-3">
-                  {item.product?.images?.[0] ? (
+      {/* ── Order Items / Seller Breakdown ── */}
+      {order.subOrders && order.subOrders.length > 0 ? (
+        // ── Multi-seller: grouped by sub-order / seller ──
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Store className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Seller Breakdown ({order.subOrders.length} seller{order.subOrders.length !== 1 ? "s" : ""})
+            </span>
+          </div>
+          {order.subOrders.map((sub) => (
+            <Card key={sub.subOrderId} className="overflow-hidden">
+              {/* Sub-order header */}
+              <div className="border-b bg-muted/40 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {sub.seller?.storeLogo ? (
                     <Image
-                      src={item.product.images[0]}
-                      alt={item.product.title || "Product"}
-                      width={56}
-                      height={56}
-                      className="rounded-lg object-cover border shrink-0"
+                      src={sub.seller.storeLogo}
+                      alt={sub.seller.storeName || sub.sellerName || "Seller"}
+                      width={36}
+                      height={36}
+                      className="rounded-full object-cover w-9 h-9 border shrink-0"
                       unoptimized
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                      <Package className="h-6 w-6 text-muted-foreground" />
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Store className="h-4 w-4 text-primary" />
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{item.product?.title || item.title || "Unknown Product"}</p>
-                    <p className="text-sm text-muted-foreground">Qty: {renderValue(item.quantity)}</p>
+                  <div>
+                    <p className="font-semibold text-sm">
+                      {sub.seller?.storeName || sub.seller?.businessName || sub.sellerName || "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{sub.sellerEmail || "—"}</p>
                   </div>
-                  {item.price != null && (
-                    <p className="font-semibold text-sm shrink-0">${renderValue(item.price)}</p>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {sub.subDisplayId && (
+                    <span className="font-mono text-xs bg-primary/5 text-primary border border-primary/20 rounded px-2 py-0.5">
+                      {sub.subDisplayId}
+                    </span>
+                  )}
+                  {sub.status && (
+                    <Badge variant={getStatusBadgeVariant(sub.status)} className="text-xs">
+                      {getStatusLabel(sub.status)}
+                    </Badge>
+                  )}
+                  {sub.subtotal && (
+                    <span className="text-sm font-semibold">₹{parseFloat(sub.subtotal).toLocaleString()}</span>
+                  )}
+                  {/* Per-sub-order management actions */}
+                  {sub.status && !isTerminalStatus(sub.status) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => setActiveSubStatusSub(sub)}
+                    >
+                      <ClipboardList className="h-3 w-3" /> Status
+                    </Button>
+                  )}
+                  {!sub.trackingNumber && sub.status && !isTerminalStatus(sub.status) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => setActiveSubTrackingSub(sub)}
+                    >
+                      <Truck className="h-3 w-3" /> Tracking
+                    </Button>
                   )}
                 </div>
-              ))}
+              </div>
+
+              {/* Sub-order items */}
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {sub.items.map((item, i) => (
+                    <div key={item.id || i} className="flex items-center gap-4 px-4 py-3">
+                      {item.product.featuredImage ? (
+                        <Image
+                          src={item.product.featuredImage}
+                          alt={item.product.title}
+                          width={48}
+                          height={48}
+                          className="rounded-lg object-cover border shrink-0"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                          <Package className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{item.product.title}</p>
+                        <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                      </div>
+                      <p className="font-semibold text-sm shrink-0">₹{parseFloat(item.price).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+
+              {/* Tracking for this sub-order */}
+              {(sub.trackingNumber || sub.estimatedDelivery) && (
+                <div className="border-t bg-muted/20 px-4 py-2.5 flex gap-6 text-xs text-muted-foreground">
+                  {sub.trackingNumber && (
+                    <span className="flex items-center gap-1">
+                      <Truck className="h-3 w-3" />
+                      <span className="font-mono font-medium text-foreground">{sub.trackingNumber}</span>
+                    </span>
+                  )}
+                  {sub.estimatedDelivery && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Est. {fmtDate(sub.estimatedDelivery)}
+                    </span>
+                  )}
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      ) : (
+        // ── Single-seller / flat items ──
+        <Card>
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b rounded-t-lg">
+            <Box className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Items</span>
+          </div>
+          {/* Seller info for direct orders */}
+          {(order.sellerName || order.seller?.storeName) && (
+            <div className="border-b px-4 py-3 flex items-center gap-3 bg-muted/20">
+              {order.seller?.storeLogo ? (
+                <Image
+                  src={order.seller.storeLogo}
+                  alt={order.seller.storeName || order.sellerName || "Seller"}
+                  width={32}
+                  height={32}
+                  className="rounded-full object-cover w-8 h-8 border shrink-0"
+                  unoptimized
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Store className="h-3.5 w-3.5 text-primary" />
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-semibold">{order.seller?.storeName || order.sellerName}</p>
+                {order.displaySubId && (
+                  <span className="font-mono text-xs bg-primary/5 text-primary border border-primary/20 rounded px-2 py-0.5">
+                    {order.displaySubId}
+                  </span>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">No items found for this order.</div>
           )}
-        </CardContent>
-      </Card>
+          <CardContent className="p-0">
+            {order.items && order.items.length > 0 ? (
+              <div className="divide-y">
+                {order.items.map((item, i) => (
+                  <div key={i} className="flex items-center gap-4 px-4 py-3">
+                    {item.product?.images?.[0] ? (
+                      <Image
+                        src={item.product.images[0]}
+                        alt={item.product.title || "Product"}
+                        width={56}
+                        height={56}
+                        className="rounded-lg object-cover border shrink-0"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <Package className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{item.product?.title || item.title || "Unknown Product"}</p>
+                      <p className="text-sm text-muted-foreground">Qty: {renderValue(item.quantity)}</p>
+                    </div>
+                    {item.price != null && (
+                      <p className="font-semibold text-sm shrink-0">₹{renderValue(item.price)}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">No items found for this order.</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Modals ── */}
       {activeStatusModal && (
@@ -675,6 +956,23 @@ function OrderDetailContent() {
         <TrackingModal
           order={order}
           onClose={() => setActiveTrackingModal(false)}
+          onSuccess={fetchOrder}
+        />
+      )}
+      {/* Per-sub-order modals */}
+      {activeSubStatusSub && (
+        <StatusUpdateModal
+          order={{ ...order, id: activeSubStatusSub.subOrderId, status: activeSubStatusSub.status ?? order.status }}
+          orderIdOverride={activeSubStatusSub.subOrderId}
+          onClose={() => setActiveSubStatusSub(null)}
+          onSuccess={fetchOrder}
+        />
+      )}
+      {activeSubTrackingSub && (
+        <TrackingModal
+          order={{ ...order, id: activeSubTrackingSub.subOrderId }}
+          orderIdOverride={activeSubTrackingSub.subOrderId}
+          onClose={() => setActiveSubTrackingSub(null)}
           onSuccess={fetchOrder}
         />
       )}

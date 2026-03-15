@@ -254,10 +254,10 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
     if (!valid) { setValidationErrors(errors); return; }
     setLoading(true);
     try {
-      await api.put(`/api/seller/orders/update-status/${order.id}`, payload);
+      await api.put(`/api/admin/orders/update-status/${order.id}`, payload);
       // If shipping, persist tracking info via the dedicated tracking endpoint
       if (selectedStatus === "SHIPPED" && trackingNumber && estimatedDelivery) {
-        await api.put(`/api/seller/orders/tracking/${order.id}`, {
+        await api.put(`/api/admin/orders/tracking/${order.id}`, {
           trackingNumber,
           estimatedDelivery,
         });
@@ -479,13 +479,13 @@ export default function AdminOrdersPage() {
     }
   };
 
-  // Add tracking update logic for admin using seller endpoints
+  // Add tracking update logic for admin
   const submitTracking = async () => {
     if (!activeTrackingOrder) return;
     const { valid, errors } = validateStatusUpdate("SHIPPED", { trackingNumber, estimatedDelivery: estimatedDelivery });
     if (!valid) { toast.error(errors[0]); return; }
     try {
-      await api.put(`/api/seller/orders/tracking/${activeTrackingOrder.id}`, { 
+      await api.put(`/api/admin/orders/tracking/${activeTrackingOrder.id}`, { 
         trackingNumber, 
         estimatedDelivery 
       });
@@ -519,7 +519,7 @@ export default function AdminOrdersPage() {
     setDownloadingInvoiceId(orderId);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${orderId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/orders/invoice/${orderId}`, {
         method: "GET",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -895,6 +895,16 @@ export default function AdminOrdersPage() {
                     {order.couponCode && (
                       <Badge variant="outline" className="text-xs">{order.couponCode}</Badge>
                     )}
+                  </div>
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1"
+                      onClick={() => router.push(`/admindashboard/orders/${order.id}`)}
+                    >
+                      <Eye className="h-4 w-4" /> View
+                    </Button>
                   </div>
                 </div>
 
