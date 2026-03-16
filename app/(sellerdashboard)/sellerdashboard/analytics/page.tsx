@@ -145,6 +145,71 @@ export default function AnalyticsPage() {
   const topProducts = analytics?.topProducts ?? [];
   const totalStatusOrders = statusEntries.reduce((s, [, c]) => s + (c as number), 0);
 
+  const handleExportReport = () => {
+    if (!analytics) { toast.error("No analytics data to export."); return; }
+    const BOM = "\uFEFF";
+    const escape = (val: unknown): string => {
+      const str = val === null || val === undefined ? "" : String(val);
+      return str.includes(",") || str.includes('"') || str.includes("\n")
+        ? `"${str.replace(/"/g, '""')}"`
+        : str;
+    };
+    const dateRange = appliedFrom || appliedTo
+      ? `${appliedFrom || "Start"} to ${appliedTo || "Present"}`
+      : "All time";
+    const date = new Date().toISOString().slice(0, 10);
+    const sections: string[] = [];
+
+    // Summary section
+    sections.push("ANALYTICS SUMMARY");
+    sections.push(`Date Range,${escape(dateRange)}`);
+    sections.push(`Exported On,${escape(date)}`);
+    sections.push("");
+    const toNum = (v: unknown) => (v === null || v === undefined || v === "" ? NaN : Number(v));
+    const fmtFixed = (v: unknown) => { const n = toNum(v); return Number.isNaN(n) ? "—" : n.toFixed(2); };
+
+    sections.push("Metric,Value");
+    sections.push(`Total Revenue,$${escape(fmtFixed(analytics.totalRevenue))}`);
+    sections.push(`Total Orders,${escape(analytics.totalOrders ?? "—")}`);
+    sections.push(`Items Sold,${escape(analytics.totalItemsSold ?? "—")}`);
+    sections.push(`Average Order Value,$${escape(fmtFixed(analytics.averageOrderValue))}`);
+    sections.push("");
+
+    // Order status breakdown
+    sections.push("ORDER STATUS BREAKDOWN");
+    sections.push("Status,Count,% of Total");
+    const statusTotal = statusEntries.reduce((s, [, c]) => s + Number(c), 0);
+    for (const [status, count] of statusEntries) {
+      const pct = statusTotal > 0 ? ((Number(count) / statusTotal) * 100).toFixed(1) : "0.0";
+      sections.push(`${escape(status)},${Number(count)},${pct}%`);
+    }
+    sections.push("");
+
+    // Top products
+    if (topProducts.length > 0) {
+      sections.push("TOP PRODUCTS BY SALES");
+      sections.push("Rank,Product ID,Product Name,Units Sold,Revenue ($),Avg per Unit ($)");
+      topProducts.forEach((p, i) => {
+        const revenue = toNum(p.revenue);
+        const qty = toNum(p.quantitySold);
+        const avg = qty > 0 ? (revenue / qty).toFixed(2) : "0.00";
+        sections.push([i + 1, escape(p.productId.slice(-8).toUpperCase()), escape(p.title), qty, revenue.toFixed(2), avg].join(","));
+      });
+    }
+
+    const csv = sections.join("\n");
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `analytics-report-${date}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Analytics report exported successfully.");
+  };
+
   const handleExportTopProducts = () => {
     if (topProducts.length === 0) { toast.error("No product data to export."); return; }
     const BOM = "\uFEFF";
@@ -155,14 +220,18 @@ export default function AnalyticsPage() {
         : str;
     };
     const headers = ["Rank", "Product ID", "Product Name", "Units Sold", "Revenue ($)", "Avg. per Unit ($)"];
-    const rows = topProducts.map((p, i) => [
-      i + 1,
-      p.productId.slice(-8).toUpperCase(),
-      p.title,
-      p.quantitySold,
-      p.revenue.toFixed(2),
-      p.quantitySold > 0 ? (p.revenue / p.quantitySold).toFixed(2) : "0.00",
-    ]);
+    const rows = topProducts.map((p, i) => {
+      const revenue = Number(p.revenue);
+      const qty = Number(p.quantitySold);
+      return [
+        i + 1,
+        p.productId.slice(-8).toUpperCase(),
+        p.title,
+        qty,
+        revenue.toFixed(2),
+        qty > 0 ? (revenue / qty).toFixed(2) : "0.00",
+      ];
+    });
     const csv = [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
     const date = new Date().toISOString().slice(0, 10);
     const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
@@ -186,16 +255,28 @@ export default function AnalyticsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
           <p className="text-muted-foreground">Sales performance and order insights for your store.</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 self-start sm:self-auto"
-          onClick={() => fetchAnalytics({ refresh: true, from: appliedFrom, to: appliedTo })}
-          disabled={loading || refreshing}
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={handleExportReport}
+            disabled={loading || !analytics}
+          >
+            <FileDown className="h-4 w-4" />
+            Export Report
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => fetchAnalytics({ refresh: true, from: appliedFrom, to: appliedTo })}
+            disabled={loading || refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* ── Date Range Filter ── */}
