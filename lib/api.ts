@@ -8,9 +8,10 @@ const getAuthToken = () => {
   return null;
 };
 
-// Check if error is auth-related
+// Check if error is auth-related (token expired/invalid)
+// NOTE: 401 = unauthenticated (sign out). 403 = forbidden (show error, stay logged in).
 const isAuthError = (status: number) => {
-  return status === 401 || status === 403;
+  return status === 401;
 };
 
 // Main API client

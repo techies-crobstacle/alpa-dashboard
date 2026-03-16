@@ -254,14 +254,8 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
     if (!valid) { setValidationErrors(errors); return; }
     setLoading(true);
     try {
-      await api.put(`/api/admin/orders/update-status/${order.id}`, payload);
-      // If shipping, persist tracking info via the dedicated tracking endpoint
-      if (selectedStatus === "SHIPPED" && trackingNumber && estimatedDelivery) {
-        await api.put(`/api/admin/orders/tracking/${order.id}`, {
-          trackingNumber,
-          estimatedDelivery,
-        });
-      }
+      await api.put(`/api/seller/orders/update-status/${order.id}`, payload);
+      // NOTE: tracking data is already saved by update-status when status is SHIPPED.
       toast.success(`Order updated to ${getStatusLabel(selectedStatus)}`);
       onSuccess();
       onClose();
@@ -485,7 +479,7 @@ export default function AdminOrdersPage() {
     const { valid, errors } = validateStatusUpdate("SHIPPED", { trackingNumber, estimatedDelivery: estimatedDelivery });
     if (!valid) { toast.error(errors[0]); return; }
     try {
-      await api.put(`/api/admin/orders/tracking/${activeTrackingOrder.id}`, { 
+      await api.put(`/api/seller/orders/tracking/${activeTrackingOrder.id}`, { 
         trackingNumber, 
         estimatedDelivery 
       });

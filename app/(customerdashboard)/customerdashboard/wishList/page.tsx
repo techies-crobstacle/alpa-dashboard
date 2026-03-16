@@ -15,6 +15,7 @@ interface Product {
   description: string;
   price: string;
   images: string[];
+  featuredImage: string[];
   stock: number;
   status: string;
   category: string;
@@ -50,10 +51,15 @@ function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading
   actionLoading: { [key: string]: boolean };
 }) {
   const { product } = item;
-  const image = product.images && product.images.length > 0 
-    ? product.images[0] 
-    : "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80";
-  
+  let image: string;
+  if (product.featuredImage && product.featuredImage.length > 0) {
+    image = Array.isArray(product.featuredImage)
+      ? product.featuredImage[0]
+      : product.featuredImage;
+  } else {
+    image = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80";
+  }
+
   const isRemoving = actionLoading[`remove-${item.id}`];
   const isAddingToCart = actionLoading[`add-cart-${product.id}`];
   const isMovingToCart = actionLoading[`cart-${product.id}`];
@@ -101,6 +107,19 @@ function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading
             )}
             {product.stock > 0 ? "Move to Cart" : "Out of Stock"}
           </Button>
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={() => onRemove(item.id)}
+            disabled={isRemoving}
+          >
+            {isRemoving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
+            Remove
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -129,9 +148,14 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
       <TableBody>
         {items.map((item) => {
           const { product } = item;
-          const image = product.images && product.images.length > 0 
-            ? product.images[0] 
-            : "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80";
+          let image: string;
+          if (product.featuredImage && product.featuredImage.length > 0) {
+            image = Array.isArray(product.featuredImage)
+              ? product.featuredImage[0]
+              : product.featuredImage;
+          } else {
+            image = "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80";
+          }
           
           const isRemoving = actionLoading[`remove-${item.id}`];
           const isAddingToCart = actionLoading[`add-cart-${product.id}`];
@@ -187,9 +211,9 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
                   
                   {/* Secondary actions row */}
                   <div className="flex gap-1">
-                    <Button size="sm" variant="outline">
+                    {/* <Button size="sm" variant="outline">
                       <StickyNote className="h-4 w-4" />
-                    </Button>
+                    </Button> */}
                     
                     <Button 
                       size="sm" 
@@ -281,7 +305,6 @@ const WishlistLoadingSkeleton = () => {
                   <div className="space-y-2">
                     <Skeleton className="h-8 w-24" />
                     <div className="flex gap-1">
-                      <Skeleton className="h-8 w-8 rounded" />
                       <Skeleton className="h-8 w-8 rounded" />
                       <Skeleton className="h-8 w-8 rounded" />
                     </div>

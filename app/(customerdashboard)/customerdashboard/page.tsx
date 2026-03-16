@@ -88,7 +88,7 @@ export default function CustomerDashboardPage() {
 					const raw = wishlistData.value;
 					setWishlistCount(
 						Array.isArray(raw) ? raw.length :
-						raw?.total ?? raw?.count ?? raw?.items?.length ?? 0
+						raw?.pagination?.total ?? raw?.wishlist?.length ?? raw?.total ?? raw?.count ?? 0
 					);
 				}
 			} finally {

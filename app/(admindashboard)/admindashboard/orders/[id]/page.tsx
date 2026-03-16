@@ -128,14 +128,9 @@ function StatusUpdateModal({
     setLoading(true);
     const effectiveId = orderIdOverride ?? order.id;
     try {
-      await api.put(`/api/admin/orders/update-status/${effectiveId}`, payload);
-      // If shipping, persist tracking info via the dedicated tracking endpoint
-      if (selectedStatus === "SHIPPED" && trackingNumber && estimatedDelivery) {
-        await api.put(`/api/admin/orders/tracking/${effectiveId}`, {
-          trackingNumber,
-          estimatedDelivery,
-        });
-      }
+      await api.put(`/api/seller/orders/update-status/${effectiveId}`, payload);
+      // NOTE: tracking data (trackingNumber, estimatedDelivery) is already saved
+      // by update-status when status is SHIPPED — no separate tracking call needed.
       toast.success(`Order updated to ${getStatusLabel(selectedStatus)}`);
       onSuccess();
       onClose();
@@ -258,7 +253,7 @@ function TrackingModal({
     setLoading(true);
     const effectiveId = orderIdOverride ?? order.id;
     try {
-      await api.put(`/api/admin/orders/tracking/${effectiveId}`, { trackingNumber, estimatedDelivery });
+      await api.put(`/api/seller/orders/tracking/${effectiveId}`, { trackingNumber, estimatedDelivery });
       toast.success("Tracking information updated");
       onSuccess();
       onClose();
