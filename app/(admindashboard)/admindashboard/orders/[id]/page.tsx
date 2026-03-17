@@ -794,7 +794,7 @@ function OrderDetailContent() {
                     </Badge>
                   )}
                   {sub.subtotal && (
-                    <span className="text-sm font-semibold">₹{parseFloat(sub.subtotal).toLocaleString()}</span>
+                    <span className="text-sm font-semibold">${parseFloat(sub.subtotal).toLocaleString()}</span>
                   )}
                   {/* Per-sub-order management actions */}
                   {sub.status && !isTerminalStatus(sub.status) && (
@@ -843,7 +843,7 @@ function OrderDetailContent() {
                         <p className="font-medium truncate">{item.product.title}</p>
                         <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                       </div>
-                      <p className="font-semibold text-sm shrink-0">₹{parseFloat(item.price).toLocaleString()}</p>
+                      <p className="font-semibold text-sm shrink-0">${parseFloat(item.price).toLocaleString()}</p>
                     </div>
                   ))}
                 </div>
@@ -927,7 +927,7 @@ function OrderDetailContent() {
                       <p className="text-sm text-muted-foreground">Qty: {renderValue(item.quantity)}</p>
                     </div>
                     {item.price != null && (
-                      <p className="font-semibold text-sm shrink-0">₹{renderValue(item.price)}</p>
+                      <p className="font-semibold text-sm shrink-0">${renderValue(item.price)}</p>
                     )}
                   </div>
                 ))}

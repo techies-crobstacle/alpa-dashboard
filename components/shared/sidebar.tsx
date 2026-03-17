@@ -65,8 +65,8 @@ const sellerSidebarItems = [
 const customerSidebarItems = [
 	{ title: "Dashboard",   href: "/customerdashboard",           icon: LayoutDashboard, badge: null },
 	{ title: "My Orders",   href: "/customerdashboard/orders",    icon: ClipboardList, badge: null },
-	{ title: "My Wishlist", href: "/customerdashboard/wishlist",  icon: Heart,         badge: null },
-	{ title: "My Wishlists", href: "/customerdashboard/wishlists",  icon: Heart,         badge: null },
+	// { title: "My Wishlist", href: "/customerdashboard/wishlist",  icon: Heart,         badge: null },
+	{ title: "My Wishlist", href: "/customerdashboard/wishlists",  icon: Heart,         badge: null },
 	
 	
 	{ title: "Profile",        href: "/customerdashboard/profile",        icon: User,         badge: null },
