@@ -94,7 +94,16 @@ export function Sidebar({ onMobileClose, isCollapsed: controlledCollapsed, onCol
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token");
 			const decoded = token ? decodeJWT(token) : null;
-			setRole(typeof decoded?.role === 'string' ? decoded.role : null);
+			const detectedRole = typeof decoded?.role === 'string' ? decoded.role : null;
+			
+			console.log("[Sidebar] Role detection:", {
+				hasToken: !!token,
+				decoded: decoded,
+				detectedRole: detectedRole,
+				pathname: pathname
+			});
+			
+			setRole(detectedRole);
 		}
 	}, []);
 

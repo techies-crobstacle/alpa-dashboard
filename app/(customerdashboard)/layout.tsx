@@ -23,12 +23,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 		// Only run on client to verify token exists
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token");
+			console.log("[CustomerDashboard] Auth check:", {
+				hasToken: !!token,
+				pathname: pathname,
+				tokenLength: token?.length || 0
+			});
+			
 			if (!token) {
+				console.log("[CustomerDashboard] No token found, redirecting to login");
 				// Preserve current path for redirect after login
 				const currentPath = encodeURIComponent(pathname);
 				router.replace(`/login?redirectTo=${currentPath}`);
 				return;
 			}
+			
+			console.log("[CustomerDashboard] Token found, allowing access");
 		}
 		setChecking(false);
 	}, [router, pathname]);

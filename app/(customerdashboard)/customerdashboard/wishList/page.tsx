@@ -368,6 +368,8 @@ export const addToWishlist = async (productId: string): Promise<boolean> => {
 
 // Main Wishlist Page Component
 export default function WishlistPage() {
+  console.log("[WishlistPage] Component loaded");
+  
   const [view, setView] = useState<'card' | 'table'>('table');
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
