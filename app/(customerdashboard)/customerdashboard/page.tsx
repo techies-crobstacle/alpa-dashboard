@@ -216,7 +216,7 @@ export default function CustomerDashboardPage() {
 					<CardContent className="pt-4 space-y-2">
 						{[
 							{ href: "/customerdashboard/orders",      icon: ShoppingBag,  label: "My Orders",       desc: "Track & view orders" },
-							{ href: "/customerdashboard/wishList",     icon: Heart,        label: "My Wishlist",     desc: "Saved items" },
+							{ href: "/customerdashboard/wishlist",     icon: Heart,        label: "My Wishlist",     desc: "Saved items" },
 							{ href: "/customerdashboard/profile",      icon: User,         label: "My Profile",      desc: "Update your info" },
 							{ href: "/customerdashboard/settings",     icon: Settings,     label: "Settings",        desc: "Account preferences" },
 						].map(({ href, icon: Icon, label, desc }) => (
