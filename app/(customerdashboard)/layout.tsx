@@ -24,13 +24,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token");
 			if (!token) {
-				// Use router for navigation
-				router.replace("/login");
+				// Preserve current path for redirect after login
+				const currentPath = encodeURIComponent(pathname);
+				router.replace(`/login?redirectTo=${currentPath}`);
 				return;
 			}
 		}
 		setChecking(false);
-	}, [router]);
+	}, [router, pathname]);
 
 	// Listen for route changes to show skeleton loader
 	useEffect(() => {

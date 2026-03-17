@@ -105,6 +105,10 @@ export default function LoginPage() {
   const [loginPassword, setLoginPassword] = useState("");
   const [isOTPLoading, setIsOTPLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get redirect parameter for post-login navigation
+  const redirectTo = searchParams.get("redirectTo");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -139,7 +143,10 @@ export default function LoginPage() {
     });
 
     setTimeout(() => {
-      if (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN") {
+      // Use redirectTo parameter if provided, otherwise use role-based routing
+      if (redirectTo && redirectTo.startsWith("/")) {
+        router.push(redirectTo);
+      } else if (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN") {
         router.push("/admindashboard");
       } else if (role === "SELLER" || role === "seller") {
         router.push("/sellerdashboard");
@@ -447,7 +454,7 @@ export default function LoginPage() {
               <div className="flex-1 border-t border-border" />
             </div>
             <a
-              href={`https://alpa-be.onrender.com/api/auth/saml/login`}
+              href={`https://alpa-be.onrender.com/api/auth/saml/login${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`}
               className="w-full"
             >
               <Button type="button" variant="outline" className="w-full gap-2">
