@@ -367,7 +367,7 @@ export const addToWishlist = async (productId: string): Promise<boolean> => {
 };
 
 // Main Wishlist Page Component
-export default function WishlistPage() {
+const Wishlist = () => {
   console.log("[WishlistPage] Component loaded");
   
   const [view, setView] = useState<'card' | 'table'>('table');
@@ -613,3 +613,4 @@ export default function WishlistPage() {
     </div>
   );
 }
+export default Wishlist;
