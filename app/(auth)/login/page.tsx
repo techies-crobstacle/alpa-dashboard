@@ -6,6 +6,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -97,6 +98,27 @@ async function resendLoginOTP(email: string) {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <LogIn className="mx-auto h-12 w-12 text-gray-400" />
+          <CardTitle className="mt-4 text-2xl">Loading...</CardTitle>
+          <CardDescription>Please wait while we load the login form.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
