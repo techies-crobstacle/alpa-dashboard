@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
-import { Heart, ShoppingCart, List, LayoutGrid, Trash2, StickyNote, Loader2 } from "lucide-react";
+import { Heart, ShoppingCart, List, LayoutGrid, Trash2, StickyNote, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
@@ -42,6 +42,15 @@ interface WishlistResponse {
   };
 }
 
+// Helper function to create URL-friendly slug from product title
+function createProductSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, '')      // Remove leading/trailing hyphens
+    .replace(/-+/g, '-');         // Replace multiple hyphens with single
+}
+
 // Card View Component
 function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading }: { 
   item: WishlistItem; 
@@ -64,14 +73,19 @@ function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading
   const isAddingToCart = actionLoading[`add-cart-${product.id}`];
   const isMovingToCart = actionLoading[`cart-${product.id}`];
   
+  const productSlug = createProductSlug(product.title);
+  const frontendUrl = `https://apla-fe.vercel.app/shop/${productSlug}`;
+  
   return (
     <Card className="overflow-hidden">
       <div className="relative">
-        <img
-          src={image}
-          alt={product.title}
-          className="w-full h-48 object-cover"
-        />
+        <a href={frontendUrl} target="_blank" rel="noopener noreferrer" className="block">
+          <img
+            src={image}
+            alt={product.title}
+            className="w-full h-48 object-cover hover:scale-105 transition-transform cursor-pointer"
+          />
+        </a>
         <Button
           size="icon"
           variant="ghost"
@@ -87,7 +101,12 @@ function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading
         </Button>
       </div>
       <CardContent className="p-4">
-        <CardTitle className="text-sm line-clamp-2 mb-2">{product.title}</CardTitle>
+        <a href={frontendUrl} target="_blank" rel="noopener noreferrer" className="block mb-2">
+          <CardTitle className="text-sm line-clamp-2 hover:text-primary transition-colors cursor-pointer">
+            {product.title}
+            <ExternalLink className="h-3 w-3 inline ml-1 opacity-60" />
+          </CardTitle>
+        </a>
         <CardDescription className="text-xs mb-2">{product.seller.name}</CardDescription>
         <CardDescription className="text-xs mb-2 text-muted-foreground">{product.category}</CardDescription>
         <div className="text-lg font-bold text-primary mb-2">${product.price} AUD</div>
@@ -96,29 +115,41 @@ function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading
         {/* Action buttons */}
         <div className="space-y-2">
           <Button 
-            className="w-full" 
+            className="w-full bg-primary hover:bg-primary/90" 
+            size="sm"
             disabled={product.stock === 0 || isMovingToCart}
             onClick={() => onMoveToCart(product.id, item.id)}
           >
             {isMovingToCart ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Moving...
+              </>
             ) : (
-              <ShoppingCart className="h-4 w-4 mr-2" />
+              <>
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                {product.stock > 0 ? "Add to Cart" : "Sold Out"}
+              </>
             )}
-            {product.stock > 0 ? "Move to Cart" : "Out of Stock"}
           </Button>
           <Button
-            className="w-full"
+            className="w-full border-destructive/20 text-destructive hover:bg-destructive/10"
             variant="outline"
+            size="sm"
             onClick={() => onRemove(item.id)}
             disabled={isRemoving}
           >
             {isRemoving ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Removing...
+              </>
             ) : (
-              <Trash2 className="h-4 w-4 mr-2" />
+              <>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove
+              </>
             )}
-            Remove
           </Button>
         </div>
       </CardContent>
@@ -138,11 +169,11 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[500px]">Product</TableHead>
-          <TableHead>Category</TableHead>
-          <TableHead>Price</TableHead>
-          <TableHead>Stock</TableHead>
-          <TableHead>Actions</TableHead>
+          <TableHead className="w-[450px]">Product</TableHead>
+          <TableHead className="w-[120px]">Category</TableHead>
+          <TableHead className="w-[140px]">Price</TableHead>
+          <TableHead className="w-[100px]">Stock</TableHead>
+          <TableHead className="w-[160px]">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -161,17 +192,27 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
           const isAddingToCart = actionLoading[`add-cart-${product.id}`];
           const isMovingToCart = actionLoading[`cart-${product.id}`];
           
+          const productSlug = createProductSlug(product.title);
+          const frontendUrl = `https://apla-fe.vercel.app/shop/${productSlug}`;
+          
           return (
             <TableRow key={item.id}>
               <TableCell>
                 <div className="flex gap-3">
-                  <img
-                    src={image}
-                    alt={product.title}
-                    className="w-20 h-20 object-cover rounded"
-                  />
+                  <a href={frontendUrl} target="_blank" rel="noopener noreferrer" className="block">
+                    <img
+                      src={image}
+                      alt={product.title}
+                      className="w-20 h-20 object-cover rounded hover:scale-105 transition-transform cursor-pointer"
+                    />
+                  </a>
                   <div className="flex flex-col gap-1">
-                    <div className="font-medium line-clamp-2">{product.title}</div>
+                    <a href={frontendUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <div className="font-medium line-clamp-2 hover:text-primary transition-colors cursor-pointer">
+                        {product.title}
+                        <ExternalLink className="h-3 w-3 inline ml-1 opacity-60" />
+                      </div>
+                    </a>
                     <div className="text-sm text-muted-foreground">by {product.seller.name}</div>
                     <div className="text-xs text-muted-foreground">
                       Item added {new Date(item.addedAt).toLocaleDateString('en-AU', { 
@@ -194,40 +235,37 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
                 <div className="text-sm">{product.stock} available</div>
               </TableCell>
               <TableCell>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 min-w-[140px]">
                   {/* Move to Cart - Primary action */}
                   <Button 
                     size="sm" 
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     disabled={product.stock === 0 || isMovingToCart}
                     onClick={() => onMoveToCart(product.id, item.id)}
                   >
                     {isMovingToCart ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                     ) : (
-                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      <ShoppingCart className="h-3 w-3 mr-1" />
                     )}
-                    {product.stock > 0 ? "Move to Cart" : "Out of Stock"}
+                    {isMovingToCart ? "Adding..." : product.stock > 0 ? "Add to Cart" : "Sold Out"}
                   </Button>
                   
-                  {/* Secondary actions row */}
-                  <div className="flex gap-1">
-                    {/* <Button size="sm" variant="outline">
-                      <StickyNote className="h-4 w-4" />
-                    </Button> */}
-                    
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => onRemove(item.id)}
-                      disabled={isRemoving}
-                    >
-                      {isRemoving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
+                  {/* Remove action */}
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                    onClick={() => onRemove(item.id)}
+                    disabled={isRemoving}
+                  >
+                    {isRemoving ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3 mr-1" />
+                    )}
+                    {isRemoving ? "Removing..." : "Remove"}
+                  </Button>
                 </div>
               </TableCell>
             </TableRow>
@@ -255,8 +293,8 @@ const WishlistLoadingSkeleton = () => {
       {/* Header Skeleton */}
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <Skeleton className="h-10 w-48 mb-2" />
-          <Skeleton className="h-5 w-72" />
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-64" />
         </div>
         <div className="flex gap-2">
           <Skeleton className="h-10 w-10 rounded-md" />
@@ -265,49 +303,46 @@ const WishlistLoadingSkeleton = () => {
       </div>
 
       {/* Table View Skeleton */}
-      <Card>
+      <Card className="border-0 shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-[500px]">Product</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Stock</TableHead>
-              <TableHead>Actions</TableHead>
+            <TableRow className="border-border/50">
+              <TableHead className="w-[450px]">Product</TableHead>
+              <TableHead className="w-[120px]">Category</TableHead>
+              <TableHead className="w-[140px]">Price</TableHead>
+              <TableHead className="w-[100px]">Stock</TableHead>
+              <TableHead className="w-[160px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <TableRow key={idx}>
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <TableRow key={idx} className="border-border/30">
                 <TableCell>
                   <div className="flex gap-3">
-                    <Skeleton className="w-20 h-20 rounded" />
-                    <div className="flex flex-col gap-1 flex-1">
-                      <Skeleton className="h-4 w-48" />
-                      <Skeleton className="h-4 w-32" />
+                    <Skeleton className="w-16 h-16 rounded-lg" />
+                    <div className="flex flex-col gap-2 flex-1">
+                      <Skeleton className="h-4 w-56" />
+                      <Skeleton className="h-3 w-32" />
                       <Skeleton className="h-3 w-40" />
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-4 w-24" />
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <Skeleton className="h-5 w-20" />
-                    <Skeleton className="h-3 w-32" />
                   </div>
                 </TableCell>
                 <TableCell>
                   <Skeleton className="h-4 w-20" />
                 </TableCell>
                 <TableCell>
-                  <div className="space-y-2">
-                    <Skeleton className="h-8 w-24" />
-                    <div className="flex gap-1">
-                      <Skeleton className="h-8 w-8 rounded" />
-                      <Skeleton className="h-8 w-8 rounded" />
-                    </div>
+                  <div className="space-y-1">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-3 w-36" />
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-20" />
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col gap-2 min-w-[140px]">
+                    <Skeleton className="h-8 w-full rounded-md" />
+                    <Skeleton className="h-8 w-full rounded-md" />
                   </div>
                 </TableCell>
               </TableRow>
@@ -576,4 +611,3 @@ export default function WishlistPage() {
     </div>
   );
 }
-  

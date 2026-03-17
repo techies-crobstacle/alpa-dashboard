@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -406,11 +406,11 @@ export default function LoginPage() {
               )}
             </Button>
             
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="flex-1"
                 onClick={handleBackToLogin}
                 disabled={isOTPLoading}
               >
@@ -420,11 +420,18 @@ export default function LoginPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="w-full"
+                className="flex-1"
                 onClick={handleResendOTP}
                 disabled={isOTPLoading}
               >
-                Resend OTP
+                {isOTPLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Resending...
+                  </>
+                ) : (
+                  "Resend OTP"
+                )}
               </Button>
             </div>
           </form>
