@@ -92,7 +92,7 @@ interface CategoriesResponse {
 }
 
 // â”€â”€â”€ Audit action badge config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-constIT_ACTION_CONFIG: Record<string, { label: string; className: string }> = {
+const AUDIT_ACTION_CONFIG: Record<string, { label: string; className: string }> = {
 	CATEGORY_CREATED:      { label: "Created",             className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
 	CATEGORY_REQUESTED:    { label: "Requested",           className: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700" },
 	CATEGORY_APPROVED:     { label: "Approved",            className: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700" },
@@ -105,7 +105,7 @@ constIT_ACTION_CONFIG: Record<string, { label: string; className: string }> = {
 };
 
 function getAuditBadge(action: string) {
-	returnIT_ACTION_CONFIG[action] ?? { label: action.replace(/_/g, " "), className: "bg-muted text-muted-foreground border-border" };
+	return AUDIT_ACTION_CONFIG[action] ?? { label: action.replace(/_/g, " "), className: "bg-muted text-muted-foreground border-border" };
 }
 
 function formatDate(iso: string) {
