@@ -61,6 +61,7 @@ type OrderItem = {
 
 type Order = {
   id: string;
+  displayId?: string | null;
   displaySubId?: string | null;
   parentOrderId?: string | null;
   parentDisplayId?: string | null;
@@ -197,7 +198,7 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
             <div>
               <CardTitle className="text-lg">Update Order Status</CardTitle>
               <CardDescription className="mt-0.5">
-                {order.displaySubId ?? `#${typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}`}
+                {order.displaySubId ?? order.displayId ?? `#${typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}`}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -683,7 +684,7 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Info</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">{order.displaySubId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">{order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
             <div className="flex justify-between items-center"><span className="text-muted-foreground">Status</span><Badge variant="secondary">{order.status.toUpperCase()}</Badge></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{order.type === "DIRECT" ? "Direct Order" : "Sub-order"}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</span></div>
@@ -735,11 +736,11 @@ export default function OrdersPage() {
               <Button
                 variant="default"
                 size="sm"
-                disabled={downloadingInvoiceId === order.id}
-                onClick={() => handleDownloadInvoice(order.id)}
+                disabled={downloadingInvoiceId === (order.displayId ?? order.displaySubId ?? order.id)}
+                onClick={() => handleDownloadInvoice(order.displayId ?? order.displaySubId ?? order.id)}
                 className="gap-2"
               >
-                {downloadingInvoiceId === order.id ? (
+                {downloadingInvoiceId === (order.displayId ?? order.displaySubId ?? order.id) ? (
                   <><Loader2 className="animate-spin h-4 w-4" />Downloading...</>
                 ) : (
                   <><Download className="h-4 w-4" />Download Invoice</>
@@ -1031,7 +1032,7 @@ export default function OrdersPage() {
                   </div>
                   <div>
                     <p className="font-bold">
-                      {order.displaySubId ?? `#${order.id.slice(-6).toUpperCase()}`}
+                      {order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(order.createdAt).toLocaleDateString()}</p>
                     {order.parentDisplayId && (
