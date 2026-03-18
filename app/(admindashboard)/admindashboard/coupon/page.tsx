@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ interface Coupon {
   updatedAt: string;
 }
 
-const AUDIT_ACTION_CONFIG: Record<string, { label: string; className: string }> = {
+constIT_ACTION_CONFIG: Record<string, { label: string; className: string }> = {
   COUPON_CREATED:      { label: "Created",             className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
   COUPON_UPDATED:      { label: "Updated",             className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700" },
   COUPON_SOFT_DELETED: { label: "Moved to Bin",        className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700" },
@@ -50,7 +50,7 @@ const AUDIT_ACTION_CONFIG: Record<string, { label: string; className: string }> 
 };
 
 function getAuditBadge(action: string) {
-  return AUDIT_ACTION_CONFIG[action] ?? { label: action.replace(/_/g, " "), className: "bg-muted text-muted-foreground border-border" };
+  returnIT_ACTION_CONFIG[action] ?? { label: action.replace(/_/g, " "), className: "bg-muted text-muted-foreground border-border" };
 }
 
 function formatDate(iso: string) {

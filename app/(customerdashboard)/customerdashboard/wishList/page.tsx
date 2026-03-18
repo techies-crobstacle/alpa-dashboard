@@ -90,7 +90,7 @@ function WishlistCard({ item, onRemove, onAddToCart, onMoveToCart, actionLoading
         <CardTitle className="text-sm line-clamp-2 mb-2">{product.title}</CardTitle>
         <CardDescription className="text-xs mb-2">{product.seller.name}</CardDescription>
         <CardDescription className="text-xs mb-2 text-muted-foreground">{product.category}</CardDescription>
-        <div className="text-lg font-bold text-primary mb-2">${product.price} AUD</div>
+        <div className="text-lg font-bold text-primary mb-2">${product.price}</div>
         <div className="text-xs text-muted-foreground mb-4">Stock: {product.stock}</div>
         
         {/* Action buttons */}
@@ -187,8 +187,8 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
                 <div className="text-sm">{product.category}</div>
               </TableCell>
               <TableCell>
-                <div className="font-bold text-primary">${product.price} AUD</div>
-                <div className="text-xs text-muted-foreground mt-1">FREE Delivery on orders over $50 AUD</div>
+                <div className="font-bold text-primary">${product.price}</div>
+                <div className="text-xs text-muted-foreground mt-1">FREE Delivery on orders over $50</div>
               </TableCell>
               <TableCell>
                 <div className="text-sm">{product.stock} available</div>

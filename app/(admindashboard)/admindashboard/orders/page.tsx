@@ -881,7 +881,7 @@ export default function AdminOrdersPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">Total</p>
-                      <p className="font-semibold">₹{parseFloat(order.totalAmount).toLocaleString()}</p>
+                      <p className="font-semibold">${parseFloat(order.totalAmount).toLocaleString()}</p>
                     </div>
                     <Badge variant={getStatusBadgeVariant(order.overallStatus)} className="flex items-center gap-1">
                       {getStatusLabel(order.overallStatus)}
@@ -972,7 +972,7 @@ export default function AdminOrdersPage() {
                                   )}
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium truncate">{item.product.title}</p>
-                                    <p className="text-xs text-muted-foreground">₹{parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
+                                    <p className="text-xs text-muted-foreground">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
                                   </div>
                                 </div>
                               ))}
@@ -983,7 +983,7 @@ export default function AdminOrdersPage() {
                               <Badge variant={getStatusBadgeVariant(sub.status)} className="text-xs">
                                 {getStatusLabel(sub.status)}
                               </Badge>
-                              <p className="text-sm font-semibold">₹{parseFloat(sub.subtotal).toLocaleString()}</p>
+                              <p className="text-sm font-semibold">${parseFloat(sub.subtotal).toLocaleString()}</p>
                               {sub.trackingNumber && (
                                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                                   <Truck className="h-3 w-3" />{sub.trackingNumber}
@@ -1036,7 +1036,7 @@ export default function AdminOrdersPage() {
                                   )}
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium truncate">{item.product.title}</p>
-                                    <p className="text-xs text-muted-foreground">₹{parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
+                                    <p className="text-xs text-muted-foreground">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
                                   </div>
                                 </div>
                               ))
@@ -1050,7 +1050,7 @@ export default function AdminOrdersPage() {
                             <Badge variant={getStatusBadgeVariant(order.overallStatus)} className="text-xs">
                               {getStatusLabel(order.overallStatus)}
                             </Badge>
-                            <p className="text-sm font-semibold">₹{parseFloat(order.totalAmount).toLocaleString()}</p>
+                            <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString()}</p>
                             {order.trackingNumber && (
                               <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Truck className="h-3 w-3" />{order.trackingNumber}
@@ -1229,7 +1229,7 @@ export default function AdminOrdersPage() {
                     <p className="text-sm font-medium flex items-center gap-1">
                       <DollarSign className="h-4 w-4" /> Total
                     </p>
-                    <p className="text-sm font-semibold">₹{parseFloat(order.totalAmount).toLocaleString()}</p>
+                    <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString()}</p>
                   </div>
                   <Badge variant={getStatusBadgeVariant(order.status)} className="flex items-center gap-1">
                     <Hash className="h-3 w-3" /> {getStatusLabel(order.status)}
@@ -1269,7 +1269,7 @@ export default function AdminOrdersPage() {
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium">{item.product.title}</p>
                             <p className="text-xs text-muted-foreground">
-                              ₹{parseFloat(item.price).toLocaleString()} x {item.quantity}
+                              ${parseFloat(item.price).toLocaleString()} x {item.quantity}
                             </p>
                           </div>
                         </div>
@@ -1312,11 +1312,11 @@ export default function AdminOrdersPage() {
                         </div>
                       </div>
                       <div className="text-xs space-y-1">
-                        <p><span className="text-muted-foreground">Subtotal:</span> ₹{parseFloat(order.subtotal).toLocaleString()}</p>
+                        <p><span className="text-muted-foreground">Subtotal:</span> ${parseFloat(order.subtotal).toLocaleString()}</p>
                         {order.shippingAddress?.orderSummary && (
                           <>
-                            <p><span className="text-muted-foreground">Shipping:</span> ₹{parseFloat(order.shippingAddress.orderSummary.shippingCost || '0').toLocaleString()}</p>
-                            <p><span className="text-muted-foreground">GST ({order.shippingAddress.orderSummary.gstPercentage}%):</span> ₹{parseFloat(order.shippingAddress.orderSummary.gstAmount || '0').toLocaleString()}</p>
+                            <p><span className="text-muted-foreground">Shipping:</span> ${parseFloat(order.shippingAddress.orderSummary.shippingCost || '0').toLocaleString()}</p>
+                            <p><span className="text-muted-foreground">GST ({order.shippingAddress.orderSummary.gstPercentage}%):</span> ${parseFloat(order.shippingAddress.orderSummary.gstAmount || '0').toLocaleString()}</p>
                           </>
                         )}
                       </div>

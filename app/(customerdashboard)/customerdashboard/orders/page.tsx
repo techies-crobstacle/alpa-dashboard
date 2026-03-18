@@ -664,7 +664,7 @@ const CustomerOrdersPage = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col text-right">
-                        <span className="font-semibold">₹{order.totalAmount}</span>
+                        <span className="font-semibold">${order.totalAmount}</span>
                         {order.sellerCount > 1 && (
                           <span className="text-xs text-muted-foreground">
                             {order.sellerCount} sellers
@@ -754,7 +754,7 @@ const CustomerOrdersPage = () => {
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Total Amount</span>
-                                  <p className="font-medium">₹{order.totalAmount}</p>
+                                  <p className="font-medium">${order.totalAmount}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Payment Method</span>
@@ -879,7 +879,7 @@ const CustomerOrdersPage = () => {
                                           <div>
                                             <h3 className="font-semibold text-sm">{subOrder.sellerName}</h3>
                                             <p className="text-xs text-muted-foreground">
-                                              ₹{subOrder.subtotal} • 
+                                              ${subOrder.subtotal} • 
                                               {subOrder.itemCount} item{subOrder.itemCount !== 1 ? 's' : ''}
                                             </p>
                                           </div>
@@ -907,7 +907,7 @@ const CustomerOrdersPage = () => {
                                               <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                                             </div>
                                             <div className="text-right">
-                                              <p className="font-medium">₹{item.price}</p>
+                                              <p className="font-medium">${item.price}</p>
                                             </div>
                                           </div>
                                         ))}
@@ -952,7 +952,7 @@ const CustomerOrdersPage = () => {
                                         </p>
                                       </div>
                                       <div className="text-right">
-                                        <p className="font-medium">₹{item.price}</p>
+                                        <p className="font-medium">${item.price}</p>
                                       </div>
                                     </div>
                                   ))}

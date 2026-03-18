@@ -718,16 +718,16 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Totals</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            {subtotal !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">₹{subtotal}</span></div>}
-            {shipping !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium">₹{typeof shipping === "object" ? JSON.stringify(shipping) : shipping}</span></div>}
-            {discount !== "" && Number(discount) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="font-medium text-green-600">-₹{discount}</span></div>}
-            {gst !== "" && <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span className="font-medium">₹{gst}</span></div>}
-            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>My Order Total</span><span>₹{total}</span></div>
+            {subtotal !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">${subtotal}</span></div>}
+            {shipping !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium">${typeof shipping === "object" ? JSON.stringify(shipping) : shipping}</span></div>}
+            {discount !== "" && Number(discount) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="font-medium text-green-600">-${discount}</span></div>}
+            {gst !== "" && <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span className="font-medium">${gst}</span></div>}
+            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>My Order Total</span><span>${total}</span></div>
             {order.items && order.items.length > 0 && (
               <div className="border-t pt-2 space-y-1">
                 <p className="text-muted-foreground font-medium mb-1">Items</p>
                 {order.items.map((item, i) => (
-                  <div key={i} className="flex justify-between text-xs"><span className="truncate max-w-[60%]">{item.product.title} x{item.quantity}</span><span>₹{item.price}</span></div>
+                  <div key={i} className="flex justify-between text-xs"><span className="truncate max-w-[60%]">{item.product.title} x{item.quantity}</span><span>${item.price}</span></div>
                 ))}
               </div>
             )}
@@ -779,7 +779,7 @@ export default function OrdersPage() {
       "Order ID", "Date", "Customer Name", "Customer Email", "Customer Phone",
       "Status", "Payment Method", "Payment Status", "Items Count",
       "Shipping Address", "City", "State", "ZIP", "Country",
-      "Order Total (₹)",
+      "Order Total ($)",
     ];
     const rows = filteredOrders.map((o) => [
       o.id.slice(-6).toUpperCase(),
@@ -827,7 +827,7 @@ export default function OrdersPage() {
       }
     }
     const sorted = Array.from(productMap.values()).sort((a, b) => b.revenue - a.revenue);
-    const headers = ["Rank", "Product ID", "Product Name", "Units Sold", "Total Revenue (₹)"];
+    const headers = ["Rank", "Product ID", "Product Name", "Units Sold", "Total Revenue ($)"];
     const rows = sorted.map((p, i) => [
       i + 1,
       p.productId.slice(-8).toUpperCase(),
@@ -906,7 +906,7 @@ export default function OrdersPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Avg. Order Value</p>
-                    <p className="text-2xl font-bold mt-1">₹{avgOrderValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
+                    <p className="text-2xl font-bold mt-1">${avgOrderValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</p>
                   </div>
                   <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
                     <TrendingUp className="h-5 w-5 text-blue-500" />
@@ -1053,7 +1053,7 @@ export default function OrdersPage() {
                     </span>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-primary">₹{order.subtotal}</p>
+                    <p className="text-sm font-medium text-primary">${order.subtotal}</p>
                     <p className="text-xs text-muted-foreground">{order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
                   </div>
                 </div>

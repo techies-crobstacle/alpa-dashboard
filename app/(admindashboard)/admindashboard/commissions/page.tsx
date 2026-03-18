@@ -1613,7 +1613,7 @@ export default function AdminCommissionsPage() {
                 <div>
                   <span className="text-muted-foreground block text-xs">Requested Amount</span>
                   <span className="font-bold text-green-600 dark:text-green-400">
-                    ${parseFloat(selectedPayout.requestedAmount).toFixed(2)} AUD
+                    ${parseFloat(selectedPayout.requestedAmount).toFixed(2)}
                   </span>
                 </div>
                 <div>
