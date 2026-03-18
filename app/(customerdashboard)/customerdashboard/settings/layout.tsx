@@ -21,7 +21,7 @@ function SettingsSidebarNav({
 	return (
 		<nav
 			className={cn(
-				"flex space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1",
+				"flex flex-wrap gap-2 sm:space-x-2 lg:flex-col lg:space-x-0 lg:space-y-1",
 				className,
 			)}
 			{...props}
@@ -31,8 +31,8 @@ function SettingsSidebarNav({
 					key={item.href}
 					href={item.href}
 					className={cn(
-						"w-50",
-						"inline-flex items-center justify-start whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors",
+						"flex-grow sm:flex-grow-0 lg:w-full",
+						"inline-flex items-center justify-center sm:justify-start whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors",
 						"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
 						pathname === item.href
 							? "bg-muted hover:bg-muted"
@@ -64,7 +64,7 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 	];
 
 	return (
-		<div className="space-y-6 p-6">
+		<div className="space-y-6 p-4 sm:p-6">
 			<div>
 				<h3 className="text-lg font-medium">Settings</h3>
 				<p className="text-sm text-muted-foreground">
@@ -72,11 +72,15 @@ export default function SettingsLayout({ children }: SettingsLayoutProps) {
 				</p>
 			</div>
 			<Separator />
-			<div className="flex flex-col space-y-8 lg:flex-row lg:space-x-12 lg:space-y-0">
-				<aside className="-mx-4 lg:w-1/5">
+			<div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
+				<aside className="shrink-0 lg:w-48 xl:w-56">
 					<SettingsSidebarNav items={sidebarNavItems} />
 				</aside>
-				<div className="flex-1 lg:max-w-2xl">{children}</div>
+				<div className="flex-1 min-w-0">
+					<div className="max-w-2xl">
+						{children}
+					</div>
+				</div>
 			</div>
 		</div>
 	);

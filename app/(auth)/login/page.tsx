@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -97,6 +98,27 @@ async function resendLoginOTP(email: string) {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <LogIn className="mx-auto h-12 w-12 text-gray-400" />
+          <CardTitle className="mt-4 text-2xl">Loading...</CardTitle>
+          <CardDescription>Please wait while we load the login form.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    }>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -105,6 +127,10 @@ export default function LoginPage() {
   const [loginPassword, setLoginPassword] = useState("");
   const [isOTPLoading, setIsOTPLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get redirect parameter for post-login navigation
+  const redirectTo = searchParams.get("redirectTo");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -139,7 +165,10 @@ export default function LoginPage() {
     });
 
     setTimeout(() => {
-      if (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN") {
+      // Use redirectTo parameter if provided, otherwise use role-based routing
+      if (redirectTo && redirectTo.startsWith("/")) {
+        router.push(redirectTo);
+      } else if (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN") {
         router.push("/admindashboard");
       } else if (role === "SELLER" || role === "seller") {
         router.push("/sellerdashboard");
@@ -406,11 +435,11 @@ export default function LoginPage() {
               )}
             </Button>
             
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 type="button"
                 variant="outline"
-                className="w-full"
+                className="flex-1"
                 onClick={handleBackToLogin}
                 disabled={isOTPLoading}
               >
@@ -420,11 +449,18 @@ export default function LoginPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="w-full"
+                className="flex-1"
                 onClick={handleResendOTP}
                 disabled={isOTPLoading}
               >
-                Resend OTP
+                {isOTPLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Resending...
+                  </>
+                ) : (
+                  "Resend OTP"
+                )}
               </Button>
             </div>
           </form>
@@ -440,7 +476,7 @@ export default function LoginPage() {
               <div className="flex-1 border-t border-border" />
             </div>
             <a
-              href={`https://alpa-be.onrender.com/api/auth/saml/login`}
+              href={`https://alpa-be.onrender.com/api/auth/saml/login${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`}
               className="w-full"
             >
               <Button type="button" variant="outline" className="w-full gap-2">
