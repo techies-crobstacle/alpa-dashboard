@@ -71,6 +71,7 @@ type SubOrder = {
 
 type Order = {
   id: string;
+  displayId: string;
   userId: string;
   type: "DIRECT" | "MULTI_SELLER";
   totalAmount: string;
@@ -306,7 +307,7 @@ const CancelOrderModal = ({
     }
     setLoading(true);
     try {
-      await api.put(`/api/orders/cancel/${order.id}`, { reason });
+      await api.put(`/api/orders/cancel/${order.displayId}`, { reason });
       toast.success("Order cancelled successfully.");
       onSuccess();
       onClose();
@@ -327,7 +328,7 @@ const CancelOrderModal = ({
           <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Order <strong>#{order.id.slice(-6).toUpperCase()}</strong>
+          Order <strong>#{order.displayId}</strong>
         </p>
         <div className="space-y-2">
           <Label htmlFor="cancelReason">
@@ -373,7 +374,7 @@ const RefundRequestModal = ({
     }
     setLoading(true);
     try {
-      await api.post(`/api/orders/refund-request/${order.id}`, { requestType, reason });
+      await api.post(`/api/orders/refund-request/${order.displayId}`, { requestType, reason });
       toast.success("Refund request submitted successfully.");
       onSuccess();
       onClose();
@@ -394,7 +395,7 @@ const RefundRequestModal = ({
           <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Order <strong>#{typeof order.id === 'string' ? order.id.slice(-6).toUpperCase() : order.id}</strong>
+          Order <strong>#{order.displayId}</strong>
         </p>
         <div className="space-y-2">
           <Label>Refund Type <span className="text-destructive">*</span></Label>
@@ -655,7 +656,7 @@ const CustomerOrdersPage = () => {
               {orders.map((order) => (
                 <React.Fragment key={order.id}>
                   <tr className="border-b hover:bg-muted/50">
-                    <td className="px-4 py-3">#{order.id.slice(-6).toUpperCase()}</td>
+                    <td className="px-4 py-3">#{order.displayId}</td>
                     <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3">
                       <Badge variant={order.status === "DELIVERED" ? "default" : order.status === "CANCELLED" ? "destructive" : "secondary"}>
@@ -705,11 +706,11 @@ const CustomerOrdersPage = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={downloadingInvoiceId === order.id}
-                        onClick={() => handleDownloadInvoice(order.id)}
+                        disabled={downloadingInvoiceId === order.displayId}
+                        onClick={() => handleDownloadInvoice(order.displayId)}
                         className="gap-1"
                       >
-                        {downloadingInvoiceId === order.id ? (
+                        {downloadingInvoiceId === order.displayId ? (
                           <Loader2 className="animate-spin h-4 w-4" />
                         ) : (
                           <Download className="h-4 w-4" />
@@ -841,11 +842,11 @@ const CustomerOrdersPage = () => {
                               {/* Download Invoice Button */}
                               <Button
                                 variant="default"
-                                disabled={downloadingInvoiceId === order.id}
-                                onClick={() => handleDownloadInvoice(order.id)}
+                                disabled={downloadingInvoiceId === order.displayId}
+                                onClick={() => handleDownloadInvoice(order.displayId)}
                                 className="mt-4 ml-4"
                               >
-                                {downloadingInvoiceId === order.id ? (
+                                {downloadingInvoiceId === order.displayId ? (
                                   <>
                                     <Loader2 className="animate-spin h-4 w-4 mr-2" />
                                     Downloading...

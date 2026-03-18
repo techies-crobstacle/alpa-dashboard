@@ -782,7 +782,7 @@ export default function OrdersPage() {
       "Order Total ($)",
     ];
     const rows = filteredOrders.map((o) => [
-      o.id.slice(-6).toUpperCase(),
+      o.displaySubId ?? o.id.slice(-6).toUpperCase(),
       new Date(o.createdAt).toLocaleDateString("en-IN"),
       o.customerName || "",
       o.customerEmail || "",
@@ -1189,7 +1189,7 @@ export default function OrdersPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <CardDescription>Enter details for Order #{activeTrackingOrder.id.slice(-6)}</CardDescription>
+              <CardDescription>Enter details for Order #{activeTrackingOrder.displaySubId ?? activeTrackingOrder.id.slice(-6)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">

@@ -61,6 +61,7 @@ type User = {
 
 type Order = {
   id: string;
+  displayId?: string | null;
   displaySubId?: string | null;
   parentDisplayId?: string | null;
   subOrderId?: string | null;
@@ -276,7 +277,7 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
             <div>
               <CardTitle className="text-lg">Update Order Status</CardTitle>
               <CardDescription className="mt-0.5">
-                Order #{typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}
+                Order #{order.displaySubId ?? (typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id)}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -1197,7 +1198,7 @@ export default function AdminOrdersPage() {
                       <p className="font-bold">
                         {order.isSubOrder
                           ? (order.displaySubId ?? `#${order.subOrderId?.slice(-6).toUpperCase() ?? order.id.slice(-6).toUpperCase()}`)
-                          : `#${order.id.slice(-6).toUpperCase()}`}
+                          : (order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`)}
                       </p>
                       <Badge 
                         variant={order.type === 'DIRECT' ? 'default' : 'secondary'} 
@@ -1480,7 +1481,7 @@ export default function AdminOrdersPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <CardDescription>Enter details for Order #{activeTrackingOrder.id?.slice(-6)}</CardDescription>
+              <CardDescription>Enter details for Order #{activeTrackingOrder.displaySubId ?? activeTrackingOrder.id?.slice(-6)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">

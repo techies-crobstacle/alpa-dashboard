@@ -439,7 +439,7 @@ function OrderDetailContent() {
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `invoice-${order.id}.pdf`;
+      a.href = url; a.download = `invoice-${order.displayId ?? order.id}.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       toast.success("Invoice downloaded.");
@@ -621,7 +621,7 @@ function OrderDetailContent() {
           <div className="divide-y text-sm">
             <div className="flex justify-between px-4 py-2.5">
               <span className="text-muted-foreground">Order ID</span>
-              <span className="font-mono text-xs font-medium">{String(order.id ?? "").slice(-10).toUpperCase()}</span>
+              <span className="font-mono text-xs font-medium">{order.displayId ?? String(order.id ?? "").slice(-10).toUpperCase()}</span>
             </div>
             <div className="flex justify-between px-4 py-2.5 items-center">
               <span className="text-muted-foreground">Status</span>
