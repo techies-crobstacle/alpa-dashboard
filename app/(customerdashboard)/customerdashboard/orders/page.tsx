@@ -586,7 +586,8 @@ const CustomerOrdersPage = () => {
     setDownloadingInvoiceId(orderId);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-      const response = await fetch(`${BASE_URL}/api/orders/invoice/${orderId}`, {
+      const cleanId = orderId.replace(/^#/, "");
+      const response = await fetch(`${BASE_URL}/api/orders/invoice/${cleanId}`, {
         method: "GET",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -607,7 +608,7 @@ const CustomerOrdersPage = () => {
       // Create a temporary link element and trigger download
       const link = document.createElement("a");
       link.href = url;
-      link.download = `invoice-${orderId}.pdf`;
+      link.download = `invoice-${cleanId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

@@ -62,6 +62,7 @@ type OrderItem = {
 type Order = {
   id: string;
   displayId?: string | null;
+  subDisplayId?: string | null;
   displaySubId?: string | null;
   parentOrderId?: string | null;
   parentDisplayId?: string | null;
@@ -198,7 +199,7 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
             <div>
               <CardTitle className="text-lg">Update Order Status</CardTitle>
               <CardDescription className="mt-0.5">
-                {order.displaySubId ?? order.displayId ?? `#${typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}`}
+                {order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id}`}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -465,11 +466,17 @@ export default function OrdersPage() {
   };
 
   // 4. Download Invoice
-  const handleDownloadInvoice = async (orderId: string) => {
+  const handleDownloadInvoice = async (orderId: string, displayId?: string | null, subDisplayId?: string | null) => {
     setDownloadingInvoiceId(orderId);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-      const response = await fetch(`${BASE_URL}/api/orders/invoice/${orderId}`, {
+      // Sub-orders have their own invoice endpoint; direct orders use the parent endpoint
+      const isSubOrder = !!subDisplayId;
+      const cleanId = (isSubOrder ? subDisplayId! : (displayId ?? orderId)).replace(/^#/, "");
+      const endpoint = isSubOrder
+        ? `${BASE_URL}/api/orders/invoice/sub/${cleanId}`
+        : `${BASE_URL}/api/orders/invoice/${cleanId}`;
+      const response = await fetch(endpoint, {
         method: "GET",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -490,7 +497,7 @@ export default function OrdersPage() {
       // Create a temporary link element and trigger download
       const link = document.createElement("a");
       link.href = url;
-      link.download = `invoice-${orderId}.pdf`;
+      link.download = `invoice-${cleanId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -684,7 +691,7 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Info</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">{order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
             <div className="flex justify-between items-center"><span className="text-muted-foreground">Status</span><Badge variant="secondary">{order.status.toUpperCase()}</Badge></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{order.type === "DIRECT" ? "Direct Order" : "Sub-order"}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</span></div>
@@ -736,11 +743,15 @@ export default function OrdersPage() {
               <Button
                 variant="default"
                 size="sm"
-                disabled={downloadingInvoiceId === (order.displayId ?? order.displaySubId ?? order.id)}
-                onClick={() => handleDownloadInvoice(order.displayId ?? order.displaySubId ?? order.id)}
+                disabled={downloadingInvoiceId === order.id}
+                onClick={() => handleDownloadInvoice(
+                  order.id,
+                  order.type === 'SUB_ORDER' ? order.parentDisplayId : order.displayId,
+                  order.type === 'SUB_ORDER' ? (order.subDisplayId ?? order.displaySubId ?? order.displayId) : undefined
+                )}
                 className="gap-2"
               >
-                {downloadingInvoiceId === (order.displayId ?? order.displaySubId ?? order.id) ? (
+                {downloadingInvoiceId === order.id ? (
                   <><Loader2 className="animate-spin h-4 w-4" />Downloading...</>
                 ) : (
                   <><Download className="h-4 w-4" />Download Invoice</>
@@ -783,7 +794,7 @@ export default function OrdersPage() {
       "Order Total ($)",
     ];
     const rows = filteredOrders.map((o) => [
-      o.displaySubId ?? o.id.slice(-6).toUpperCase(),
+      o.subDisplayId ?? o.displaySubId ?? o.id.slice(-6).toUpperCase(),
       new Date(o.createdAt).toLocaleDateString("en-IN"),
       o.customerName || "",
       o.customerEmail || "",
@@ -1032,7 +1043,7 @@ export default function OrdersPage() {
                   </div>
                   <div>
                     <p className="font-bold">
-                      {order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}
+                      {order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(order.createdAt).toLocaleDateString()}</p>
                     {order.parentDisplayId && (
@@ -1190,7 +1201,7 @@ export default function OrdersPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <CardDescription>Enter details for Order #{activeTrackingOrder.displaySubId ?? activeTrackingOrder.id.slice(-6)}</CardDescription>
+              <CardDescription>Enter details for Order #{activeTrackingOrder.subDisplayId ?? activeTrackingOrder.displaySubId ?? activeTrackingOrder.id.slice(-6)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">

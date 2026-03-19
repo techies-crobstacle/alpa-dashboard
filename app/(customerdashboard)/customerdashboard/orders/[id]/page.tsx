@@ -10,10 +10,11 @@ import Image from "next/image";
 import { toast } from "sonner";
 import {
   ArrowLeft, Package, Truck, Loader2, ClipboardList, DollarSign,
-  MapPin, Calendar, Box, Download,
+  MapPin, Calendar, Box, Download, Undo2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getStatusLabel, getStatusBadgeVariant } from "@/lib/orderStatusRules";
+import { RefundDialog } from "@/components/shared/refund-dialog";
 
 type OrderItem = {
   product?: { title?: string; images?: string[]; price?: number };
@@ -80,8 +81,9 @@ export default function CustomerOrderDetailPage() {
     setDownloadingInvoice(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const cleanId = (order.displayId ?? "").replace(/^#/, "");
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${order.displayId ?? order.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${cleanId}`,
         { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
       );
       if (!response.ok) {
@@ -91,7 +93,7 @@ export default function CustomerOrderDetailPage() {
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `invoice-${order.displayId ?? order.id}.pdf`;
+      a.href = url; a.download = `invoice-${cleanId}.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       toast.success("Invoice downloaded.");
@@ -183,7 +185,9 @@ export default function CustomerOrderDetailPage() {
     }
   }
 
-  const showInvoice = order.status && order.status.toLowerCase() !== "pending";
+  const showInvoice = ["CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED"].includes(order.status);
+  const showRefund = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"].includes(order.status);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -207,6 +211,11 @@ export default function CustomerOrderDetailPage() {
           <Badge variant={getStatusBadgeVariant(order.status)} className="text-sm px-3 py-1">
             {getStatusLabel(order.status)}
           </Badge>
+          {showRefund && (
+            <Button variant="outline" onClick={() => setRefundDialogOpen(true)}>
+              <Undo2 className="h-4 w-4 mr-2" /> Request Refund
+            </Button>
+          )}
           {showInvoice && (
             <Button variant="outline" onClick={handleDownloadInvoice} disabled={downloadingInvoice}>
               {downloadingInvoice
@@ -216,6 +225,18 @@ export default function CustomerOrderDetailPage() {
           )}
         </div>
       </div>
+
+      {refundDialogOpen && (
+        <RefundDialog
+          order={order}
+          isOpen={refundDialogOpen}
+          onClose={() => setRefundDialogOpen(false)}
+          onSuccess={(ticketId) => {
+            // Optionally redirect to a ticket support page
+            router.push(`/customerdashboard/orders`);
+          }}
+        />
+      )}
 
       {/* Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

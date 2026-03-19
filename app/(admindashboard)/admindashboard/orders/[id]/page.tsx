@@ -83,6 +83,7 @@ type Order = {
   sellerName?: string | null;
   seller?: { storeName?: string | null; storeLogo?: string | null } | null;
   displaySubId?: string | null;
+  subDisplayId?: string | null;
   parentDisplayId?: string | null;
 };
 
@@ -428,8 +429,9 @@ function OrderDetailContent() {
     setDownloadingInvoice(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const cleanId = (order.displayId ?? "").replace(/^#/, "");
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${order.id}`,
+        `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${cleanId}`,
         { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
       );
       if (!response.ok) {
@@ -439,7 +441,7 @@ function OrderDetailContent() {
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `invoice-${order.displayId ?? order.id}.pdf`;
+      a.href = url; a.download = `invoice-${cleanId}.pdf`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       toast.success("Invoice downloaded.");
@@ -588,7 +590,7 @@ function OrderDetailContent() {
               <Truck className="h-4 w-4 mr-2" /> Add Tracking
             </Button>
           )}
-          {order.status && order.status.toLowerCase() !== "pending" && (
+          {["CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED"].includes(order.status) && (
             <Button variant="outline" onClick={handleDownloadInvoice} disabled={downloadingInvoice}>
               {downloadingInvoice
                 ? <><Loader2 className="animate-spin h-4 w-4 mr-2" />Downloading...</>
@@ -895,9 +897,9 @@ function OrderDetailContent() {
               )}
               <div>
                 <p className="text-sm font-semibold">{order.seller?.storeName || order.sellerName}</p>
-                {order.displaySubId && (
+                {(order.subDisplayId ?? order.displaySubId) && (
                   <span className="font-mono text-xs bg-primary/5 text-primary border border-primary/20 rounded px-2 py-0.5">
-                    {order.displaySubId}
+                    {order.subDisplayId ?? order.displaySubId}
                   </span>
                 )}
               </div>

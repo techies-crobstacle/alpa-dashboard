@@ -62,6 +62,7 @@ type User = {
 type Order = {
   id: string;
   displayId?: string | null;
+  subDisplayId?: string | null;
   displaySubId?: string | null;
   parentDisplayId?: string | null;
   subOrderId?: string | null;
@@ -277,7 +278,7 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
             <div>
               <CardTitle className="text-lg">Update Order Status</CardTitle>
               <CardDescription className="mt-0.5">
-                Order #{order.displaySubId ?? (typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id)}
+                Order #{order.subDisplayId ?? order.displaySubId ?? (typeof order.id === "string" ? order.id.slice(-6).toUpperCase() : order.id)}
               </CardDescription>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
@@ -510,11 +511,18 @@ export default function AdminOrdersPage() {
   }, []);
 
   // Download invoice functionality
-  const handleDownloadInvoice = async (orderId: string) => {
+  const handleDownloadInvoice = async (orderId: string, displayId?: string | null, subDisplayId?: string | null) => {
     setDownloadingInvoiceId(orderId);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${orderId}`, {
+      // Sub-orders have their own invoice endpoint; direct orders use the parent endpoint
+      const isSubOrder = !!subDisplayId;
+      const cleanId = (isSubOrder ? subDisplayId! : (displayId ?? orderId)).replace(/^#/, "");
+      const BASE = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
+      const endpoint = isSubOrder
+        ? `${BASE}/api/orders/invoice/sub/${cleanId}`
+        : `${BASE}/api/orders/invoice/${cleanId}`;
+      const response = await fetch(endpoint, {
         method: "GET",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -535,7 +543,7 @@ export default function AdminOrdersPage() {
       // Create a temporary link element and trigger download
       const link = document.createElement("a");
       link.href = url;
-      link.download = `invoice-${orderId}.pdf`;
+      link.download = `invoice-${cleanId}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1197,7 +1205,7 @@ export default function AdminOrdersPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-bold">
                         {order.isSubOrder
-                          ? (order.displaySubId ?? `#${order.subOrderId?.slice(-6).toUpperCase() ?? order.id.slice(-6).toUpperCase()}`)
+                          ? (order.subDisplayId ?? order.displaySubId ?? `#${order.subOrderId?.slice(-6).toUpperCase() ?? order.id.slice(-6).toUpperCase()}`)
                           : (order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`)}
                       </p>
                       <Badge 
@@ -1250,9 +1258,9 @@ export default function AdminOrdersPage() {
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1">
                       <ClipboardList className="h-3 w-3" /> Order Items
                     </Label>
-                    {order.isSubOrder && order.displaySubId && (
+                    {order.isSubOrder && (order.subDisplayId ?? order.displaySubId) && (
                       <p className="text-xs font-semibold text-primary/80 bg-primary/5 rounded px-2 py-0.5 w-fit">
-                        {order.displaySubId}
+                        {order.subDisplayId ?? order.displaySubId}
                       </p>
                     )}
                     <div className="text-sm space-y-1">
@@ -1360,7 +1368,11 @@ export default function AdminOrdersPage() {
                     <Button 
                       variant="outline" 
                       className="w-full gap-2" 
-                      onClick={() => handleDownloadInvoice(order.id)}
+                      onClick={() => handleDownloadInvoice(
+                        order.id,
+                        order.type === 'SUB_ORDER' ? order.parentDisplayId : order.displayId,
+                        order.type === 'SUB_ORDER' ? (order.subDisplayId ?? order.displaySubId ?? order.displayId) : undefined
+                      )}
                       disabled={downloadingInvoiceId === order.id}
                     >
                       {downloadingInvoiceId === order.id ? (
@@ -1481,7 +1493,7 @@ export default function AdminOrdersPage() {
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <CardDescription>Enter details for Order #{activeTrackingOrder.displaySubId ?? activeTrackingOrder.id?.slice(-6)}</CardDescription>
+              <CardDescription>Enter details for Order #{activeTrackingOrder.subDisplayId ?? activeTrackingOrder.displaySubId ?? activeTrackingOrder.id?.slice(-6)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
