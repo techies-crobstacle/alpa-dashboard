@@ -478,20 +478,43 @@ export default function AdminOrdersPage() {
   // Add tracking update logic for admin
   const submitTracking = async () => {
     if (!activeTrackingOrder) return;
-    const { valid, errors } = validateStatusUpdate("SHIPPED", { trackingNumber, estimatedDelivery: estimatedDelivery });
-    if (!valid) { toast.error(errors[0]); return; }
+    
+    // Basic validation
+    if (!trackingNumber.trim()) {
+      toast.error("Please enter a tracking number");
+      return;
+    }
+    if (!estimatedDelivery) {
+      toast.error("Please select an estimated delivery date");
+      return;
+    }
+    
+    // Date validation
+    const deliveryDate = new Date(estimatedDelivery);
+    const today = new Date();
+    if (deliveryDate < today) {
+      toast.error("Delivery date cannot be in the past");
+      return;
+    }
+
     try {
-      await api.put(`/api/seller/orders/tracking/${activeTrackingOrder.id}`, { 
-        trackingNumber, 
-        estimatedDelivery 
+      const response = await api.put(`/api/admin/orders/tracking/${activeTrackingOrder.id}`, {
+        trackingNumber,
+        estimatedDelivery
       });
-      toast.success("Tracking information updated");
-      setActiveTrackingOrder(null);
-      setTrackingNumber("");
-      setEstimatedDelivery("");
-      fetchOrders(selectedSeller);
-    } catch {
-      toast.error("Failed to update tracking");
+      
+      if (response?.success) {
+        toast.success(`Tracking updated successfully! Tracking: ${trackingNumber}`);
+        setActiveTrackingOrder(null);
+        setTrackingNumber("");
+        setEstimatedDelivery("");
+        fetchOrders(selectedSeller);
+      } else {
+        throw new Error(response?.message || "Failed to update tracking information");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to update tracking";
+      toast.error(errorMessage);
     }
   };
 
@@ -1485,39 +1508,90 @@ export default function AdminOrdersPage() {
       {/* Tracking Modal */}
       {activeTrackingOrder && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md shadow-2xl">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Add Tracking Info</CardTitle>
+          <Card className="w-full max-w-md shadow-2xl border bg-card">
+            <CardHeader className="border-b bg-muted/40">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-blue-600" />
+                    Add Tracking Info
+                  </CardTitle>
+                  <CardDescription className="mt-0.5">
+                    Order #{activeTrackingOrder.subDisplayId ?? activeTrackingOrder.displaySubId ?? activeTrackingOrder.displayId ?? `${typeof activeTrackingOrder.id === "string" ? activeTrackingOrder.id.slice(-6).toUpperCase() : activeTrackingOrder.id}`}
+                  </CardDescription>
+                </div>
                 <Button variant="ghost" size="icon" onClick={handleCloseTrackingModal}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <CardDescription>Enter details for Order #{activeTrackingOrder.subDisplayId ?? activeTrackingOrder.displaySubId ?? activeTrackingOrder.id?.slice(-6)}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tracking Number</Label>
-                <Input 
-                  placeholder="e.g. 25422565632" 
-                  value={trackingNumber}
-                  onChange={handleTrackingNumberChange}
-                  autoFocus
-                />
+            <CardContent className="space-y-4 p-6">
+              {/* Current Status Display */}
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg text-sm">
+                <span className="text-muted-foreground">Current Status</span>
+                <Badge variant={getStatusBadgeVariant(activeTrackingOrder.status)}>
+                  {getStatusLabel(activeTrackingOrder.status)}
+                </Badge>
               </div>
-              <div className="space-y-2">
-                <Label>Estimated Delivery Date</Label>
-                <Input 
-                  type="date"
-                  value={estimatedDelivery}
-                  onChange={handleEstimatedDeliveryChange}
-                  min={new Date().toISOString().split("T")[0]}
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button className="flex-1" onClick={submitTracking}>Save Tracking</Button>
-                <Button variant="outline" className="flex-1" onClick={handleCloseTrackingModal}>Cancel</Button>
-              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                submitTracking();
+              }} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tracking-number">
+                    Tracking Number <span className="text-destructive">*</span>
+                  </Label>
+                  <Input 
+                    id="tracking-number"
+                    placeholder="e.g. 1Z12345E6605272234" 
+                    value={trackingNumber}
+                    onChange={handleTrackingNumberChange}
+                    className="font-mono"
+                    autoFocus
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the courier tracking number
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="delivery-date">
+                    Estimated Delivery Date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input 
+                    id="delivery-date"
+                    type="date"
+                    value={estimatedDelivery}
+                    onChange={handleEstimatedDeliveryChange}
+                    min={new Date().toISOString().split("T")[0]}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Expected delivery date for the customer
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    className="flex-1" 
+                    onClick={handleCloseTrackingModal}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit"
+                    className="flex-1"
+                    disabled={!trackingNumber.trim() || !estimatedDelivery}
+                  >
+                    <Truck className="h-4 w-4 mr-2" />
+                    Save Tracking
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
         </div>
