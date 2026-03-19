@@ -35,6 +35,7 @@ type Product = {
   id: string;
   title: string;
   images?: string[];
+  featuredImage?: string | null;
   price: string;
   sellerId: string;
 };
@@ -1289,9 +1290,9 @@ export default function AdminOrdersPage() {
                     <div className="text-sm space-y-1">
                       {order.items.map((item, i) => (
                         <div key={item.id || i} className="flex items-center gap-2">
-                          {item.product.images?.[0] && (
+                          {(item.product.featuredImage || item.product.images?.[0]) && (
                             <Image
-                              src={item.product.images[0]}
+                              src={item.product.featuredImage ?? item.product.images![0]}
                               alt={item.product.title}
                               width={40}
                               height={40}
