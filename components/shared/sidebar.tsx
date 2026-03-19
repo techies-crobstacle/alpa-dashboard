@@ -43,6 +43,7 @@ const adminSidebarItems = [
 	{ title: "GST",         href: "/admindashboard/gst",          icon: Percent,         badge: null },
 	{ title: "Commissions", href: "/admindashboard/commissions",  icon: Users,           badge: null },
 	{ title: "Feedback",    href: "/admindashboard/feedback",     icon: MessageSquare,   badge: null },
+	{ title: "Support",     href: "/admindashboard/support",      icon: MessageSquare,   badge: null },
 	{ title: "Profile",        href: "/admindashboard/profile",        icon: User,            badge: null },
 	{ title: "Notifications",  href: "/admindashboard/notifications", icon: Bell,            badge: null },
 	{ title: "Settings",       href: "/admindashboard/settings",      icon: Settings,        badge: null },
