@@ -54,6 +54,7 @@ type OrderItem = {
     id: string;
     title: string;
     images: string[];
+    featuredImage: string;
     price: string;
     sellerId: string;
   };
@@ -1085,10 +1086,10 @@ export default function OrdersPage() {
                     <div className="text-sm space-y-1">
                       {order.items.map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
-                          {item.product.images?.[0] && (
+                          {item.product.featuredImage && (
                             <Image
-                              src={item.product.images[0]}
-                              alt={item.product.title || "Product image"}
+                              src={item.product.featuredImage}
+                              alt={item.product.title || "Featured image"}
                               width={40}
                               height={40}
                               className="w-10 h-10 object-cover rounded"
