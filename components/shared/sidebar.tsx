@@ -45,7 +45,10 @@ const adminSidebarItems = [
 	{ title: "Feedback",    href: "/admindashboard/feedback",     icon: MessageSquare,   badge: null },
 	{ title: "Sponsored",   href: "/admindashboard/sponsored",    icon: Heart,           badge: null },
 	{ title: "Support",     href: "/admindashboard/support",      icon: MessageSquare,   badge: null },
+	
 	{ title: "Profile",        href: "/admindashboard/profile",        icon: User,            badge: null },
+	{ title: "Blogs",     href: "/admindashboard/blogs",      icon: MessageSquare,   badge: null },
+	
 	{ title: "Notifications",  href: "/admindashboard/notifications", icon: Bell,            badge: null },
 	{ title: "Settings",       href: "/admindashboard/settings",      icon: Settings,        badge: null },
 ];
