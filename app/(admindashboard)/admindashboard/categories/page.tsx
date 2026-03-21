@@ -478,7 +478,7 @@ const AdminCategoriesPage = () => {
 					<DialogTrigger asChild>
 						<Button className="gap-2">
 							<Plus className="w-4 h-4" />
-							Add Direct Category
+							Add New Categories
 						</Button>
 					</DialogTrigger>
 					<DialogContent className="max-w-md">

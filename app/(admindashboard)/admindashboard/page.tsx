@@ -457,7 +457,7 @@ export default function DashboardPage() {
 		);
 	}
 
-	if (checking || loadingSellers || loadingSla || loadingAnalytics) {
+	if (checking || loadingSellers || loadingAnalytics) {
 		return renderSkeletonPage();
 	}
 
@@ -591,11 +591,11 @@ export default function DashboardPage() {
 						<div className="flex items-start justify-between">
 							<div className="flex-1">
 								<CardTitle className="text-xl font-semibold">
-									SLA Dashboard
+									SLA Dashboard for Sellers
 								</CardTitle>
-								<p className="text-muted-foreground mt-1">
+								{/* <p className="text-muted-foreground mt-1">
 									Service Level Agreement monitoring
-								</p>
+								</p> */}
 							</div>
 							<div className="flex items-center gap-2 ml-4">
 								<span className="text-sm text-muted-foreground whitespace-nowrap">
@@ -652,10 +652,35 @@ export default function DashboardPage() {
 								</div>
 							</div>
 						) : loadingSla ? (
-							<div className="flex items-center justify-center p-8">
-								<div className="text-center">
-									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-									<span className="text-muted-foreground">Loading SLA data...</span>
+							<div className="animate-pulse space-y-4">
+								{/* Summary Stats Skeleton */}
+								<div className="grid grid-cols-2 gap-4">
+									{[...Array(4)].map((_, i) => (
+										<div key={i} className="p-4 rounded-lg border bg-muted/40 flex flex-col gap-2">
+											<div className="h-4 w-1/2 bg-muted rounded" />
+											<div className="h-6 w-1/3 bg-muted/60 rounded" />
+										</div>
+									))}
+								</div>
+								{/* Notifications List Skeleton */}
+								<div className="space-y-2">
+									<div className="h-4 w-32 bg-muted rounded" />
+									<div className="space-y-2">
+										{[...Array(3)].map((_, i) => (
+											<div key={i} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/40">
+												<div className="w-2 h-2 rounded-full mt-2 bg-muted" />
+												<div className="flex-1 min-w-0">
+													<div className="h-4 w-2/3 bg-muted rounded mb-2" />
+													<div className="h-3 w-1/2 bg-muted/60 rounded mb-1" />
+													<div className="flex gap-2 mt-2">
+														<div className="h-3 w-12 bg-muted/60 rounded" />
+														<div className="h-3 w-10 bg-muted/60 rounded" />
+													</div>
+												</div>
+												<div className="h-3 w-10 bg-muted/60 rounded mt-2" />
+											</div>
+										))}
+									</div>
 								</div>
 							</div>
 						) : (
