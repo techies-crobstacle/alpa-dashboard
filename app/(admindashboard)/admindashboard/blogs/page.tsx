@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, Plus, Search, Edit, Trash2, Eye, Calendar, Tag, Upload, X, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -38,6 +39,109 @@ interface BlogsResponse {
   totalPages: number;
   blogs: Blog[];
 }
+
+// Skeleton components for loading states
+const BlogCardSkeleton = () => (
+  <Card className="overflow-hidden">
+    <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+      <div className="flex items-center space-x-4">
+        <Skeleton className="h-6 w-20" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+      <div className="flex items-center space-x-2">
+        <Skeleton className="h-6 w-10" />
+        <Skeleton className="h-4 w-16" />
+      </div>
+    </div>
+    <CardContent className="p-6">
+      <div className="grid md:grid-cols-4 gap-6">
+        <div className="md:col-span-2">
+          <Skeleton className="h-7 w-3/4 mb-2" />
+          <Skeleton className="h-4 w-full mb-1" />
+          <Skeleton className="h-4 w-2/3 mb-3" />
+          <div className="flex items-center space-x-4">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <Skeleton className="h-16 w-20 mt-2 rounded" />
+        </div>
+        <div>
+          <Skeleton className="h-4 w-12 mb-2" />
+          <div className="flex flex-wrap gap-1">
+            <Skeleton className="h-6 w-16" />
+            <Skeleton className="h-6 w-20" />
+          </div>
+          <Skeleton className="h-4 w-8 mt-4 mb-1" />
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-8 mt-2 mb-1" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <div className="flex flex-col space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const StatCardSkeleton = () => (
+  <Card>
+    <CardContent className="p-6">
+      <div className="flex items-center space-x-2">
+        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-4 w-20" />
+      </div>
+      <Skeleton className="h-8 w-12 mt-2" />
+    </CardContent>
+  </Card>
+);
+
+const BlogsLoadingSkeleton = () => (
+  <div className="space-y-6">
+    {/* Header Skeleton */}
+    <div>
+      <Skeleton className="h-9 w-64 mb-2" />
+      <Skeleton className="h-4 w-96" />
+    </div>
+
+    {/* Controls Skeleton */}
+    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex-1 max-w-md">
+        <div className="relative">
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+      <Skeleton className="h-10 w-24" />
+    </div>
+
+    {/* Stats Cards Skeleton */}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+      <StatCardSkeleton />
+    </div>
+
+    {/* Tabs Skeleton */}
+    <div>
+      <div className="flex space-x-1 mb-6">
+        <Skeleton className="h-10 w-24" />
+        <Skeleton className="h-10 w-28" />
+        <Skeleton className="h-10 w-20" />
+      </div>
+      
+      {/* Blog Cards Skeleton */}
+      <div className="space-y-4">
+        <BlogCardSkeleton />
+        <BlogCardSkeleton />
+        <BlogCardSkeleton />
+        <BlogCardSkeleton />
+      </div>
+    </div>
+  </div>
+);
 
 const BlogManagementPage = () => {
   // State management following existing patterns
@@ -67,6 +171,10 @@ const BlogManagementPage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  
+  // Delete confirmation state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [blogToDelete, setBlogToDelete] = useState<Blog | null>(null);
 
   // Fetch blogs from API
   const fetchBlogs = async () => {
@@ -192,15 +300,23 @@ const BlogManagementPage = () => {
     }
   };
 
-  // Handle delete
-  const handleDelete = async (blogId: string) => {
-    if (!confirm('Are you sure you want to delete this blog?')) return;
+  // Handle delete - open confirmation dialog
+  const handleDelete = (blog: Blog) => {
+    setBlogToDelete(blog);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  // Confirm and execute delete
+  const confirmDelete = async () => {
+    if (!blogToDelete) return;
     
     setLoading(true);
     try {
-      await api.delete(`/api/blogs/${blogId}`);
+      await api.delete(`/api/blogs/${blogToDelete.id}`);
       await fetchBlogs(); // Refresh list
       toast.success('Blog deleted successfully!');
+      setIsDeleteDialogOpen(false);
+      setBlogToDelete(null);
     } catch (error: any) {
       console.error('Error deleting blog:', error);
       toast.error(error.response?.data?.message || 'Failed to delete blog.');
@@ -297,107 +413,113 @@ const BlogManagementPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Blog Management</h1>
-        <p className="text-muted-foreground mt-2">
-          Manage your blog content, create new posts, and control visibility
-        </p>
-      </div>
-
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search blogs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+      {/* Show skeleton loading while fetching initial data */}
+      {loading && blogs.length === 0 ? (
+        <BlogsLoadingSkeleton />
+      ) : (
+        <>
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Blog Management</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage your blog content, create new posts, and control visibility
+            </p>
           </div>
-        </div>
-        
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Blog
-            </Button>
-          </DialogTrigger>
-        </Dialog>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 rounded bg-blue-500" />
-              <span className="text-sm font-medium">Total Blogs</span>
+          {/* Controls */}
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search blogs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                  disabled={loading}
+                />
+              </div>
             </div>
-            <p className="text-2xl font-bold mt-2">{blogs.length}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 rounded bg-green-500" />
-              <span className="text-sm font-medium">Published</span>
-            </div>
-            <p className="text-2xl font-bold mt-2">{blogs.filter(b => b.status === 'PUBLISHED').length}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 rounded bg-orange-500" />
-              <span className="text-sm font-medium">Draft</span>
-            </div>
-            <p className="text-2xl font-bold mt-2">{blogs.filter(b => b.status === 'DRAFT').length}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-2">
-              <div className="h-4 w-4 rounded bg-purple-500" />
-              <span className="text-sm font-medium">Total Tags</span>
-            </div>
-            <p className="text-2xl font-bold mt-2">{blogs.reduce((acc, blog) => acc + (blog.tags?.length || 0), 0)}</p>
-          </CardContent>
-        </Card>
-      </div>
+            
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm} disabled={loading}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Blog
+                </Button>
+              </DialogTrigger>
+            </Dialog>
+          </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="all">All Blogs ({blogs.length})</TabsTrigger>
-          <TabsTrigger value="published">Published ({blogs.filter(b => b.status === 'PUBLISHED').length})</TabsTrigger>
-          <TabsTrigger value="draft">Draft ({blogs.filter(b => b.status === 'DRAFT').length})</TabsTrigger>
-        </TabsList>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <div className="h-4 w-4 rounded bg-blue-500" />
+                  <span className="text-sm font-medium">Total Blogs</span>
+                </div>
+                <p className="text-2xl font-bold mt-2">{blogs.length}</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <div className="h-4 w-4 rounded bg-green-500" />
+                  <span className="text-sm font-medium">Published</span>
+                </div>
+                <p className="text-2xl font-bold mt-2">{blogs.filter(b => b.status === 'PUBLISHED').length}</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <div className="h-4 w-4 rounded bg-orange-500" />
+                  <span className="text-sm font-medium">Draft</span>
+                </div>
+                <p className="text-2xl font-bold mt-2">{blogs.filter(b => b.status === 'DRAFT').length}</p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center space-x-2">
+                  <div className="h-4 w-4 rounded bg-purple-500" />
+                  <span className="text-sm font-medium">Total Tags</span>
+                </div>
+                <p className="text-2xl font-bold mt-2">{blogs.reduce((acc, blog) => acc + (blog.tags?.length || 0), 0)}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-        <TabsContent value={activeTab}>
-          <div className="space-y-4">
-            {paginatedBlogs.length === 0 ? (
-              <Card>
-                <CardContent className="p-12">
-                  <div className="text-center">
-                    <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No blogs found</h3>
-                    <p className="text-muted-foreground mb-4">
-                      {searchQuery ? 'Try adjusting your search terms.' : 'Get started by creating your first blog post.'}
-                    </p>
-                    {!searchQuery && (
-                      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button onClick={resetForm}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Your First Blog
-                          </Button>
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList>
+              <TabsTrigger value="all">All Blogs ({blogs.length})</TabsTrigger>
+              <TabsTrigger value="published">Published ({blogs.filter(b => b.status === 'PUBLISHED').length})</TabsTrigger>
+              <TabsTrigger value="draft">Draft ({blogs.filter(b => b.status === 'DRAFT').length})</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value={activeTab}>
+              <div className="space-y-4">
+                {paginatedBlogs.length === 0 ? (
+                  <Card>
+                    <CardContent className="p-12">
+                      <div className="text-center">
+                        <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No blogs found</h3>
+                        <p className="text-muted-foreground mb-4">
+                          {searchQuery ? 'Try adjusting your search terms.' : 'Get started by creating your first blog post.'}
+                        </p>
+                        {!searchQuery && (
+                          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                            <DialogTrigger asChild>
+                              <Button onClick={resetForm}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create Your First Blog
+                              </Button>
                         </DialogTrigger>
                       </Dialog>
                     )}
@@ -501,7 +623,7 @@ const BlogManagementPage = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(`/blog/${blog.slug}`, '_blank')}
+                          onClick={() => window.open(`https://apla-fe.vercel.app/blog/${blog.slug}`, '_blank')}
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           Preview
@@ -509,7 +631,7 @@ const BlogManagementPage = () => {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => handleDelete(blog.id)}
+                          onClick={() => handleDelete(blog)}
                           disabled={loading}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
@@ -753,6 +875,65 @@ const BlogManagementPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Delete Blog Post
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Are you sure you want to delete this blog post? This action cannot be undone.
+            </p>
+            
+            {blogToDelete && (
+              <div className="bg-muted/30 p-3 rounded-lg border border-destructive/20">
+                <h4 className="font-medium text-sm">{blogToDelete.title}</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ID: {blogToDelete.id.slice(0, 8)}... • Status: {blogToDelete.status}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false);
+                setBlogToDelete(null);
+              }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Blog
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+        </>
+      )}
     </div>
   );
 };
