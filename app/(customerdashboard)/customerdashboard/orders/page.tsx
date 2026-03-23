@@ -171,21 +171,29 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
   if (isRefund) {
     return (
       <div className="w-full py-6 space-y-4">
-        <div className="flex items-center justify-between relative">
-          <div className="absolute top-6 left-0 right-0 h-1 bg-primary -z-10 mx-6" />
-          {statuses.map((statusName) => {
+        <div className="flex items-center relative px-6">
+          {statuses.map((statusName, index) => {
             let icon = null;
             if (statusName === 'confirmed') icon = <ClipboardList className="h-6 w-6" />;
             else if (statusName === 'processing') icon = <Package className="h-6 w-6" />;
             else if (statusName === 'shipped') icon = <Truck className="h-6 w-6" />;
             else if (statusName === 'delivered') icon = <CheckCircle2 className="h-6 w-6" />;
             return (
-              <div key={statusName} className="flex flex-col items-center flex-1">
-                <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2">
-                  {icon}
+              <React.Fragment key={statusName}>
+                <div className="flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2 border-2 border-primary">
+                    {icon}
+                  </div>
+                  <span className="text-sm font-medium">{statusName.charAt(0).toUpperCase() + statusName.slice(1)}</span>
                 </div>
-                <span className="text-sm font-medium">{statusName.charAt(0).toUpperCase() + statusName.slice(1)}</span>
-              </div>
+                
+                {/* Connecting Line */}
+                {index < statuses.length - 1 && (
+                  <div className="flex-1 h-0.5 mx-4 mt-6 mb-auto">
+                    <div className="h-full bg-primary"></div>
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
@@ -204,15 +212,7 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
 
   return (
     <div className="w-full py-6">
-      <div className="flex items-center justify-between relative">
-        {/* Progress Line */}
-        <div className="absolute top-6 left-0 right-0 h-1 bg-muted -z-10 mx-6">
-          <div 
-            className="h-full bg-primary transition-all duration-500"
-            style={{ width: `${(currentIndex / (statuses.length - 1)) * 100}%` }}
-          />
-        </div>
-
+      <div className="flex items-center relative px-6">
         {/* Status Steps */}
         {statuses.map((statusName, index) => {
           const isActive = index <= currentIndex;
@@ -222,21 +222,33 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
           else if (statusName === 'processing') icon = <Package className="h-6 w-6" />;
           else if (statusName === 'shipped') icon = <Truck className="h-6 w-6" />;
           else if (statusName === 'delivered') icon = <CheckCircle2 className="h-6 w-6" />;
+          
           return (
-            <div key={statusName} className="flex flex-col items-center flex-1">
-              <div 
-                className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300 ${
-                  isActive 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'bg-muted text-muted-foreground'
-                } ${isCurrent ? 'ring-4 ring-primary/20' : ''}`}
-              >
-                {icon}
+            <React.Fragment key={statusName}>
+              <div className="flex flex-col items-center relative z-10">
+                <div 
+                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300 border-2 ${
+                    isActive 
+                      ? 'bg-primary text-primary-foreground border-primary' 
+                      : 'bg-background text-muted-foreground border-gray-300 dark:border-gray-600'
+                  } ${isCurrent ? 'ring-4 ring-primary/20' : ''}`}
+                >
+                  {icon}
+                </div>
+                <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {statusName.charAt(0).toUpperCase() + statusName.slice(1)}
+                </span>
               </div>
-              <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                {statusName.charAt(0).toUpperCase() + statusName.slice(1)}
-              </span>
-            </div>
+              
+              {/* Connecting Line - only show between steps, not after the last one */}
+              {index < statuses.length - 1 && (
+                <div className="flex-1 h-0.5 mx-4 mt-6 mb-auto">
+                  <div className={`h-full transition-all duration-500 ${
+                    index < currentIndex ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}></div>
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
       </div>
