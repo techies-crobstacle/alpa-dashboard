@@ -35,7 +35,7 @@ type OrderItem = {
   product: { 
     id: string;
     title: string;
-    images: string[];
+    featuredImage: string;
     price: string;
     sellerId: string;
   };
@@ -60,7 +60,7 @@ type SubOrder = {
     id: string;
     productId: string;
     productTitle: string;
-    productImages: string[];
+    productFeaturedImage: string;
     quantity: number;
     price: string;
   }[];
@@ -906,9 +906,9 @@ const CustomerOrdersPage = () => {
                                       <div className="space-y-3 pl-6">
                                         {subOrder.items.map((item, i) => (
                                           <div key={i} className="flex items-center gap-4 p-3 rounded-lg border bg-muted/20">
-                                            {item.productImages?.[0] && (
+                                            {item.productFeaturedImage && (
                                               <Image 
-                                                src={item.productImages[0]} 
+                                                src={item.productFeaturedImage} 
                                                 alt={item.productTitle || "Product image"} 
                                                 width={64} 
                                                 height={64} 
@@ -948,9 +948,9 @@ const CustomerOrdersPage = () => {
                                 <div className="space-y-3">
                                   {order.items.map((item, i) => (
                                     <div key={i} className="flex items-center gap-4 p-3 rounded-lg border">
-                                      {item.product.images?.[0] && (
+                                      {item.product.featuredImage && (
                                         <Image 
-                                          src={item.product.images[0]} 
+                                          src={item.product.featuredImage} 
                                           alt={item.product.title || "Product image"} 
                                           width={64} 
                                           height={64} 
