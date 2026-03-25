@@ -431,7 +431,7 @@ function OrderDetailContent() {
       const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
       const cleanId = (order.displayId ?? "").replace(/^#/, "");
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"}/api/orders/invoice/${cleanId}`,
+        `${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/orders/invoice/${cleanId}`,
         { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } }
       );
       if (!response.ok) {

@@ -542,7 +542,7 @@ export default function AdminOrdersPage() {
       // Sub-orders have their own invoice endpoint; direct orders use the parent endpoint
       const isSubOrder = !!subDisplayId;
       const cleanId = (isSubOrder ? subDisplayId! : (displayId ?? orderId)).replace(/^#/, "");
-      const BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000";
+      const BASE = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
       const endpoint = isSubOrder
         ? `${BASE}/api/orders/invoice/sub/${cleanId}`
         : `${BASE}/api/orders/invoice/${cleanId}`;
