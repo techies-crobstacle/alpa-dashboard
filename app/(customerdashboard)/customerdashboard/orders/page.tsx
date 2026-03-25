@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
 
-const BASE_URL = "https://alpa-be.onrender.com";
+const BASE_URL = "http://127.0.0.1:5000";
 
 function getAuthHeaders() {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -480,7 +480,7 @@ const OrdersLoadingSkeleton = () => {
               <th className="px-4 py-3 text-left text-sm font-medium">Order #</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Date</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">Total</th>
+              <th className="px-4 py-3 text-right text-sm font-medium">Total</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Tracking</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Invoice</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Invoice</th>
@@ -677,7 +677,7 @@ const CustomerOrdersPage = () => {
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-col text-right">
+                      <div className="flex flex-col text-left">
                         <span className="font-semibold">${order.totalAmount}</span>
                         {order.sellerCount > 1 && (
                           <span className="text-xs text-muted-foreground">
@@ -830,47 +830,47 @@ const CustomerOrdersPage = () => {
                                   </div>
                                 );
                               })()}
-                              {/* Cancel Order Button (opens modal with mandatory reason) */}
-                              {order.status.toLowerCase() === "confirmed" && (
-                                <Button
-                                  variant="destructive"
-                                  onClick={() => setCancelModalOrder(order)}
-                                  className="mt-4"
-                                >
-                                  Cancel Order
-                                </Button>
-                              )}
-
-                              {/* Request Refund Button (DELIVERED orders only) */}
-                              {order.status.toLowerCase() === "delivered" && (
-                                <Button
-                                  variant="outline"
-                                  onClick={() => setRefundModalOrder(order)}
-                                  className="mt-4 ml-2"
-                                >
-                                  <DollarSign className="h-4 w-4 mr-2" /> Request Refund
-                                </Button>
-                              )}
-
-                              {/* Download Invoice Button */}
-                              <Button
-                                variant="default"
-                                disabled={downloadingInvoiceId === order.displayId}
-                                onClick={() => handleDownloadInvoice(order.displayId)}
-                                className="mt-4 ml-4"
-                              >
-                                {downloadingInvoiceId === order.displayId ? (
-                                  <>
-                                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                                    Downloading...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download Invoice
-                                  </>
+                              {/* Action Buttons */}
+                              <div className="flex flex-wrap items-center gap-2 mt-4">
+                                {/* Cancel Order Button (opens modal with mandatory reason) */}
+                                {order.status.toLowerCase() === "confirmed" && (
+                                  <Button
+                                    variant="destructive"
+                                    onClick={() => setCancelModalOrder(order)}
+                                  >
+                                    Cancel Order
+                                  </Button>
                                 )}
-                              </Button>
+
+                                {/* Request Refund Button (DELIVERED orders only) */}
+                                {order.status.toLowerCase() === "delivered" && (
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => setRefundModalOrder(order)}
+                                  >
+                                    <DollarSign className="h-4 w-4 mr-2" /> Request Refund
+                                  </Button>
+                                )}
+
+                                {/* Download Invoice Button */}
+                                <Button
+                                  variant="default"
+                                  disabled={downloadingInvoiceId === order.displayId}
+                                  onClick={() => handleDownloadInvoice(order.displayId)}
+                                >
+                                  {downloadingInvoiceId === order.displayId ? (
+                                    <>
+                                      <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                                      Downloading...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Download Invoice
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
                             </CardContent>
                           </Card>
 

@@ -38,6 +38,7 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
 	delivered:  { label: "Delivered",   variant: "default",     icon: CheckCircle2 },
 	shipped:    { label: "Shipped",     variant: "secondary",   icon: Truck },
 	processing: { label: "Processing",  variant: "secondary",   icon: Clock },
+	confirmed:  { label: "Confirmed",   variant: "outline",     icon: CheckCircle2 },
 	pending:    { label: "Pending",     variant: "outline",     icon: Clock },
 	cancelled:  { label: "Cancelled",   variant: "destructive", icon: XCircle },
 };
@@ -90,7 +91,7 @@ export default function CustomerDashboardPage() {
 						Array.isArray(raw) ? raw.length :
 						raw?.pagination?.total ?? raw?.wishlist?.length ?? raw?.total ?? raw?.count ?? 0
 					);
-				}
+				  }
 			} finally {
 				setLoading(false);
 			}
@@ -177,8 +178,8 @@ export default function CustomerDashboardPage() {
 							</div>
 						) : (
 							recentOrders.map((order) => {
-								const s = order.status?.toLowerCase() ?? "pending";
-								const cfg = statusConfig[s] ?? statusConfig.pending;
+								const s = order.status?.toLowerCase() ?? "confirmed";
+								const cfg = statusConfig[s] ?? statusConfig.confirmed;
 								const StatusIcon = cfg.icon;
 								const firstItem = order.items?.[0];
 								const itemTitle = firstItem?.product?.title ?? firstItem?.title ?? "Order";
