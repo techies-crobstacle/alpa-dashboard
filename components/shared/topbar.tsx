@@ -268,7 +268,7 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 				// 3. Fire-and-forget backend token invalidation — no await so it
 				//    never blocks the redirect regardless of server response time.
 				fetch(
-					`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be-1.onrender.com"}/api/auth/logout`,
+					`${process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com"}/api/auth/logout`,
 					{
 						method: "POST",
 						credentials: "include",
@@ -309,7 +309,7 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 							>
 								<Bell className="h-4 w-4" />
 								{unreadCount > 0 && (
-									<span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-medium">
+									<span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-medium leading-none">
 										{unreadCount > 99 ? '99+' : unreadCount}
 									</span>
 								)}
