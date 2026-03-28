@@ -373,9 +373,9 @@ const RefundRequestModal = ({
 }: {
   order: Order;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (requestType: "REFUND" | "PARTIAL_REFUND") => void;
 }) => {
-  const [requestType, setRequestType] = useState<"FULL_REFUND" | "PARTIAL_REFUND">("FULL_REFUND");
+  const [requestType, setRequestType] = useState<"REFUND" | "PARTIAL_REFUND">("REFUND");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -387,8 +387,12 @@ const RefundRequestModal = ({
     setLoading(true);
     try {
       await api.post(`/api/orders/refund-request/${order.displayId}`, { requestType, reason });
-      toast.success("Refund request submitted successfully.");
-      onSuccess();
+      if (requestType === "REFUND") {
+        toast.success("Full refund requested successfully.");
+      } else {
+        toast.success("Partial refund request submitted successfully.");
+      }
+      onSuccess(requestType);
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Failed to submit refund request.");
@@ -414,9 +418,9 @@ const RefundRequestModal = ({
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => setRequestType("FULL_REFUND")}
+              onClick={() => setRequestType("REFUND")}
               className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                requestType === "FULL_REFUND"
+                requestType === "REFUND"
                   ? "bg-primary text-primary-foreground border-primary"
                   : "border-muted-foreground/30 hover:border-primary"
               }`}
@@ -514,6 +518,7 @@ const CustomerOrdersPage = () => {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [cancelModalOrder, setCancelModalOrder] = useState<Order | null>(null);
   const [refundModalOrder, setRefundModalOrder] = useState<Order | null>(null);
+  const [submittedRefundOrderIds, setSubmittedRefundOrderIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchOrders();
@@ -842,8 +847,9 @@ const CustomerOrdersPage = () => {
                                   </Button>
                                 )}
 
-                                {/* Request Refund Button (DELIVERED orders only) */}
-                                {order.status.toLowerCase() === "delivered" && (
+                                {/* Request Refund Button (DELIVERED orders only, once per order) */}
+                                {order.status.toLowerCase() === "delivered" &&
+                                  !submittedRefundOrderIds.has(order.id) && (
                                   <Button
                                     variant="outline"
                                     onClick={() => setRefundModalOrder(order)}
@@ -995,7 +1001,10 @@ const CustomerOrdersPage = () => {
         <RefundRequestModal
           order={refundModalOrder}
           onClose={() => setRefundModalOrder(null)}
-          onSuccess={fetchOrders}
+          onSuccess={(reqType) => {
+            setSubmittedRefundOrderIds(prev => new Set(prev).add(refundModalOrder.id));
+            fetchOrders();
+          }}
         />
       )}
     </div>

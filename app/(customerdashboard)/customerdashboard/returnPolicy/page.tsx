@@ -238,7 +238,7 @@ export default function RefundRequestsPage() {
                           {statusStr}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
-                          {req.requestType === "FULL_REFUND" ? "Full Refund" : "Partial Refund"}
+                          {(req.requestType === "FULL_REFUND" || req.requestType === "REFUND") ? "Full Refund" : "Partial Refund"}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -299,7 +299,7 @@ export default function RefundRequestsPage() {
                         <div>
                           <p className="text-xs text-muted-foreground uppercase tracking-wide">Refund Type</p>
                           <p className="font-medium text-sm mt-1">
-                            {(detail || req).requestType === "FULL_REFUND" ? "Full Refund" : "Partial Refund"}
+                            {((detail || req).requestType === "FULL_REFUND" || (detail || req).requestType === "REFUND") ? "Full Refund" : "Partial Refund"}
                           </p>
                         </div>
                         <div>
