@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle, TrendingUp, ShoppingCart, FileDown } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle, TrendingUp, ShoppingCart, FileDown, Check, LayoutList, Table2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 
 import { toast } from "sonner";
@@ -279,6 +281,200 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
   );
 }
 
+// ─── Bulk Status Update Modal ─────────────────────────────────────────────────
+
+interface BulkStatusUpdateModalProps {
+  orders: Order[];
+  selectedOrderIds: Set<string>;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function BulkStatusUpdateModal({ orders, selectedOrderIds, onClose, onSuccess }: BulkStatusUpdateModalProps) {
+  const selectedOrders = useMemo(() => orders.filter(o => selectedOrderIds.has(o.id)), [orders, selectedOrderIds]);
+  const allowedStatuses = useMemo(() => {
+    if (selectedOrders.length === 0) return [];
+    return selectedOrders.reduce<string[]>((acc, order, idx) => {
+      const transitions = getAllowedTransitions(order.status);
+      if (idx === 0) return transitions;
+      return acc.filter(s => (transitions as string[]).includes(s));
+    }, []);
+  }, [selectedOrders]);
+
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [reason, setReason] = useState("");
+  const [notes, setNotes] = useState("");
+  const [defaultDelivery, setDefaultDelivery] = useState("");
+  const [perOrderTracking, setPerOrderTracking] = useState<Record<string, { trackingNumber: string; estimatedDelivery: string }>>(() => {
+    const init: Record<string, { trackingNumber: string; estimatedDelivery: string }> = {};
+    selectedOrders.forEach(o => { init[o.id] = { trackingNumber: "", estimatedDelivery: "" }; });
+    return init;
+  });
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+
+  const isShipped = selectedStatus === "SHIPPED";
+  const needsReason = ["CANCELLED", "RETURNED", "REFUNDED", "PARTIAL_REFUND"].includes(selectedStatus);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setApiError("");
+    if (isShipped) {
+      const missingTracking = selectedOrders.some(o => !perOrderTracking[o.id]?.trackingNumber.trim());
+      if (missingTracking) {
+        setApiError("Please provide tracking numbers for all selected orders.");
+        return;
+      }
+    }
+    const orderIdsPayload = isShipped
+      ? selectedOrders.map(o => ({
+          id: o.id,
+          trackingNumber: perOrderTracking[o.id]?.trackingNumber || "",
+          ...(perOrderTracking[o.id]?.estimatedDelivery ? { estimatedDelivery: perOrderTracking[o.id].estimatedDelivery } : {}),
+        }))
+      : Array.from(selectedOrderIds);
+    const payload: Record<string, any> = {
+      status: selectedStatus,
+      orderIds: orderIdsPayload,
+      ...(defaultDelivery && { estimatedDelivery: defaultDelivery }),
+      ...(reason && { reason }),
+      ...(!isShipped && notes ? { notes } : {}),
+    };
+    setLoading(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const authHeaders: HeadersInit = { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      const res = await fetch(`${BASE_URL}/api/seller/orders/bulk-update-status`, {
+        method: "PUT",
+        headers: authHeaders,
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || "Bulk update failed");
+      }
+      toast.success(`${selectedOrders.length} orders updated to ${getStatusLabel(selectedStatus)}`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      const msg = err?.message || "Failed to update orders";
+      setApiError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-lg shadow-2xl">
+        <CardHeader className="border-b bg-muted/40">
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-lg">Bulk Status Update</CardTitle>
+              <CardDescription className="mt-0.5">{selectedOrders.length} order{selectedOrders.length !== 1 ? "s" : ""} selected</CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-6">
+          {allowedStatuses.length === 0 ? (
+            <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-destructive">No common status transitions available for the selected orders.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>New Status <span className="text-destructive">*</span></Label>
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger><SelectValue placeholder="— Select status —" /></SelectTrigger>
+                  <SelectContent>
+                    {allowedStatuses.map(s => (
+                      <SelectItem key={s} value={s}>{getStatusLabel(s)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {isShipped && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label>Default Estimated Delivery <span className="text-muted-foreground font-normal text-xs">(optional fallback)</span></Label>
+                    <Input type="date" value={defaultDelivery} onChange={e => setDefaultDelivery(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Per-Order Tracking Numbers <span className="text-destructive">*</span></Label>
+                    <div className="border rounded-md overflow-hidden">
+                      <div style={{ maxHeight: "280px", overflowY: "auto" }} className="[&::-webkit-scrollbar]:w-1.5">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="text-xs">Order</TableHead>
+                              <TableHead className="text-xs">Tracking #</TableHead>
+                              <TableHead className="text-xs">Est. Delivery</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {selectedOrders.map(o => (
+                              <TableRow key={o.id}>
+                                <TableCell className="text-xs font-medium py-2 pr-1">{o.subDisplayId ?? o.displaySubId ?? o.displayId ?? `#${o.id.slice(-6).toUpperCase()}`}</TableCell>
+                                <TableCell className="py-2 pr-1">
+                                  <Input
+                                    placeholder="TRK-001"
+                                    value={perOrderTracking[o.id]?.trackingNumber || ""}
+                                    onChange={e => setPerOrderTracking(prev => ({ ...prev, [o.id]: { ...prev[o.id], trackingNumber: e.target.value } }))}
+                                    className="h-7 text-xs"
+                                  />
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  <Input
+                                    type="date"
+                                    value={perOrderTracking[o.id]?.estimatedDelivery || ""}
+                                    onChange={e => setPerOrderTracking(prev => ({ ...prev, [o.id]: { ...prev[o.id], estimatedDelivery: e.target.value } }))}
+                                    min={new Date().toISOString().split("T")[0]}
+                                    className="h-7 text-xs"
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+              {needsReason && (
+                <div className="space-y-1.5">
+                  <Label>Reason <span className="text-destructive">*</span></Label>
+                  <Textarea placeholder="Provide a reason..." value={reason} onChange={e => setReason(e.target.value)} rows={3} className="resize-none" />
+                </div>
+              )}
+              {selectedStatus && !isShipped && (
+                <div className="space-y-1.5">
+                  <Label>Notes <span className="text-muted-foreground font-normal text-xs">(optional)</span></Label>
+                  <Textarea placeholder="Additional notes..." value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="resize-none" />
+                </div>
+              )}
+              {apiError && (
+                <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  <p className="text-sm text-destructive">{apiError}</p>
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+                <Button type="submit" className="flex-1" disabled={!selectedStatus || loading || (needsReason && !reason.trim())}>
+                  {loading ? <><Loader2 className="animate-spin h-4 w-4 mr-2" />Updating...</> : `Update ${selectedOrders.length} Orders`}
+                </Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
     // Only declare expandedOrderId once at the top of the component
   const [orders, setOrders] = useState<Order[]>([]);
@@ -296,6 +492,10 @@ export default function OrdersPage() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
+  const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
+  const [isBulkSelectMode, setIsBulkSelectMode] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"card" | "table">("card");
 
   const renderValue = (val: any) => {
     if (val === null || val === undefined) return "N/A";
@@ -342,6 +542,14 @@ export default function OrdersPage() {
     }
     return pages;
   };
+
+  const handleToggleOrderSelection = useCallback((orderId: string) => {
+    setSelectedOrderIds(prev => {
+      const next = new Set(prev);
+      if (next.has(orderId)) { next.delete(orderId); } else { next.add(orderId); }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     fetchOrders();
@@ -1029,7 +1237,59 @@ export default function OrdersPage() {
         </CardContent>
       </Card>
 
-      
+      {/* ── View Toggle & Bulk Select Toolbar ─────────────────── */}
+      {filteredOrders.length > 0 && (
+        <div className="flex items-center justify-between gap-3 py-1">
+          {!isBulkSelectMode ? (
+            <div className="flex items-center gap-2 ml-auto">
+              <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsBulkSelectMode(true)}>
+                <Check className="h-4 w-4" /> Select Orders
+              </Button>
+              <div className="flex items-center border rounded-md overflow-hidden h-8">
+                <button
+                  className={cn("px-2 h-full flex items-center", viewMode === "card" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+                  onClick={() => setViewMode("card")}
+                  title="Card view"
+                ><LayoutList className="h-4 w-4" /></button>
+                <button
+                  className={cn("px-2 h-full flex items-center", viewMode === "table" ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+                  onClick={() => setViewMode("table")}
+                  title="Table view"
+                ><Table2 className="h-4 w-4" /></button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 flex-wrap w-full">
+              <input
+                type="checkbox"
+                className="h-4 w-4 cursor-pointer"
+                checked={
+                  selectedOrderIds.size > 0 &&
+                  selectedOrderIds.size === paginatedOrders.filter(o => !isTerminalStatus(o.status)).length
+                }
+                onChange={(e) => {
+                  const selectableIds = paginatedOrders.filter(o => !isTerminalStatus(o.status)).map(o => o.id);
+                  setSelectedOrderIds(e.target.checked ? new Set(selectableIds) : new Set());
+                }}
+              />
+              <span className="text-sm text-muted-foreground">{selectedOrderIds.size} selected</span>
+              <div className="flex items-center gap-2 ml-auto">
+                {selectedOrderIds.size > 0 && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedOrderIds(new Set())}>Clear</Button>
+                    <Button size="sm" onClick={() => setIsBulkModalOpen(true)}>
+                      Bulk Update ({selectedOrderIds.size})
+                    </Button>
+                  </>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => { setIsBulkSelectMode(false); setSelectedOrderIds(new Set()); }}>
+                  <X className="h-4 w-4 mr-1" /> Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {orders.length === 0 && !error ? (
         <Card className="p-12 text-center">
@@ -1059,6 +1319,83 @@ export default function OrdersPage() {
           </div>
         </Card>
       ) : filteredOrders.length > 0 ? (
+        viewMode === "table" ? (
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {isBulkSelectMode && <TableHead className="w-10" />}
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Payment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Tracking</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedOrders.map(order => (
+                  <TableRow key={order.id} className={selectedOrderIds.has(order.id) ? "bg-muted/40" : ""}>
+                    {isBulkSelectMode && (
+                      <TableCell>
+                        {!isTerminalStatus(order.status) && (
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 cursor-pointer"
+                            checked={selectedOrderIds.has(order.id)}
+                            onChange={() => handleToggleOrderSelection(order.id)}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell className="font-medium text-xs">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</TableCell>
+                    <TableCell className="text-xs">{order.type === "DIRECT" ? "Direct" : "Sub-order"}</TableCell>
+                    <TableCell className="text-xs">{order.customerName}</TableCell>
+                    <TableCell className="text-xs">{order.items.length}</TableCell>
+                    <TableCell className="text-xs font-semibold">${order.subtotal}</TableCell>
+                    <TableCell className="text-xs">{order.paymentMethod}</TableCell>
+                    <TableCell><Badge variant={getStatusBadgeVariant(order.status)} className="text-xs">{getStatusLabel(order.status)}</Badge></TableCell>
+                    <TableCell className="text-xs">{order.trackingNumber ?? "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {!isTerminalStatus(order.status) && (
+                          <Button variant="outline" size="icon" className="h-7 w-7" title="Update Status" onClick={() => setActiveStatusOrder(order)}>
+                            <ClipboardList className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {!order.trackingNumber && !isTerminalStatus(order.status) && (
+                          <Button variant="outline" size="icon" className="h-7 w-7" title="Add Tracking" onClick={() => setActiveTrackingOrder(order)}>
+                            <Truck className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button variant="outline" size="icon" className="h-7 w-7" title="View Details" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="outline" size="icon" className="h-7 w-7" title="Download Invoice"
+                          disabled={downloadingInvoiceId === order.id}
+                          onClick={() => handleDownloadInvoice(
+                            order.id,
+                            order.type === 'SUB_ORDER' ? order.parentDisplayId : order.displayId,
+                            order.type === 'SUB_ORDER' ? (order.subDisplayId ?? order.displaySubId ?? order.displayId) : undefined
+                          )}
+                        >
+                          {downloadingInvoiceId === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                      {expandedOrderId === order.id && (
+                        <div className="mt-2">{renderOrderDetails(order)}</div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        ) : (
         <div className="grid gap-4">{paginatedOrders.map((order) => (
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
@@ -1101,6 +1438,14 @@ export default function OrdersPage() {
                     {expandedOrderId === order.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                 </div>
+                {isBulkSelectMode && !isTerminalStatus(order.status) && (
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer"
+                    checked={selectedOrderIds.has(order.id)}
+                    onChange={() => handleToggleOrderSelection(order.id)}
+                  />
+                )}
               </div>
               <CardContent className="p-6">
                 <div className="grid md:grid-cols-3 gap-6">
@@ -1163,6 +1508,7 @@ export default function OrdersPage() {
             </Card>
           ))}
         </div>
+        )
       ) : null}
 
       {/* Pagination */}
@@ -1304,6 +1650,16 @@ export default function OrdersPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Bulk Status Update Modal */}
+      {isBulkModalOpen && (
+        <BulkStatusUpdateModal
+          orders={orders}
+          selectedOrderIds={selectedOrderIds}
+          onClose={() => setIsBulkModalOpen(false)}
+          onSuccess={() => { fetchOrders(); setIsBulkSelectMode(false); setSelectedOrderIds(new Set()); setIsBulkModalOpen(false); }}
+        />
       )}
     </div>
   );
