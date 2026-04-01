@@ -37,7 +37,8 @@ const formSchema = z.object({
   }),
 });
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
 // Login API function
 async function loginUser(email: string, password: string) {
@@ -49,13 +50,13 @@ async function loginUser(email: string, password: string) {
     credentials: "include",
     body: JSON.stringify({ email, password }),
   });
-  
+
   const data = await response.json();
-  
+
   return {
     ok: response.ok,
     status: response.status,
-    data: data
+    data: data,
   };
 }
 
@@ -67,13 +68,13 @@ async function verifyLoginOTP(email: string, otp: string) {
     credentials: "include",
     body: JSON.stringify({ email, otp }),
   });
-  
+
   const data = await response.json();
-  
+
   if (!response.ok) {
     throw new Error(data.message || "OTP verification failed");
   }
-  
+
   return data;
 }
 
@@ -87,32 +88,36 @@ async function resendLoginOTP(email: string) {
     credentials: "include",
     body: JSON.stringify({ email }),
   });
-  
+
   const data = await response.json();
-  
+
   if (!response.ok) {
     throw new Error(data.message || "Failed to resend OTP");
   }
-  
+
   return data;
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <LogIn className="mx-auto h-12 w-12 text-gray-400" />
-          <CardTitle className="mt-4 text-2xl">Loading...</CardTitle>
-          <CardDescription>Please wait while we load the login form.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        </CardContent>
-      </Card>
-    }>
+    <Suspense
+      fallback={
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <LogIn className="mx-auto h-12 w-12 text-gray-400" />
+            <CardTitle className="mt-4 text-2xl">Loading...</CardTitle>
+            <CardDescription>
+              Please wait while we load the login form.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          </CardContent>
+        </Card>
+      }
+    >
       <LoginForm />
     </Suspense>
   );
@@ -151,15 +156,15 @@ function LoginForm() {
   function handleSuccessfulLogin(token: string, role?: string) {
     // Store in localStorage
     localStorage.setItem("alpa_token", token);
-    
+
     // Set cookies that middleware can read
     setCookie("token", token, 7);
     if (role) {
       setCookie("userRole", role, 7);
     }
-    
+
     localStorage.removeItem("user_data");
-    
+
     toast.success("Login successful!", {
       description: "Welcome back! You have been logged in successfully.",
     });
@@ -168,7 +173,11 @@ function LoginForm() {
       // Use redirectTo parameter if provided, otherwise use role-based routing
       if (redirectTo && redirectTo.startsWith("/")) {
         router.push(redirectTo);
-      } else if (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN") {
+      } else if (
+        role === "ADMIN" ||
+        role === "admin" ||
+        role === "SUPER_ADMIN"
+      ) {
         router.push("/admindashboard");
       } else if (role === "SELLER" || role === "seller") {
         router.push("/sellerdashboard");
@@ -185,7 +194,7 @@ function LoginForm() {
     setIsLoading(true);
     try {
       console.log("🔐 Attempting login for:", values.email);
-      
+
       const response = await loginUser(values.email, values.password);
 
       console.log("📥 Login Response:", response);
@@ -196,7 +205,11 @@ function LoginForm() {
       }
 
       // Case 1: Direct login (device verified, within 7 days)
-      if (response.data.success && response.data.token && !response.data.requiresVerification) {
+      if (
+        response.data.success &&
+        response.data.token &&
+        !response.data.requiresVerification
+      ) {
         console.log("✅ Direct login - device verified");
         handleSuccessfulLogin(response.data.token, response.data.role);
         return;
@@ -208,18 +221,20 @@ function LoginForm() {
         setLoginEmail(values.email);
         setLoginPassword(values.password);
         setShowOTP(true);
-        toast.info(response.data.message || "Please enter the OTP sent to your email.");
+        toast.info(
+          response.data.message || "Please enter the OTP sent to your email.",
+        );
         return;
       }
 
       // Unexpected response
       throw new Error("Unexpected response from server");
-      
     } catch (error) {
       const err = error as Error;
       console.error("❌ Login error:", err);
       toast.error("Login failed", {
-        description: err.message || "Invalid email or password. Please try again.",
+        description:
+          err.message || "Invalid email or password. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -229,43 +244,45 @@ function LoginForm() {
   // Handles verifying OTP
   async function handleVerifyOTP(e: React.FormEvent) {
     e.preventDefault();
-    
+
     if (!loginEmail || !otp) {
       toast.error("Please enter the OTP");
       return;
     }
-    
+
     if (otp.length !== 6) {
       toast.error("Please enter a valid 6-digit OTP");
       return;
     }
-    
+
     setIsOTPLoading(true);
-    
+
     try {
       console.log("🔐 Verifying OTP for:", loginEmail);
-      
+
       const response = await verifyLoginOTP(loginEmail, otp);
-      
+
       console.log("📥 OTP Verification Response:", response);
-      
+
       // Check for token in response
       if (response.success && response.token) {
         console.log("✅ OTP verified - device session created for 7 days");
-        handleSuccessfulLogin(response.token, response.role || response.user?.role);
+        handleSuccessfulLogin(
+          response.token,
+          response.role || response.user?.role,
+        );
         return;
       }
-      
+
       throw new Error(response.message || "OTP verification failed");
-      
     } catch (error) {
       const err = error as Error;
       console.error("❌ OTP verification error:", err);
-      
-      toast.error("OTP verification failed", { 
-        description: err.message || "Invalid OTP. Please try again."
+
+      toast.error("OTP verification failed", {
+        description: err.message || "Invalid OTP. Please try again.",
       });
-      
+
       setOTP("");
     } finally {
       setIsOTPLoading(false);
@@ -279,15 +296,15 @@ function LoginForm() {
       handleBackToLogin();
       return;
     }
-    
+
     setIsOTPLoading(true);
     try {
       console.log("📤 Resending OTP to:", loginEmail);
       const response = await resendLoginOTP(loginEmail);
-      
+
       if (response.success) {
         toast.success("OTP resent successfully", {
-          description: "Please check your email for the new OTP."
+          description: "Please check your email for the new OTP.",
         });
         setOTP("");
       } else {
@@ -297,7 +314,7 @@ function LoginForm() {
       const err = error as Error;
       console.error("❌ Resend OTP error:", err);
       toast.error("Failed to resend OTP", {
-        description: err.message
+        description: err.message,
       });
     } finally {
       setIsOTPLoading(false);
@@ -321,12 +338,12 @@ function LoginForm() {
           {showOTP ? "Verify Your Email" : "Welcome back"}
         </CardTitle>
         <CardDescription>
-          {showOTP 
+          {showOTP
             ? "Enter the OTP sent to your email address"
             : "Enter your credentials to access your account"}
         </CardDescription>
       </CardHeader>
-      
+
       <CardContent>
         {!showOTP ? (
           <Form {...form}>
@@ -352,7 +369,7 @@ function LoginForm() {
                   </FormItem>
                 )}
               />
-              
+
               <FormField
                 control={form.control}
                 name="password"
@@ -386,7 +403,7 @@ function LoginForm() {
                   </FormItem>
                 )}
               />
-              
+
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -419,7 +436,7 @@ function LoginForm() {
                 OTP sent to {loginEmail}
               </p>
             </div>
-            
+
             <Button
               type="submit"
               className="w-full"
@@ -434,7 +451,7 @@ function LoginForm() {
                 "Verify OTP & Login"
               )}
             </Button>
-            
+
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 type="button"
@@ -445,7 +462,7 @@ function LoginForm() {
               >
                 Back to Login
               </Button>
-              
+
               <Button
                 type="button"
                 variant="secondary"
@@ -466,17 +483,28 @@ function LoginForm() {
           </form>
         )}
       </CardContent>
-      
+
       <CardFooter className="flex flex-col gap-4">
         {!showOTP && (
           <>
             <div className="relative w-full flex items-center gap-2">
               <div className="flex-1 border-t border-border" />
-              <span className="text-xs text-muted-foreground whitespace-nowrap">or continue with</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                or continue with
+              </span>
               <div className="flex-1 border-t border-border" />
             </div>
-            <a
+            {/* <a
               href={`https://alpa-be.onrender.com/api/auth/saml/login${redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ''}`}
+              className="w-full"
+            > */}
+            <a
+              href={
+                "https://alpa-be.onrender.com/api/auth/saml/login" +
+                (redirectTo
+                  ? "?redirectTo=" + encodeURIComponent(redirectTo)
+                  : "")
+              }
               className="w-full"
             >
               <Button type="button" variant="outline" className="w-full gap-2">
@@ -501,4 +529,3 @@ function LoginForm() {
     </Card>
   );
 }
-
