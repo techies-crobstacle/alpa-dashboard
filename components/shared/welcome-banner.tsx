@@ -10,6 +10,7 @@ export function WelcomeBanner() {
 	const [visible, setVisible] = useState(false);
 	const [userName, setUserName] = useState("Seller");
 	const [productCount, setProductCount] = useState<number | null>(null);
+	const [sellerStatus, setSellerStatus] = useState<string | null>(null);
 
 	useEffect(() => {
 		if (typeof window === "undefined") return;
@@ -44,27 +45,34 @@ export function WelcomeBanner() {
 			}
 		};
 
-		// Fetch product count — use a local variable to avoid stale closure
-		const resolveProductCount = async (): Promise<number | null> => {
+		// Fetch active product count — use a local variable to avoid stale closure
+		const resolveActiveProductCount = async (): Promise<number | null> => {
 			try {
 				const data = await api.get("/api/products/my-products", { headers: { Authorization: "" } });
-				const count: number | null =
-					(Array.isArray(data) ? data.length : null) ??
-					(Array.isArray(data?.products) ? data.products.length : null) ??
-					data?.total ??
-					data?.count ??
-					data?.pagination?.total ??
-					null;
-				return count;
+				const products = Array.isArray(data) ? data : (data?.products || []);
+				// Count only ACTIVE products
+				const activeCount = products.filter((product: any) => product.status === "ACTIVE").length;
+				return activeCount;
 			} catch {
 				return null;
 			}
 		};
 
-		Promise.all([resolveName(), resolveProductCount()]).then(([, count]) => {
-			setProductCount(count);
-			// Only show when count is known and below the recommended threshold
-			if (count !== null && count < 5) {
+		// Fetch seller profile to check approval status
+		const resolveSellerStatus = async (): Promise<string | null> => {
+			try {
+				const data = await api.get("/api/seller-profile", { headers: { Authorization: "" } });
+				return data?.data?.status || null;
+			} catch {
+				return null;
+			}
+		};
+
+		Promise.all([resolveName(), resolveActiveProductCount(), resolveSellerStatus()]).then(([, activeCount, status]) => {
+			setProductCount(activeCount);
+			setSellerStatus(status);
+			// Only show when seller is approved to add products and has no active products
+			if (status === "APPROVED" && activeCount === 0) {
 				setVisible(true);
 			}
 		});

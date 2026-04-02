@@ -15,6 +15,46 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Plus, Loader2, Clock, CheckCircle2, Package, Search, AlertCircle, RefreshCcw, Eye, Trash2, X } from "lucide-react";
 
+// --- CONFIGURATION ---
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
+
+// --- HELPER: Get Auth Token ---
+const getAuthToken = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return localStorage.getItem("alpa_token");
+};
+
+// --- Seller Profile Type ---
+type SellerProfile = {
+  id: string;
+  status: string;
+  approvedAt?: string | null;
+  storeName?: string;
+  businessName?: string;
+};
+
+// --- FETCH SELLER PROFILE ---
+const fetchSellerProfile = async (): Promise<SellerProfile> => {
+  const token = getAuthToken();
+  if (!token) throw new Error("No authentication token found. Please log in.");
+  
+  const response = await fetch(`${BASE_URL}/api/seller-profile`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
+    },
+  });
+  
+  if (response.status === 401) throw new Error("Unauthorized: Please log in again.");
+  if (!response.ok) throw new Error("Failed to fetch seller profile");
+  
+  const data = await response.json();
+  return data.data;
+};
+
 interface Category {
   id?: string | null;
   categoryName: string;
@@ -70,6 +110,11 @@ const CategoriesPage = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeTab, setActiveTab] = useState("available");
+  
+  // Seller profile state
+  const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [userInteracting, setUserInteracting] = useState(false);
 
   const form = useForm<CategoryRequestForm>({
     defaultValues: {
@@ -80,7 +125,67 @@ const CategoriesPage = () => {
 
   useEffect(() => {
     fetchCategories();
+    loadSellerProfile();
   }, []);
+
+  const loadSellerProfile = async () => {
+    try {
+      setProfileLoading(true);
+      const profile = await fetchSellerProfile();
+      setSellerProfile(profile);
+    } catch (error) {
+      console.error('Error fetching seller profile:', error);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  // Auto-refresh seller profile when page gains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (!profileLoading && sellerProfile && !userInteracting) {
+        loadSellerProfile();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !profileLoading && sellerProfile && !userInteracting) {
+        loadSellerProfile();
+      }
+    };
+
+    // Track user interactions to prevent auto-refresh interference
+    const handleUserInteraction = () => {
+      setUserInteracting(true);
+      // Clear the flag after 5 seconds of no interaction
+      setTimeout(() => setUserInteracting(false), 5000);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('keydown', handleUserInteraction);
+    document.addEventListener('scroll', handleUserInteraction);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('keydown', handleUserInteraction);
+      document.removeEventListener('scroll', handleUserInteraction);
+    };
+  }, [profileLoading, sellerProfile, userInteracting]);
+
+  // Periodic check every 2 minutes for status changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!profileLoading && sellerProfile && sellerProfile.status !== "APPROVED" && !userInteracting) {
+        loadSellerProfile();
+      }
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(interval);
+  }, [profileLoading, sellerProfile, userInteracting]);
 
   const fetchCategories = async () => {
     try {
@@ -101,6 +206,12 @@ const CategoriesPage = () => {
   };
 
   const onSubmit = async (data: CategoryRequestForm) => {
+    // Check seller approval status before allowing category request
+    if (sellerProfile?.status !== "APPROVED") {
+      toast.error("Your account needs to be approved before you can request categories");
+      return;
+    }
+    
     try {
       setIsSubmitting(true);
       const response = await apiClient("/api/categories/request", {
@@ -163,7 +274,16 @@ const CategoriesPage = () => {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button 
+              className={cn("gap-2", sellerProfile?.status !== "APPROVED" && "opacity-50 cursor-not-allowed")}
+              onClick={() => {
+                if (sellerProfile?.status !== "APPROVED") {
+                  toast.error("Your account needs to be approved before you can request categories");
+                  return;
+                }
+              }}
+              disabled={sellerProfile?.status !== "APPROVED"}
+            >
               <Plus className="w-4 h-4" />
               Request Category
             </Button>
@@ -261,7 +381,11 @@ const CategoriesPage = () => {
                 key={tab.key}
                 variant={activeTab === tab.key ? "default" : "ghost"}
                 size="sm"
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setUserInteracting(true);
+                  setTimeout(() => setUserInteracting(false), 3000);
+                }}
                 className="gap-1.5"
               >
                 {tab.icon}

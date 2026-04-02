@@ -376,6 +376,13 @@ function BulkStatusUpdateModal({ orders, selectedOrderIds, onClose, onSuccess }:
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
           </div>
+          <div className="mt-3 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5">
+            {selectedOrders.map(o => (
+              <Badge key={o.id} variant="outline" className="text-[10px] py-0 border-muted-foreground/30 font-medium">
+                {o.subDisplayId ?? o.displaySubId ?? o.displayId ?? `#${o.id.slice(-6).toUpperCase()}`}
+              </Badge>
+            ))}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4 p-6">
           {allowedStatuses.length === 0 ? (
@@ -399,8 +406,25 @@ function BulkStatusUpdateModal({ orders, selectedOrderIds, onClose, onSuccess }:
               {isShipped && (
                 <>
                   <div className="space-y-1.5">
-                    <Label>Default Estimated Delivery <span className="text-muted-foreground font-normal text-xs">(optional fallback)</span></Label>
-                    <Input type="date" value={defaultDelivery} onChange={e => setDefaultDelivery(e.target.value)} min={new Date().toISOString().split("T")[0]} />
+                    <Label>Default Estimated Delivery</Label>
+                    <Input 
+                      type="date" 
+                      value={defaultDelivery} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        setDefaultDelivery(val);
+                        // Auto-fill all individual row estimated deliveries
+                        setPerOrderTracking(prev => {
+                          const next = { ...prev };
+                          Object.keys(next).forEach(k => {
+                            next[k] = { ...next[k], estimatedDelivery: val };
+                          });
+                          return next;
+                        });
+                      }} 
+                      min={new Date().toISOString().split("T")[0]} 
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">This will automatically apply to all selected orders below.</p>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Per-Order Tracking Numbers <span className="text-destructive">*</span></Label>
@@ -546,10 +570,24 @@ export default function OrdersPage() {
   const handleToggleOrderSelection = useCallback((orderId: string) => {
     setSelectedOrderIds(prev => {
       const next = new Set(prev);
-      if (next.has(orderId)) { next.delete(orderId); } else { next.add(orderId); }
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        // Enforce same status for bulk selection
+        const orderToAdd = orders.find(o => o.id === orderId);
+        if (orderToAdd && next.size > 0) {
+          const firstSelectedId = Array.from(next)[0];
+          const firstSelectedOrder = orders.find(o => o.id === firstSelectedId);
+          if (firstSelectedOrder && firstSelectedOrder.status !== orderToAdd.status) {
+            toast.error("You can only bulk update orders that have the exact same current status.");
+            return prev;
+          }
+        }
+        next.add(orderId);
+      }
       return next;
     });
-  }, []);
+  }, [orders]);
 
   useEffect(() => {
     fetchOrders();
@@ -924,15 +962,15 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Info</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Order ID</span><span className="font-medium">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
-            <div className="flex justify-between items-center"><span className="text-muted-foreground">Status</span><Badge variant="secondary">{order.status.toUpperCase()}</Badge></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Type</span><span className="font-medium">{order.type === "DIRECT" ? "Direct Order" : "Sub-order"}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Payment</span><span className="font-medium">{order.paymentMethod}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Payment Status</span><span className="font-medium">{order.paymentStatus}</span></div>
-            {order.trackingNumber && <div className="flex justify-between"><span className="text-muted-foreground">Tracking</span><span className="font-medium">{order.trackingNumber}</span></div>}
-            {order.estimatedDelivery && <div className="flex justify-between"><span className="text-muted-foreground">Est. Delivery</span><span className="font-medium">{fmtDate(order.estimatedDelivery)}</span></div>}
-            {order.parentOrderId && <div className="flex justify-between"><span className="text-muted-foreground">Parent Order</span><span className="font-medium">{order.parentDisplayId ?? `#${order.parentOrderId.slice(-6).toUpperCase()}`}</span></div>}
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Order ID</span><span className="font-medium text-right break-all min-w-0">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
+            <div className="flex justify-between gap-4 items-center"><span className="text-muted-foreground shrink-0">Status</span><Badge variant="secondary" className="text-right whitespace-nowrap">{order.status.toUpperCase()}</Badge></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Type</span><span className="font-medium text-right min-w-0">{order.type === "DIRECT" ? "Direct Order" : "Sub-order"}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Date</span><span className="font-medium text-right min-w-0">{new Date(order.createdAt).toLocaleDateString()}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Payment</span><span className="font-medium text-right min-w-0">{order.paymentMethod}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Payment Status</span><span className="font-medium text-right min-w-0">{order.paymentStatus}</span></div>
+            {order.trackingNumber && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Tracking</span><span className="font-medium text-right break-words min-w-0">{order.trackingNumber}</span></div>}
+            {order.estimatedDelivery && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Est. Delivery</span><span className="font-medium text-right min-w-0">{fmtDate(order.estimatedDelivery)}</span></div>}
+            {order.parentOrderId && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Parent Order</span><span className="font-medium text-right break-words min-w-0">{order.parentDisplayId ?? `#${order.parentOrderId.slice(-6).toUpperCase()}`}</span></div>}
           </CardContent>
         </Card>
 
@@ -942,14 +980,14 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Shipping Address</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Customer</span><span className="font-medium text-right break-words">{order.customerName}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Email</span><span className="font-medium text-right break-words">{order.customerEmail}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Phone</span><span className="font-medium text-right break-words">{order.customerPhone}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Address</span><span className="font-medium text-right break-words">{order.shippingAddressLine}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">City</span><span className="font-medium text-right break-words">{order.shippingCity}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">State</span><span className="font-medium text-right break-words">{order.shippingState}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Zip Code</span><span className="font-medium text-right break-words">{order.shippingZipCode}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Country</span><span className="font-medium text-right break-words">{order.shippingCountry}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Customer</span><span className="font-medium text-right break-words min-w-0">{order.customerName}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Email</span><span className="font-medium text-right break-all min-w-0">{order.customerEmail}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Phone</span><span className="font-medium text-right break-words min-w-0">{order.customerPhone}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Address</span><span className="font-medium text-right break-words min-w-0">{order.shippingAddressLine}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">City</span><span className="font-medium text-right break-words min-w-0">{order.shippingCity}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">State</span><span className="font-medium text-right break-words min-w-0">{order.shippingState}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Zip Code</span><span className="font-medium text-right break-words min-w-0">{order.shippingZipCode}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Country</span><span className="font-medium text-right break-words min-w-0">{order.shippingCountry}</span></div>
           </CardContent>
         </Card>
 
@@ -959,16 +997,19 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Order Totals</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            {subtotal !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-medium">${subtotal}</span></div>}
-            {shipping !== "" && <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="font-medium">${typeof shipping === "object" ? JSON.stringify(shipping) : shipping}</span></div>}
-            {discount !== "" && Number(discount) > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="font-medium text-green-600">-${discount}</span></div>}
-            {gst !== "" && <div className="flex justify-between"><span className="text-muted-foreground">GST</span><span className="font-medium">${gst}</span></div>}
-            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>My Order Total</span><span>${total}</span></div>
+            {subtotal !== "" && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Subtotal</span><span className="font-medium text-right">${subtotal}</span></div>}
+            {shipping !== "" && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Shipping</span><span className="font-medium text-right break-words">${typeof shipping === "object" ? JSON.stringify(shipping) : shipping}</span></div>}
+            {discount !== "" && Number(discount) > 0 && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Discount</span><span className="font-medium text-right text-green-600">-${discount}</span></div>}
+            {gst !== "" && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">GST</span><span className="font-medium text-right">${gst}</span></div>}
+            <div className="border-t pt-2 flex justify-between gap-4 font-bold text-base"><span className="shrink-0">My Order Total</span><span className="text-right">${total}</span></div>
             {order.items && order.items.length > 0 && (
               <div className="border-t pt-2 space-y-1">
                 <p className="text-muted-foreground font-medium mb-1">Items</p>
                 {order.items.map((item, i) => (
-                  <div key={i} className="flex justify-between text-xs"><span className="truncate max-w-[60%]">{item.product.title} x{item.quantity}</span><span>${item.price}</span></div>
+                  <div key={i} className="flex justify-between gap-4 text-xs">
+                    <span className="text-left break-words">{item.product.title} x{item.quantity}</span>
+                    <span className="shrink-0 font-medium">${item.price}</span>
+                  </div>
                 ))}
               </div>
             )}
@@ -1243,7 +1284,7 @@ export default function OrdersPage() {
           {!isBulkSelectMode ? (
             <div className="flex items-center gap-2 ml-auto">
               <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsBulkSelectMode(true)}>
-                <Check className="h-4 w-4" /> Select Orders
+                <Check className="h-4 w-4" /> Bulk Order update
               </Button>
               <div className="flex items-center border rounded-md overflow-hidden h-8">
                 <button
@@ -1265,11 +1306,55 @@ export default function OrdersPage() {
                 className="h-4 w-4 cursor-pointer"
                 checked={
                   selectedOrderIds.size > 0 &&
-                  selectedOrderIds.size === paginatedOrders.filter(o => !isTerminalStatus(o.status)).length
+                  selectedOrderIds.size === paginatedOrders.filter(o => {
+                    if (isTerminalStatus(o.status)) return false;
+                    // If we have items selected, restrict select-all to check only those matching current selected status.
+                    if (selectedOrderIds.size > 0) {
+                      const firstSelectedId = Array.from(selectedOrderIds)[0];
+                      const firstSelectedOrder = orders.find(ord => ord.id === firstSelectedId);
+                      return firstSelectedOrder && firstSelectedOrder.status === o.status;
+                    }
+                    return true;
+                  }).length
                 }
                 onChange={(e) => {
-                  const selectableIds = paginatedOrders.filter(o => !isTerminalStatus(o.status)).map(o => o.id);
-                  setSelectedOrderIds(e.target.checked ? new Set(selectableIds) : new Set());
+                  if (!e.target.checked) {
+                    setSelectedOrderIds(new Set());
+                    return;
+                  }
+                  
+                  // Filter out terminal status orders
+                  let selectableOrders = paginatedOrders.filter(o => !isTerminalStatus(o.status));
+                  
+                  if (selectableOrders.length === 0) return;
+
+                  // Find the target status we are enforcing
+                  let targetStatus: string;
+                  if (selectedOrderIds.size > 0) {
+                     const firstSelectedId = Array.from(selectedOrderIds)[0];
+                     const firstSelectedOrder = orders.find(ord => ord.id === firstSelectedId);
+                     targetStatus = firstSelectedOrder ? firstSelectedOrder.status : selectableOrders[0].status;
+                  } else {
+                     // Get the most common status on this page to maximize user convenience when "Selecting All"
+                     const statusCounts = selectableOrders.reduce((acc, obj) => {
+                       acc[obj.status] = (acc[obj.status] || 0) + 1;
+                       return acc;
+                     }, {} as Record<string, number>);
+                     
+                     targetStatus = Object.keys(statusCounts).reduce((a, b) => statusCounts[a] > statusCounts[b] ? a : b);
+                  }
+
+                  const selectableIds = selectableOrders.filter(o => o.status === targetStatus).map(o => o.id);
+                  
+                  // Only show toast if making a generic "Select All" without a previously established target criteria.
+                  if (selectedOrderIds.size === 0 && selectableIds.length < selectableOrders.length) {
+                    toast.info(`Selected ${selectableIds.length} orders with matching status: ${getStatusLabel(targetStatus)}`);
+                  }
+                  
+                  // Keep currently selected (might be from other pages, as long as they match the target status)
+                  const newSet = new Set(selectedOrderIds);
+                  selectableIds.forEach(id => newSet.add(id));
+                  setSelectedOrderIds(newSet);
                 }}
               />
               <span className="text-sm text-muted-foreground">{selectedOrderIds.size} selected</span>
@@ -1327,12 +1412,12 @@ export default function OrdersPage() {
                   {isBulkSelectMode && <TableHead className="w-10" />}
                   <TableHead className="text-sm whitespace-nowrap">Order ID</TableHead>
                   <TableHead className="text-sm whitespace-nowrap">Type</TableHead>
-                  <TableHead className="text-sm whitespace-nowrap truncate max-w-[150px]">Customer</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap min-w-[120px]">Customer</TableHead>
                   <TableHead className="text-sm whitespace-nowrap">Items</TableHead>
                   <TableHead className="text-sm whitespace-nowrap">Total</TableHead>
                   <TableHead className="text-sm whitespace-nowrap">Payment</TableHead>
                   <TableHead className="text-sm whitespace-nowrap">Status</TableHead>
-                  <TableHead className="text-sm whitespace-nowrap">Tracking</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap min-w-[120px]">Tracking</TableHead>
                   <TableHead className="text-sm whitespace-nowrap text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1354,12 +1439,12 @@ export default function OrdersPage() {
                       )}
                       <TableCell className="font-medium text-sm whitespace-nowrap">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{order.type === "DIRECT" ? "Direct" : "Sub-order"}</TableCell>
-                      <TableCell className="text-sm truncate max-w-[150px]" title={order.customerName}>{order.customerName}</TableCell>
+                      <TableCell className="text-sm break-words min-w-[120px] max-w-[200px]" title={order.customerName}>{order.customerName}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{order.items.length}</TableCell>
                       <TableCell className="text-sm font-semibold whitespace-nowrap">${order.subtotal}</TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{order.paymentMethod}</TableCell>
                       <TableCell className="whitespace-nowrap"><Badge variant={getStatusBadgeVariant(order.status)} className="text-xs">{getStatusLabel(order.status)}</Badge></TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">{order.trackingNumber ?? "—"}</TableCell>
+                      <TableCell className="text-sm break-words min-w-[120px] max-w-[200px]">{order.trackingNumber ?? "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           {!isTerminalStatus(order.status) && (
@@ -1409,6 +1494,23 @@ export default function OrdersPage() {
             <Card key={order.id} className="overflow-hidden">
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
                 <div className="flex items-center gap-3">
+                  {isBulkSelectMode && !isTerminalStatus(order.status) && (
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 cursor-pointer"
+                      checked={selectedOrderIds.has(order.id)}
+                      disabled={
+                        !selectedOrderIds.has(order.id) &&
+                        selectedOrderIds.size > 0 &&
+                        (() => {
+                          const firstSelectedId = Array.from(selectedOrderIds)[0];
+                          const firstSelectedOrder = orders.find(o => o.id === firstSelectedId);
+                          return firstSelectedOrder ? firstSelectedOrder.status !== order.status : false;
+                        })()
+                      }
+                      onChange={() => handleToggleOrderSelection(order.id)}
+                    />
+                  )}
                   <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                     <Package className="h-5 w-5" />
                   </div>
@@ -1452,10 +1554,19 @@ export default function OrdersPage() {
                     type="checkbox"
                     className="h-4 w-4 cursor-pointer"
                     checked={selectedOrderIds.has(order.id)}
+                    disabled={
+                      !selectedOrderIds.has(order.id) &&
+                      selectedOrderIds.size > 0 &&
+                      (() => {
+                        const firstSelectedId = Array.from(selectedOrderIds)[0];
+                        const firstSelectedOrder = orders.find(o => o.id === firstSelectedId);
+                        return firstSelectedOrder ? firstSelectedOrder.status !== order.status : false;
+                      })()
+                    }
                     onChange={() => handleToggleOrderSelection(order.id)}
                   />
                 )}
-              </div>
+                </div>
               <CardContent className="p-6">
                 <div className="grid md:grid-cols-3 gap-6">
                   {/* Items Summary */}
