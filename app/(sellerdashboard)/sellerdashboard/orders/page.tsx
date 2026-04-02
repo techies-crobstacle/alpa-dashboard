@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -942,14 +942,14 @@ export default function OrdersPage() {
             <CardTitle className="text-sm font-semibold">Shipping Address</CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Customer</span><span className="font-medium">{order.customerName}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="font-medium">{order.customerEmail}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium">{order.customerPhone}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Address</span><span className="font-medium text-right max-w-[60%]">{order.shippingAddressLine}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">City</span><span className="font-medium">{order.shippingCity}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">State</span><span className="font-medium">{order.shippingState}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Zip Code</span><span className="font-medium">{order.shippingZipCode}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Country</span><span className="font-medium">{order.shippingCountry}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Customer</span><span className="font-medium text-right break-words">{order.customerName}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Email</span><span className="font-medium text-right break-words">{order.customerEmail}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Phone</span><span className="font-medium text-right break-words">{order.customerPhone}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Address</span><span className="font-medium text-right break-words">{order.shippingAddressLine}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">City</span><span className="font-medium text-right break-words">{order.shippingCity}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">State</span><span className="font-medium text-right break-words">{order.shippingState}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Zip Code</span><span className="font-medium text-right break-words">{order.shippingZipCode}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Country</span><span className="font-medium text-right break-words">{order.shippingCountry}</span></div>
           </CardContent>
         </Card>
 
@@ -1325,72 +1325,81 @@ export default function OrdersPage() {
               <TableHeader>
                 <TableRow>
                   {isBulkSelectMode && <TableHead className="w-10" />}
-                  <TableHead>Order ID</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Tracking</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap">Order ID</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap">Type</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap truncate max-w-[150px]">Customer</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap">Items</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap">Total</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap">Payment</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap">Status</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap">Tracking</TableHead>
+                  <TableHead className="text-sm whitespace-nowrap text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {paginatedOrders.map(order => (
-                  <TableRow key={order.id} className={selectedOrderIds.has(order.id) ? "bg-muted/40" : ""}>
-                    {isBulkSelectMode && (
-                      <TableCell>
-                        {!isTerminalStatus(order.status) && (
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 cursor-pointer"
-                            checked={selectedOrderIds.has(order.id)}
-                            onChange={() => handleToggleOrderSelection(order.id)}
-                          />
-                        )}
-                      </TableCell>
-                    )}
-                    <TableCell className="font-medium text-xs">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</TableCell>
-                    <TableCell className="text-xs">{order.type === "DIRECT" ? "Direct" : "Sub-order"}</TableCell>
-                    <TableCell className="text-xs">{order.customerName}</TableCell>
-                    <TableCell className="text-xs">{order.items.length}</TableCell>
-                    <TableCell className="text-xs font-semibold">${order.subtotal}</TableCell>
-                    <TableCell className="text-xs">{order.paymentMethod}</TableCell>
-                    <TableCell><Badge variant={getStatusBadgeVariant(order.status)} className="text-xs">{getStatusLabel(order.status)}</Badge></TableCell>
-                    <TableCell className="text-xs">{order.trackingNumber ?? "—"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {!isTerminalStatus(order.status) && (
-                          <Button variant="outline" size="icon" className="h-7 w-7" title="Update Status" onClick={() => setActiveStatusOrder(order)}>
-                            <ClipboardList className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        {!order.trackingNumber && !isTerminalStatus(order.status) && (
-                          <Button variant="outline" size="icon" className="h-7 w-7" title="Add Tracking" onClick={() => setActiveTrackingOrder(order)}>
-                            <Truck className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                        <Button variant="outline" size="icon" className="h-7 w-7" title="View Details" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline" size="icon" className="h-7 w-7" title="Download Invoice"
-                          disabled={downloadingInvoiceId === order.id}
-                          onClick={() => handleDownloadInvoice(
-                            order.id,
-                            order.type === 'SUB_ORDER' ? order.parentDisplayId : order.displayId,
-                            order.type === 'SUB_ORDER' ? (order.subDisplayId ?? order.displaySubId ?? order.displayId) : undefined
+                  <Fragment key={order.id}>
+                    <TableRow className={selectedOrderIds.has(order.id) ? "bg-muted/40" : ""}>
+                      {isBulkSelectMode && (
+                        <TableCell>
+                          {!isTerminalStatus(order.status) && (
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 cursor-pointer"
+                              checked={selectedOrderIds.has(order.id)}
+                              onChange={() => handleToggleOrderSelection(order.id)}
+                            />
                           )}
-                        >
-                          {downloadingInvoiceId === order.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        </Button>
-                      </div>
-                      {expandedOrderId === order.id && (
-                        <div className="mt-2">{renderOrderDetails(order)}</div>
+                        </TableCell>
                       )}
-                    </TableCell>
-                  </TableRow>
+                      <TableCell className="font-medium text-sm whitespace-nowrap">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{order.type === "DIRECT" ? "Direct" : "Sub-order"}</TableCell>
+                      <TableCell className="text-sm truncate max-w-[150px]" title={order.customerName}>{order.customerName}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{order.items.length}</TableCell>
+                      <TableCell className="text-sm font-semibold whitespace-nowrap">${order.subtotal}</TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{order.paymentMethod}</TableCell>
+                      <TableCell className="whitespace-nowrap"><Badge variant={getStatusBadgeVariant(order.status)} className="text-xs">{getStatusLabel(order.status)}</Badge></TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{order.trackingNumber ?? "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {!isTerminalStatus(order.status) && (
+                            <Button variant="outline" size="sm" className="h-8 flex items-center gap-1.5 whitespace-nowrap" title="Update Status" onClick={() => setActiveStatusOrder(order)}>
+                              <ClipboardList className="h-4 w-4" />
+                              Update Status
+                            </Button>
+                          )}
+                          {!order.trackingNumber && !isTerminalStatus(order.status) && (
+                            <Button variant="outline" size="icon" className="h-8 w-8" title="Add Tracking" onClick={() => setActiveTrackingOrder(order)}>
+                              <Truck className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="outline" size="icon" className="h-8 w-8" title="View Details" onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8" title="Download Invoice"
+                            disabled={downloadingInvoiceId === order.id}
+                            onClick={() => handleDownloadInvoice(
+                              order.id,
+                              order.type === 'SUB_ORDER' ? order.parentDisplayId : order.displayId,
+                              order.type === 'SUB_ORDER' ? (order.subDisplayId ?? order.displaySubId ?? order.displayId) : undefined
+                            )}
+                          >
+                            {downloadingInvoiceId === order.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {expandedOrderId === order.id && (
+                      <TableRow className="bg-muted/10 border-b">
+                        <TableCell colSpan={isBulkSelectMode ? 10 : 9} className="p-0 border-t-0">
+                          <div className="p-4 border-l-4 border-l-primary/40 bg-background m-2 rounded-r-lg shadow-sm">
+                            {renderOrderDetails(order)}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
