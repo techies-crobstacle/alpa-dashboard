@@ -9,6 +9,7 @@ import { Loader2, Truck, Calendar, ClipboardList, DollarSign, Eye, ChevronDown, 
 import Image from "next/image";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
+import { getCityLabel } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
@@ -555,7 +556,7 @@ const CustomerOrdersPage = () => {
       result["Address Line"] = order.shippingAddressLine;
     }
     if (order.shippingCity) {
-      result["City"] = order.shippingCity;
+      result[getCityLabel(order.shippingCountry)] = order.shippingCity;
     }
     if (order.shippingState) {
       result["State"] = order.shippingState;

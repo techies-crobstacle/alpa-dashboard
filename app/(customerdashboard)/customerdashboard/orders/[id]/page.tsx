@@ -13,6 +13,7 @@ import {
   MapPin, Calendar, Box, Download, Undo2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getCityLabel } from "@/lib/utils";
 import { getStatusLabel, getStatusBadgeVariant } from "@/lib/orderStatusRules";
 import { RefundDialog } from "@/components/shared/refund-dialog";
 
@@ -165,10 +166,11 @@ export default function CustomerOrderDetailPage() {
   const summary = (addr as any).orderSummary ?? {};
   const sm = summary.shippingMethod ?? {};
 
+  const cityLabel = getCityLabel(addr.country);
   const addrFields: [string, string][] = [
     ["firstName", "First Name"], ["lastName", "Last Name"],
     ["addressLine", "Address Line"], ["address", "Address"],
-    ["street", "Street"], ["suburb", "Suburb"], ["city", "City"],
+    ["street", "Street"], ["suburb", "Suburb"], ["city", cityLabel],
     ["state", "State"], ["country", "Country"], ["zipCode", "ZIP Code"],
     ["zipcode", "ZIP Code"], ["postcode", "Postcode"], ["phone", "Phone"], ["email", "Email"],
   ];

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle, TrendingUp, ShoppingCart, FileDown, Check, LayoutList, Table2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn, getCityLabel } from "@/lib/utils";
 import Image from "next/image";
 
 import { toast } from "sonner";
@@ -933,7 +933,7 @@ export default function OrdersPage() {
       { key: "address", label: "Address" },
       { key: "street", label: "Street" },
       { key: "suburb", label: "Suburb" },
-      { key: "city", label: "City" },
+      { key: "city", label: getCityLabel(addr.country || order.shippingCountry) },
       { key: "state", label: "State" },
       { key: "zipCode", label: "ZIP Code" },
       { key: "zipcode", label: "Postcode" },
@@ -984,7 +984,7 @@ export default function OrdersPage() {
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Email</span><span className="font-medium text-right break-all min-w-0">{order.customerEmail}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Phone</span><span className="font-medium text-right break-words min-w-0">{order.customerPhone}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Address</span><span className="font-medium text-right break-words min-w-0">{order.shippingAddressLine}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">City</span><span className="font-medium text-right break-words min-w-0">{order.shippingCity}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">{getCityLabel(order.shippingCountry)}</span><span className="font-medium text-right break-words min-w-0">{order.shippingCity}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">State</span><span className="font-medium text-right break-words min-w-0">{order.shippingState}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Zip Code</span><span className="font-medium text-right break-words min-w-0">{order.shippingZipCode}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Country</span><span className="font-medium text-right break-words min-w-0">{order.shippingCountry}</span></div>

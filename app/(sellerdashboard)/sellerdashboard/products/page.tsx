@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, AlertCircle, XCircle, Clock, CheckCircle2, RefreshCcw } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
-import { apiClient } from "@/lib/api";
+import { apiClient, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,22 +43,14 @@ type SellerProfile = {
 
 // --- FETCH SELLER PROFILE ---
 const fetchSellerProfile = async (): Promise<SellerProfile> => {
-  const token = getAuthToken();
-  if (!token) throw new Error("No authentication token found. Please log in.");
-  
-  const response = await fetch(`${BASE_URL}/api/seller-profile`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-  });
-  
-  if (response.status === 401) throw new Error("Unauthorized: Please log in again.");
-  if (!response.ok) throw new Error("Failed to fetch seller profile");
-  
-  const data = await response.json();
-  return data.data;
+  const res = await api.get("/api/seller-profile");
+  if (!res) throw new Error("Empty response from seller profile endpoint");
+  // Handle both { data: { status } } and { status } response shapes
+  const profile = res?.data ?? res;
+  if (!profile) throw new Error("No profile data in response");
+  // Normalize status to uppercase so "approved"/"APPROVED"/"Approved" all work
+  if (profile?.status) profile.status = String(profile.status).toUpperCase();
+  return profile;
 };
 
 // --- API ACTIONS ---
@@ -270,7 +262,8 @@ function ProjectsPage() {
   
   // Seller profile state
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileFetchFailed, setProfileFetchFailed] = useState(false);
   
   // Refs for closing dropdowns on click outside
   const catDropdownRef = useRef<HTMLDivElement>(null);
@@ -377,11 +370,17 @@ function ProjectsPage() {
   const loadSellerProfile = async () => {
     try {
       setProfileLoading(true);
-      const profile = await fetchSellerProfile();
+      setProfileFetchFailed(false);
+      // Timeout after 6s — if the server hangs, don't block the button forever
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Seller profile fetch timed out")), 6000)
+      );
+      const profile = await Promise.race([fetchSellerProfile(), timeoutPromise]);
+      console.log("[SellerProfile] parsed profile:", profile, "status:", profile?.status);
       setSellerProfile(profile);
     } catch (error) {
-      console.error('Error fetching seller profile:', error);
-      // Don't show error toast as this might be called on page load
+      console.error('[SellerProfile] fetch failed — enabling button as fallback:', error);
+      setProfileFetchFailed(true);
     } finally {
       setProfileLoading(false);
     }
@@ -427,7 +426,7 @@ function ProjectsPage() {
   // Periodic check every 2 minutes for status changes
   useEffect(() => {
     const interval = setInterval(() => {
-      if (!profileLoading && sellerProfile && sellerProfile.status !== "APPROVED") {
+      if (!profileLoading && sellerProfile && sellerProfile.status !== "APPROVED" && sellerProfile.status !== "ACTIVE") {
         loadSellerProfile();
       }
     }, 120000); // 2 minutes
@@ -479,7 +478,7 @@ function ProjectsPage() {
 
   const handleAddProduct = async () => {
     // Check seller approval status before allowing product addition
-    if (sellerProfile?.status !== "APPROVED") {
+    if (sellerProfile?.status !== "APPROVED" && sellerProfile?.status !== "ACTIVE") {
       toast.error("Your account needs to be approved before you can add products");
       return;
     }
@@ -1015,7 +1014,7 @@ function ProjectsPage() {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
      
      {/* Message for Account Status when approved */}
-      {!profileLoading && sellerProfile?.status === "APPROVED" && totalProducts === 0 && (
+      {!profileLoading && (sellerProfile?.status === "APPROVED" || sellerProfile?.status === "ACTIVE") && totalProducts === 0 && (
         <div className=" rounded-xl border border-primary/20 bg-primary/5 px-5 py-4 flex items-start gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
           {/* Icon */}
           <div className="flex-shrink-0 mt-0.5 rounded-lg bg-primary/10 p-2">
@@ -1128,19 +1127,29 @@ function ProjectsPage() {
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
-          <Button 
-            className={cn("gap-2", sellerProfile?.status !== "APPROVED" && "opacity-50 cursor-not-allowed")} 
-            onClick={() => {
-              if (sellerProfile?.status !== "APPROVED") {
-                toast.error("Your account needs to be approved before you can add products");
-                return;
-              }
-              setShowAddModal(true);
-            }}
-            disabled={sellerProfile?.status !== "APPROVED"}
-          >
-            <Plus className="h-4 w-4" /> Add Product
-          </Button>
+          {/* Add Product — disabled only when profile has loaded and is explicitly NOT approved */}
+          {(() => {
+            const isNotApproved =
+              !profileFetchFailed &&
+              sellerProfile !== null &&
+              sellerProfile.status !== "APPROVED" &&
+              sellerProfile.status !== "ACTIVE";
+            return (
+              <Button
+                className={cn("gap-2", isNotApproved && "opacity-50 cursor-not-allowed")}
+                disabled={isNotApproved}
+                onClick={() => {
+                  if (isNotApproved) {
+                    toast.error("Your account needs to be approved before you can add products");
+                    return;
+                  }
+                  setShowAddModal(true);
+                }}
+              >
+                <Plus className="h-4 w-4" /> Add Product
+              </Button>
+            );
+          })()}
         </div>
       </div>
 

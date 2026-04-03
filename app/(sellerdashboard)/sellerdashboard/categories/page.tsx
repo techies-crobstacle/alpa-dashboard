@@ -179,7 +179,7 @@ const CategoriesPage = () => {
   // Periodic check every 2 minutes for status changes
   useEffect(() => {
     const interval = setInterval(() => {
-      if (!profileLoading && sellerProfile && sellerProfile.status !== "APPROVED" && !userInteracting) {
+      if (!profileLoading && sellerProfile && sellerProfile.status !== "APPROVED" && sellerProfile.status !== "ACTIVE" && !userInteracting) {
         loadSellerProfile();
       }
     }, 120000); // 2 minutes
@@ -207,7 +207,7 @@ const CategoriesPage = () => {
 
   const onSubmit = async (data: CategoryRequestForm) => {
     // Check seller approval status before allowing category request
-    if (sellerProfile?.status !== "APPROVED") {
+    if (sellerProfile?.status !== "APPROVED" && sellerProfile?.status !== "ACTIVE") {
       toast.error("Your account needs to be approved before you can request categories");
       return;
     }
@@ -275,14 +275,14 @@ const CategoriesPage = () => {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button 
-              className={cn("gap-2", sellerProfile?.status !== "APPROVED" && "opacity-50 cursor-not-allowed")}
+              className={cn("gap-2", sellerProfile !== null && sellerProfile?.status !== "APPROVED" && sellerProfile?.status !== "ACTIVE" && "opacity-50 cursor-not-allowed")}
               onClick={() => {
-                if (sellerProfile?.status !== "APPROVED") {
+                if (sellerProfile !== null && sellerProfile?.status !== "APPROVED" && sellerProfile?.status !== "ACTIVE") {
                   toast.error("Your account needs to be approved before you can request categories");
                   return;
                 }
               }}
-              disabled={sellerProfile?.status !== "APPROVED"}
+              disabled={sellerProfile !== null && sellerProfile?.status !== "APPROVED" && sellerProfile?.status !== "ACTIVE"}
             >
               <Plus className="w-4 h-4" />
               Request Category

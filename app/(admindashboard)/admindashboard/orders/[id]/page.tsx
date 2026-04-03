@@ -18,6 +18,7 @@ import {
   CreditCard, Box, Store,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getCityLabel } from "@/lib/utils";
 import {
   getAllowedTransitions,
   getRequiredFields,
@@ -529,10 +530,11 @@ function OrderDetailContent() {
   const summary = addr.orderSummary ?? {};
   const sm = summary.shippingMethod ?? {};
 
+  const cityLabel = getCityLabel(addr.country);
   const addrFields: [string, string][] = [
     ["firstName", "First Name"], ["lastName", "Last Name"], ["addressLine", "Address Line"],
     ["address", "Address"], ["street", "Street"], ["suburb", "Suburb"],
-    ["city", "City"], ["state", "State"], ["country", "Country"],
+    ["city", cityLabel], ["state", "State"], ["country", "Country"],
     ["zipCode", "ZIP Code"], ["zipcode", "ZIP Code"], ["postcode", "Postcode"],
     ["phone", "Phone"], ["email", "Email"],
   ];
