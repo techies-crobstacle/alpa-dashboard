@@ -2068,6 +2068,7 @@ type Order = {
   items: OrderItem[];
   isSubOrder: boolean;
   sellerSpecific: boolean;
+  isGuest?: string | boolean | null;
 };
 
 type OrdersResponse = {
@@ -2177,6 +2178,7 @@ type DetailedOrder = {
   subtotal?: string | null;
   trackingNumber?: string | null;
   status?: string | null;
+  isGuest?: string | boolean | null;
 };
 
 type DetailedOrdersResponse = {
@@ -3153,7 +3155,12 @@ export default function AdminOrdersPage() {
                   {/* Customer + totals */}
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className="text-sm font-medium">{order.customer.name}</p>
+                      <p className="text-sm font-medium flex items-center gap-1.5 justify-end">
+                        {order.customer.name}
+                        {order.isGuest === "guest" || order.isGuest === true ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Guest</span>
+                        ) : null}
+                      </p>
                       <p className="text-xs text-muted-foreground">{order.customer.email}</p>
                       {order.customer.phone && (
                         <p className="text-xs text-muted-foreground">{order.customer.phone}</p>
@@ -3622,7 +3629,12 @@ export default function AdminOrdersPage() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <p className="text-sm font-medium">{order.customerName}</p>
+                          <p className="text-sm font-medium flex items-center gap-1.5">
+                            {order.customerName}
+                            {order.isGuest === "guest" || order.isGuest === true ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Guest</span>
+                            ) : null}
+                          </p>
                           <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
                         </TableCell>
                         <TableCell>
@@ -3744,7 +3756,12 @@ export default function AdminOrdersPage() {
                     <p className="text-sm font-medium flex items-center gap-1">
                       <ClipboardList className="h-4 w-4" /> Customer
                     </p>
-                    <p className="text-sm text-muted-foreground">{order.customerName}</p>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 justify-end">
+                      {order.customerName}
+                      {order.isGuest === "guest" || order.isGuest === true ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Guest</span>
+                      ) : null}
+                    </p>
                     <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
                   </div>
                   <div className="text-right">

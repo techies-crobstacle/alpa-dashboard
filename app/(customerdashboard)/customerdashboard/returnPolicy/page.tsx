@@ -31,6 +31,7 @@ function getAuthHeaders() {
 type RefundRequest = {
   id: any;
   orderId: any;
+  orderDisplayId?: any;
   requestType: any; // FULL_REFUND | PARTIAL_REFUND
   reason: any;
   status: any; // OPEN | IN_PROGRESS | RESOLVED | CLOSED
@@ -242,7 +243,7 @@ export default function RefundRequestsPage() {
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Order: #{typeof req.orderId === "string" ? req.orderId.slice(-6).toUpperCase() : req.orderId}
+                        Order: {req.orderDisplayId || `#${typeof req.orderId === "string" ? req.orderId.slice(-6).toUpperCase() : req.orderId}`}
                         {" · "}
                         {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "N/A"}
                       </p>
@@ -291,9 +292,7 @@ export default function RefundRequestsPage() {
                         <div>
                           <p className="text-xs text-muted-foreground uppercase tracking-wide">Order ID</p>
                           <p className="font-medium text-sm mt-1">
-                            #{typeof (detail || req).orderId === "string"
-                              ? (detail || req).orderId.slice(-6).toUpperCase()
-                              : (detail || req).orderId}
+                            {(detail || req).orderDisplayId || `#${typeof (detail || req).orderId === "string" ? (detail || req).orderId.slice(-6).toUpperCase() : (detail || req).orderId}`}
                           </p>
                         </div>
                         <div>

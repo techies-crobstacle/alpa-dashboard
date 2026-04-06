@@ -13,6 +13,8 @@ import { getCityLabel } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
+import { useRef } from "react";
+import { ImagePlus, Trash2 } from "lucide-react";
 
 const BASE_URL = "https://alpa-be.onrender.com";
 
@@ -61,9 +63,14 @@ type SubOrder = {
     id: string;
     productId: string;
     productTitle: string;
-    productFeaturedImage: string;
+    productFeaturedImage?: string;
+    productImages?: string[];
     quantity: number;
     price: string;
+    product?: {
+      title?: string;
+      featuredImage?: string;
+    } | null;
   }[];
   statusReason?: string;
   createdAt?: string;
@@ -378,21 +385,106 @@ const RefundRequestModal = ({
 }) => {
   const [requestType, setRequestType] = useState<"REFUND" | "PARTIAL_REFUND">("REFUND");
   const [reason, setReason] = useState("");
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Flatten all items from the order into a single list
+  const allItems: { id: string; productId: string; title: string; image: string; price: string; quantity: number; sellerName?: string }[] = [];
+  if (order.subOrders && order.subOrders.length > 0) {
+    order.subOrders.forEach(sub => {
+      sub.items.forEach(item => {
+        allItems.push({
+          id: item.id,
+          productId: item.productId,
+          title: item.productTitle || item.product?.title || "Product",
+          image: item.productImages?.[0] || item.productFeaturedImage || item.product?.featuredImage || "",
+          price: item.price,
+          quantity: item.quantity,
+          sellerName: sub.sellerName,
+        });
+      });
+    });
+  } else {
+    order.items.forEach(item => {
+      allItems.push({
+        id: item.id,
+        productId: item.productId,
+        title: item.product?.title ?? item.title,
+        image: item.product?.featuredImage ?? "",
+        price: item.price,
+        quantity: item.quantity,
+        sellerName: item.sellerName,
+      });
+    });
+  }
+
+  const toggleItem = (id: string) => {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // Pre-select all items when switching to Full Refund, clear when switching to Partial
+  const handleTypeChange = (type: "REFUND" | "PARTIAL_REFUND") => {
+    setRequestType(type);
+    if (type === "REFUND") {
+      setSelectedItemIds(new Set(allItems.map(i => i.id)));
+    } else {
+      setSelectedItemIds(new Set());
+    }
+  };
+
+  // Initialise Full Refund with all items pre-selected on first render
+  // (allItems is derived synchronously so this is safe)
+  useState(() => {
+    setSelectedItemIds(new Set(allItems.map(i => i.id)));
+  });
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    const valid = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, 5);
+    setAttachments(prev => [...prev, ...valid].slice(0, 5));
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
       toast.error("Please provide a reason for the refund request.");
       return;
     }
+    if (selectedItemIds.size === 0) {
+      toast.error("Please select at least one item.");
+      return;
+    }
     setLoading(true);
     try {
-      await api.post(`/api/orders/refund-request/${order.displayId}`, { requestType, reason });
-      if (requestType === "REFUND") {
-        toast.success("Full refund requested successfully.");
-      } else {
-        toast.success("Partial refund request submitted successfully.");
-      }
+      // Build the items array from selected checkboxes
+      const selectedItems = allItems
+        .filter(i => selectedItemIds.has(i.id))
+        .map(i => ({
+          productId: i.productId,
+          title: i.title,
+          quantity: i.quantity,
+          price: i.price,
+        }));
+
+      await api.post(`/api/orders/refund-request/${order.displayId}`, {
+        requestType: requestType.toLowerCase(), // "refund" | "partial_refund"
+        reason,
+        items: selectedItems,
+        images: [],
+      });
+
+      toast.success(requestType === "REFUND"
+        ? "Full refund requested successfully."
+        : "Partial refund request submitted successfully.");
       onSuccess(requestType);
       onClose();
     } catch (err: any) {
@@ -402,45 +494,100 @@ const RefundRequestModal = ({
     }
   };
 
+  const isSubmitDisabled =
+    loading ||
+    !reason.trim() ||
+    selectedItemIds.size === 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-background rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-background rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5">
+
+        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" /> Request Refund
           </h2>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground -mt-2">
           Order <strong>#{order.displayId}</strong>
         </p>
+
+        {/* Refund Type */}
         <div className="space-y-2">
           <Label>Refund Type <span className="text-destructive">*</span></Label>
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setRequestType("REFUND")}
-              className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                requestType === "REFUND"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-muted-foreground/30 hover:border-primary"
-              }`}
-            >
-              Full Refund
-            </button>
-            <button
-              type="button"
-              onClick={() => setRequestType("PARTIAL_REFUND")}
-              className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                requestType === "PARTIAL_REFUND"
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-muted-foreground/30 hover:border-primary"
-              }`}
-            >
-              Partial Refund
-            </button>
+            {(["REFUND", "PARTIAL_REFUND"] as const).map(type => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => { handleTypeChange(type); }}
+                className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  requestType === type
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-muted-foreground/30 hover:border-primary"
+                }`}
+              >
+                {type === "REFUND" ? "Full Refund" : "Partial Refund"}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Product Selection */}
+        {allItems.length > 0 && (
+          <div className="space-y-2">
+            <Label>
+              {requestType === "REFUND"
+                ? "Items included in this refund"
+                : "Select items to refund"}{" "}
+              <span className="text-destructive">*</span>
+            </Label>
+            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+              {allItems.map(item => {
+                const checked = selectedItemIds.has(item.id);
+                return (
+                  <label
+                    key={item.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                      checked
+                        ? "bg-primary/5 border-primary"
+                        : "hover:border-primary/50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleItem(item.id)}
+                      className="h-4 w-4 accent-primary shrink-0"
+                    />
+                    {item.image ? (
+                      <div className="relative h-10 w-10 shrink-0 rounded-md overflow-hidden border bg-muted">
+                        <Image src={item.image} alt={item.title} fill className="object-cover" sizes="40px" />
+                      </div>
+                    ) : (
+                      <div className="h-10 w-10 shrink-0 rounded-md border bg-muted flex items-center justify-center">
+                        <Package className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        ${item.price} × {item.quantity}
+                        {item.sellerName && ` · ${item.sellerName}`}
+                      </p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Reason */}
         <div className="space-y-2">
           <Label htmlFor="refundReason">
             Reason <span className="text-destructive">*</span>
@@ -449,20 +596,70 @@ const RefundRequestModal = ({
             id="refundReason"
             placeholder="Describe the issue and reason for refund..."
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
+            onChange={e => setReason(e.target.value)}
             rows={3}
           />
         </div>
-        <div className="space-y-1 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
-          <p className="font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Note</p>
-          <p>This will create a support ticket. Our team will review your request within 2-3 business days. The order status will be updated after review.</p>
+
+        {/* Image Upload */}
+        <div className="space-y-2">
+          <Label>Attachments <span className="text-muted-foreground text-xs">(optional, up to 5)</span></Label>
+          <div
+            className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
+          >
+            <ImagePlus className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Click or drag images here</p>
+            <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG, WEBP — max 5 files</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={e => handleFiles(e.target.files)}
+            />
+          </div>
+          {attachments.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 mt-2">
+              {attachments.map((file, i) => (
+                <div key={i} className="relative group rounded-md overflow-hidden border bg-muted h-20">
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={`preview-${i}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={() => removeAttachment(i)}
+                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Note */}
+        <div className="space-y-1 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+          <p className="font-medium flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" /> Note
+          </p>
+          <p>This will create a support ticket. Our team will review your request within 2-3 business days.</p>
+        </div>
+
+        {/* Actions */}
         <div className="flex gap-2 justify-end">
           <Button variant="outline" onClick={onClose} disabled={loading}>Back</Button>
-          <Button onClick={handleSubmit} disabled={loading || !reason.trim()}>
-            {loading && <Loader2 className="animate-spin h-4 w-4 mr-2" />} Submit Request
+          <Button onClick={handleSubmit} disabled={isSubmitDisabled}>
+            {loading && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+            Submit Request
           </Button>
         </div>
+
       </div>
     </div>
   );
@@ -911,27 +1108,35 @@ const CustomerOrdersPage = () => {
                                       </div>
                                       
                                       <div className="space-y-3 pl-6">
-                                        {subOrder.items.map((item, i) => (
+                                        {subOrder.items.map((item, i) => {
+                                          const img = item.productImages?.[0] || item.productFeaturedImage || item.product?.featuredImage || null;
+                                          const title = item.productTitle || item.product?.title || "Product";
+                                          return (
                                           <div key={i} className="flex items-center gap-4 p-3 rounded-lg border bg-muted/20">
-                                            {item.productFeaturedImage && (
+                                            {img ? (
                                               <Image 
-                                                src={item.productFeaturedImage} 
-                                                alt={item.productTitle || "Product image"} 
+                                                src={img} 
+                                                alt={title} 
                                                 width={64} 
                                                 height={64} 
-                                                className="rounded object-cover" 
+                                                className="rounded object-cover shrink-0" 
                                                 unoptimized 
                                               />
+                                            ) : (
+                                              <div className="w-16 h-16 shrink-0 rounded border bg-muted flex items-center justify-center">
+                                                <Package className="h-6 w-6 text-muted-foreground" />
+                                              </div>
                                             )}
                                             <div className="flex-1">
-                                              <p className="font-medium">{item.productTitle}</p>
+                                              <p className="font-medium">{title}</p>
                                               <p className="text-sm text-muted-foreground">Quantity: {item.quantity}</p>
                                             </div>
                                             <div className="text-right">
                                               <p className="font-medium">${item.price}</p>
                                             </div>
                                           </div>
-                                        ))}
+                                          );
+                                        })}
                                       </div>
 
                                       {subOrder.trackingNumber && (
@@ -955,15 +1160,19 @@ const CustomerOrdersPage = () => {
                                 <div className="space-y-3">
                                   {order.items.map((item, i) => (
                                     <div key={i} className="flex items-center gap-4 p-3 rounded-lg border">
-                                      {item.product.featuredImage && (
+                                      {item.product.featuredImage ? (
                                         <Image 
                                           src={item.product.featuredImage} 
                                           alt={item.product.title || "Product image"} 
                                           width={64} 
                                           height={64} 
-                                          className="rounded object-cover" 
+                                          className="rounded object-cover shrink-0" 
                                           unoptimized 
                                         />
+                                      ) : (
+                                        <div className="w-16 h-16 shrink-0 rounded border bg-muted flex items-center justify-center">
+                                          <Package className="h-6 w-6 text-muted-foreground" />
+                                        </div>
                                       )}
                                       <div className="flex-1">
                                         <p className="font-medium">{item.product.title}</p>
