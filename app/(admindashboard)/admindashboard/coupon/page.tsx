@@ -265,8 +265,13 @@ export default function CouponPage() {
       await fetchCoupons();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : "";
-      if (msg.includes("already exists")) toast.error("Coupon code already exists", { description: "Use a different code." });
-      else toast.error(editingCoupon ? "Failed to update coupon" : "Failed to create coupon");
+      if (msg.includes("already exists") || msg.toLowerCase().includes("duplicate")) {
+        toast.error("Coupon code already exists", { description: "Use a different code." });
+      } else if (msg) {
+        toast.error(msg);
+      } else {
+        toast.error(editingCoupon ? "Failed to update coupon" : "Failed to create coupon");
+      }
     } finally {
       setSubmitting(false);
     }
