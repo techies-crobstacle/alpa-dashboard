@@ -18,31 +18,46 @@ import Image from "next/image";
 import {
   Search, RefreshCw, Eye, RotateCcw, AlertCircle, CheckCircle2,
   Clock, XCircle, DollarSign, User, Mail, Package, Calendar, Paperclip, ShoppingBag,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type RefundProduct = {
   id: string;
+  orderItemId?: string;
   productId?: string;
   title: string;
   price?: string;
   quantity?: number;
   image?: string | null;
+  featuredImage?: string | null;
+  reason?: string | null;
+  attachments?: string[];
   category?: string | null;
   sellerName?: string | null;
+  product?: {
+    image?: string | null;
+    featuredImage?: string | null;
+    images?: string[] | null;
+  } | null;
 };
 
 type RefundRequest = {
   id: string;
   userId: string | null;
-  subject: string;
-  message: string;
-  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-  category: string;
+  // new API fields
+  reason?: string | null;
+  requestedItems?: RefundProduct[];
+  adminResponse?: string | null;
+  // legacy / compat fields
+  subject?: string;
+  message?: string;
+  response?: string | null;
+  priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  category?: string;
+  status: "OPEN" | "IN_PROGRESS" | "APPROVED" | "RESOLVED" | "COMPLETED" | "REJECTED" | "CLOSED";
   attachments: string[];
-  response: string | null;
   createdAt: string;
   updatedAt: string;
   orderId: string | null;
@@ -58,17 +73,19 @@ type RefundRequest = {
   products?: RefundProduct[];
   items?: RefundProduct[];
   sellerItems?: RefundProduct[];
-  requestedItems?: RefundProduct[];
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function statusBadge(status: RefundRequest["status"]) {
   const map: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
-    OPEN:        { label: "Open",        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",     icon: <Clock className="h-3 w-3" /> },
-    IN_PROGRESS: { label: "In Progress", className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400", icon: <RotateCcw className="h-3 w-3" /> },
-    RESOLVED:    { label: "Resolved",    className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400", icon: <CheckCircle2 className="h-3 w-3" /> },
-    CLOSED:      { label: "Closed",      className: "bg-muted text-muted-foreground",                                        icon: <XCircle className="h-3 w-3" /> },
+    OPEN:        { label: "Open",      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",     icon: <Clock className="h-3 w-3" /> },
+    IN_PROGRESS: { label: "Open",      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",     icon: <Clock className="h-3 w-3" /> },
+    APPROVED:    { label: "Open",      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",     icon: <Clock className="h-3 w-3" /> },
+    COMPLETED:   { label: "Completed", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400", icon: <CheckCircle2 className="h-3 w-3" /> },
+    RESOLVED:    { label: "Completed", className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400", icon: <CheckCircle2 className="h-3 w-3" /> },
+    REJECTED:    { label: "Rejected",  className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",         icon: <XCircle className="h-3 w-3" /> },
+    CLOSED:      { label: "Rejected",  className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",         icon: <XCircle className="h-3 w-3" /> },
   };
   const s = map[status] ?? { label: status, className: "bg-muted text-muted-foreground", icon: null };
   return (
@@ -79,6 +96,7 @@ function statusBadge(status: RefundRequest["status"]) {
 }
 
 function priorityBadge(priority: RefundRequest["priority"]) {
+  if (!priority) return null;
   const map: Record<string, string> = {
     LOW:    "bg-muted text-muted-foreground",
     MEDIUM: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400",
@@ -124,6 +142,8 @@ function RefundTableSkeleton() {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 10;
+
 export default function SellerRefundRequestsPage() {
   const [requests, setRequests]     = useState<RefundRequest[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -132,23 +152,23 @@ export default function SellerRefundRequestsPage() {
   const [selected, setSelected]     = useState<RefundRequest | null>(null);
   const [response, setResponse]     = useState("");
   const [responding, setResponding] = useState(false);
-  const [updating, setUpdating]     = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [page, setPage]                   = useState(1);
 
-  // Derived: items for the currently-open request (check fields first, then parse from message)
+  // Derived: items for the currently-open request
   const selectedItems: RefundProduct[] =
-    (selected?.sellerItems?.length    ? selected.sellerItems    : null) ??
     (selected?.requestedItems?.length ? selected.requestedItems : null) ??
+    (selected?.sellerItems?.length    ? selected.sellerItems    : null) ??
     (selected?.items?.length          ? selected.items          : null) ??
     (selected?.products?.length       ? selected.products       : null) ??
-    (selected ? parseItemsFromMessage(selected.message) : []);
+    (selected ? parseItemsFromMessage(selected.message ?? "") : []);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = {
-    total:      requests.length,
-    open:       requests.filter(r => r.status === "OPEN").length,
-    inProgress: requests.filter(r => r.status === "IN_PROGRESS").length,
-    resolved:   requests.filter(r => r.status === "RESOLVED").length,
+    total:     requests.length,
+    open:      requests.filter(r => r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "APPROVED").length,
+    completed: requests.filter(r => r.status === "RESOLVED" || r.status === "COMPLETED").length,
+    rejected:  requests.filter(r => r.status === "CLOSED"   || r.status === "REJECTED").length,
   };
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -179,45 +199,39 @@ export default function SellerRefundRequestsPage() {
 
   // ── Open Detail ────────────────────────────────────────────────────────────
   const openDetail = async (r: RefundRequest) => {
-    // Items from the list response are already on `r` — just open the dialog
-    setSelected(r);
-    setResponse(r.response ?? "");
-
-    // Check every possible field name the API might use for product items
     const listItems =
-      (Array.isArray(r.sellerItems)    && r.sellerItems.length    > 0 ? r.sellerItems    : null) ??
       (Array.isArray(r.requestedItems) && r.requestedItems.length > 0 ? r.requestedItems : null) ??
+      (Array.isArray(r.sellerItems)    && r.sellerItems.length    > 0 ? r.sellerItems    : null) ??
       (Array.isArray(r.items)          && r.items.length          > 0 ? r.items          : null) ??
       (Array.isArray(r.products)       && r.products.length       > 0 ? r.products       : null) ??
-      (parseItemsFromMessage(r.message).length > 0 ? parseItemsFromMessage(r.message) : null);
+      (parseItemsFromMessage(r.message ?? "").length > 0 ? parseItemsFromMessage(r.message ?? "") : null);
 
-    if (listItems) {
-      // Already have items — nothing to fetch
-      setSelected({ ...r, items: listItems });
-      return;
-    }
+    setSelected({ ...r, requestedItems: listItems ?? undefined });
+    setResponse(r.adminResponse ?? r.response ?? "");
 
-    // As a fallback, try fetching the detail endpoint
+    if (listItems) return;
+
+    // Fallback: fetch detail endpoint
     setDetailLoading(true);
     try {
       const raw = await api.get(`/api/seller/orders/refund-requests/${r.id}`);
       const detailObj =
         raw?.refundRequest ??
         raw?.data?.refundRequest ??
-        (Array.isArray(raw?.data) ? raw.data[0] : undefined) ??
         raw?.data ??
         raw ?? {};
 
       const fetchedItems: RefundProduct[] =
-        (Array.isArray(detailObj?.items)    ? detailObj.items    : null) ??
-        (Array.isArray(detailObj?.products) ? detailObj.products : null) ??
+        (Array.isArray(detailObj?.requestedItems) ? detailObj.requestedItems : null) ??
+        (Array.isArray(detailObj?.items)          ? detailObj.items          : null) ??
+        (Array.isArray(detailObj?.products)       ? detailObj.products       : null) ??
         [];
 
       if (fetchedItems.length > 0) {
-        setSelected(prev => prev ? { ...prev, items: fetchedItems } : null);
+        setSelected(prev => prev ? { ...prev, requestedItems: fetchedItems } : null);
       }
     } catch {
-      // Detail endpoint may not exist — silently ignore, items just won't show
+      // silently ignore
     } finally {
       setDetailLoading(false);
     }
@@ -240,24 +254,6 @@ export default function SellerRefundRequestsPage() {
     }
   };
 
-  // ── Update Status ──────────────────────────────────────────────────────────
-  const handleStatusChange = async (id: string, status: string) => {
-    setUpdating(true);
-    try {
-      await api.post(`/api/seller/orders/refund-requests/${id}/status`, { status });
-      toast.success("Status updated");
-      setRequests(prev =>
-        prev.map(r => r.id === id ? { ...r, status: status as RefundRequest["status"] } : r)
-      );
-      if (selected?.id === id)
-        setSelected(prev => prev ? { ...prev, status: status as RefundRequest["status"] } : null);
-    } catch {
-      toast.error("Failed to update status");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
   // ── Filter ─────────────────────────────────────────────────────────────────
   const filtered = requests.filter(r => {
     const q = search.toLowerCase();
@@ -265,13 +261,24 @@ export default function SellerRefundRequestsPage() {
     const email = r.user?.email ?? r.customerEmail ?? r.guestEmail ?? "";
     const matchSearch =
       !q ||
-      r.subject.toLowerCase().includes(q) ||
+      (r.subject ?? "").toLowerCase().includes(q) ||
+      (r.reason ?? "").toLowerCase().includes(q) ||
       (r.orderDisplayId ?? "").toLowerCase().includes(q) ||
       name.toLowerCase().includes(q) ||
       email.toLowerCase().includes(q);
-    const matchStatus = statusFilter === "ALL" || r.status === statusFilter;
+    const matchStatus =
+      statusFilter === "ALL" ||
+      (statusFilter === "OPEN"     && (r.status === "OPEN"     || r.status === "IN_PROGRESS" || r.status === "APPROVED")) ||
+      (statusFilter === "RESOLVED" && (r.status === "RESOLVED" || r.status === "COMPLETED")) ||
+      (statusFilter === "CLOSED"   && (r.status === "CLOSED"   || r.status === "REJECTED"));
     return matchSearch && matchStatus;
   });
+
+  // Reset to page 1 whenever filter/search changes
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -309,18 +316,18 @@ export default function SellerRefundRequestsPage() {
             bg: "bg-blue-50 dark:bg-blue-950/30",
           },
           {
-            label: "In Progress",
-            value: stats.inProgress,
-            icon: <RotateCcw className="h-4 w-4" />,
-            color: "text-yellow-600 dark:text-yellow-400",
-            bg: "bg-yellow-50 dark:bg-yellow-950/30",
-          },
-          {
-            label: "Resolved",
-            value: stats.resolved,
+            label: "Completed",
+            value: stats.completed,
             icon: <CheckCircle2 className="h-4 w-4" />,
             color: "text-green-600 dark:text-green-400",
             bg: "bg-green-50 dark:bg-green-950/30",
+          },
+          {
+            label: "Rejected",
+            value: stats.rejected,
+            icon: <XCircle className="h-4 w-4" />,
+            color: "text-red-600 dark:text-red-400",
+            bg: "bg-red-50 dark:bg-red-950/30",
           },
         ].map(s => (
           <Card key={s.label} className="overflow-hidden">
@@ -355,9 +362,8 @@ export default function SellerRefundRequestsPage() {
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
             <SelectItem value="OPEN">Open</SelectItem>
-            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-            <SelectItem value="RESOLVED">Resolved</SelectItem>
-            <SelectItem value="CLOSED">Closed</SelectItem>
+            <SelectItem value="RESOLVED">Completed</SelectItem>
+            <SelectItem value="CLOSED">Rejected</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -366,7 +372,7 @@ export default function SellerRefundRequestsPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {loading ? "Loading…" : `${filtered.length} request${filtered.length !== 1 ? "s" : ""}`}
+            {loading ? "Loading…" : `${filtered.length} request${filtered.length !== 1 ? "s" : ""}${filtered.length > PAGE_SIZE ? ` · page ${page} of ${totalPages}` : ""}`}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -395,7 +401,7 @@ export default function SellerRefundRequestsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(r => (
+                {paginated.map(r => (
                   <TableRow key={r.id} className="hover:bg-muted/40 transition-colors">
                     <TableCell>
                       {r.orderDisplayId ? (
@@ -419,7 +425,9 @@ export default function SellerRefundRequestsPage() {
                       <p className="text-xs text-muted-foreground">{r.user?.email ?? r.customerEmail ?? r.guestEmail ?? ""}</p>
                     </TableCell>
                     <TableCell className="max-w-[220px]">
-                      <p className="text-sm truncate" title={r.subject}>{r.subject}</p>
+                      <p className="text-sm truncate" title={r.reason ?? r.subject ?? ""}>
+                        {r.reason ? (r.reason.length > 60 ? r.reason.slice(0, 60) + "\u2026" : r.reason) : (r.subject ?? "\u2014")}
+                      </p>
                       <p className="text-xs text-muted-foreground">{r.requestType}</p>
                     </TableCell>
                     <TableCell>{statusBadge(r.status)}</TableCell>
@@ -443,6 +451,45 @@ export default function SellerRefundRequestsPage() {
         </CardContent>
       </Card>
 
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === "…" ? (
+                  <span key={`ellipsis-${i}`} className="px-2 text-muted-foreground text-sm">…</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === page ? "default" : "outline"}
+                    size="sm"
+                    className="w-8 px-0"
+                    onClick={() => setPage(p as number)}
+                  >
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Detail / Respond Dialog */}
       <Dialog
         open={!!selected}
@@ -453,7 +500,7 @@ export default function SellerRefundRequestsPage() {
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <DollarSign className="h-5 w-5 text-primary" />
               Refund Request
-              {selected && priorityBadge(selected.priority)}
+              {selected && selected.priority && priorityBadge(selected.priority)}
               {selected && statusBadge(selected.status)}
             </DialogTitle>
           </DialogHeader>
@@ -511,35 +558,57 @@ export default function SellerRefundRequestsPage() {
                     <ShoppingBag className="h-3 w-3" /> Items ({selectedItems.length})
                   </p>
                   <div className="divide-y rounded-lg border overflow-hidden">
-                    {selectedItems.map(p => (
-                      <div key={p.id} className="flex items-center gap-3 p-3 bg-muted/20 hover:bg-muted/40 transition-colors">
-                        {p.image ? (
-                          <div className="relative h-14 w-14 shrink-0 rounded-md overflow-hidden border bg-muted">
-                            <Image src={p.image} alt={p.title} fill className="object-cover" sizes="56px" />
+                    {selectedItems.map((p, idx) => (
+                      <div key={p.id ?? p.orderItemId ?? idx} className="flex flex-col gap-2 p-3 bg-muted/20 hover:bg-muted/40 transition-colors">
+                        <div className="flex items-center gap-3">
+                          {(() => {
+                            const img = p.image ?? p.featuredImage ?? p.product?.image ?? p.product?.featuredImage ?? p.product?.images?.[0] ?? null;
+                            return img ? (
+                              <div className="relative h-14 w-14 shrink-0 rounded-md overflow-hidden border bg-muted">
+                                <Image src={img} alt={p.title} fill className="object-cover" sizes="56px" />
+                              </div>
+                            ) : (
+                              <div className="h-14 w-14 shrink-0 rounded-md border bg-muted flex items-center justify-center">
+                                <Package className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            );
+                          })()}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{p.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              {p.category && (
+                                <span className="text-xs text-muted-foreground">{p.category}</span>
+                              )}
+                              {p.sellerName && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{p.sellerName}</span>
+                              )}
+                              {p.price && (
+                                <span className="text-xs font-medium">${p.price}</span>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="h-14 w-14 shrink-0 rounded-md border bg-muted flex items-center justify-center">
-                            <Package className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{p.title}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            {p.category && (
-                              <span className="text-xs text-muted-foreground">{p.category}</span>
-                            )}
-                            {p.sellerName && (
-                              <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{p.sellerName}</span>
-                            )}
-                            {p.price && (
-                              <span className="text-xs font-medium">${p.price}</span>
-                            )}
-                          </div>
+                          {p.quantity != null && (
+                            <span className="shrink-0 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                              x{p.quantity}
+                            </span>
+                          )}
                         </div>
-                        {p.quantity != null && (
-                          <span className="shrink-0 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                            x{p.quantity}
-                          </span>
+                        {/* Per-item reason */}
+                        {p.reason && (
+                          <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                            <span className="font-medium">Reason:</span> {p.reason}
+                          </p>
+                        )}
+                        {/* Per-item attachments */}
+                        {p.attachments && p.attachments.length > 0 && (
+                          <div className="flex gap-2 flex-wrap">
+                            {p.attachments.map((url, ai) => (
+                              <a key={ai} href={url} target="_blank" rel="noopener noreferrer"
+                                className="block rounded border overflow-hidden hover:opacity-80 transition-opacity">
+                                <img src={url} alt={`item-attachment-${ai}`} className="h-12 w-12 object-cover" />
+                              </a>
+                            ))}
+                          </div>
                         )}
                       </div>
                     ))}
@@ -547,42 +616,26 @@ export default function SellerRefundRequestsPage() {
                 </div>
               ) : null}
 
-              {/* Subject & Message */}
+              {/* Reason */}
+              {(selected.reason || selected.subject || selected.message) && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Reason</p>
+                  <pre className="text-sm whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 font-sans">
+                    {selected.reason ??
+                      selected.message?.match(/Reason:\s*(.+)/)?.[1]?.trim() ??
+                      selected.message?.split("---ITEMS_JSON---")[0].trim() ??
+                      selected.subject}
+                  </pre>
+                </div>
+              )}
 
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Subject</p>
-                <p className="font-medium">
-                  {selected.orderDisplayId
-                    ? selected.subject.replace(/#[A-Z0-9]+/g, `${selected.orderDisplayId}`)
-                    : selected.subject}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Reason</p>
-                <pre className="text-sm whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 font-sans">
-                  {selected.message?.match(/Reason:\s*(.+)/)?.[1]?.trim() ?? selected.message?.split("---ITEMS_JSON---")[0].trim()}
-                </pre>
-              </div>
-
-              {/* Update Status */}
-              <div className="flex items-center gap-3">
-                <Label className="shrink-0 text-sm">Update Status</Label>
-                <Select
-                  value={selected.status}
-                  onValueChange={val => handleStatusChange(selected.id, val)}
-                  disabled={updating}
-                >
-                  <SelectTrigger className="w-[170px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OPEN">Open</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="RESOLVED">Resolved</SelectItem>
-                    <SelectItem value="CLOSED">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-                {updating && <RotateCcw className="h-4 w-4 animate-spin text-muted-foreground" />}
+              {/* Current Status (read-only for sellers — managed by admin) */}
+              <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-4 py-2.5">
+                <span className="text-sm text-muted-foreground">Current Status</span>
+                <div className="flex items-center gap-2">
+                  {statusBadge(selected.status)}
+                  <span className="text-xs text-muted-foreground">· managed by admin</span>
+                </div>
               </div>
 
               {/* Attachments */}
@@ -608,11 +661,11 @@ export default function SellerRefundRequestsPage() {
               )}
 
               {/* Previous Response */}
-              {selected.response && (
+              {(selected.adminResponse || selected.response) && (
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Previous Response</p>
                   <pre className="text-sm whitespace-pre-wrap rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-900/20 p-3 font-sans text-green-800 dark:text-green-300">
-                    {selected.response}
+                    {selected.adminResponse ?? selected.response}
                   </pre>
                 </div>
               )}
@@ -620,7 +673,7 @@ export default function SellerRefundRequestsPage() {
               {/* Respond */}
               <div className="space-y-2">
                 <Label className="text-sm">
-                  {selected.response ? "Update Response" : "Send Response"}
+                  {(selected.adminResponse || selected.response) ? "Update Response" : "Send Response"}
                 </Label>
                 <Textarea
                   placeholder="Write your response to the customer…"
@@ -645,7 +698,7 @@ export default function SellerRefundRequestsPage() {
                         Sending…
                       </>
                     ) : (
-                      selected.response ? "Update Response" : "Send Response"
+                      (selected.adminResponse || selected.response) ? "Update Response" : "Send Response"
                     )}
                   </Button>
                 </div>

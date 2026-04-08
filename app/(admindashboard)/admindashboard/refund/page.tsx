@@ -19,18 +19,22 @@ import Image from "next/image";
 import {
   Search, RefreshCw, Eye, RotateCcw, AlertCircle, CheckCircle2,
   Clock, XCircle, DollarSign, User, Mail, Package, Calendar, ShoppingBag,
+  Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type RefundProduct = {
   id: string;
+  orderItemId?: string;
   productId?: string;
   title: string;
   price?: string;
   quantity?: number;
   image?: string | null;
   featuredImage?: string | null;
+  reason?: string | null;
+  attachments?: string[];
   category?: string | null;
   sellerName?: string | null;
   product?: {
@@ -44,17 +48,24 @@ type RefundProduct = {
 type RefundRequest = {
   id: string;
   userId: string | null;
-  subject: string;
-  message: string;
-  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-  category: string;
+  // new API fields
+  reason?: string | null;
+  requestedItems?: RefundProduct[];
+  adminResponse?: string | null;
+  // legacy / compat fields
+  subject?: string;
+  message?: string;
+  response?: string | null;
+  priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  category?: string;
+  status: "OPEN" | "IN_PROGRESS" | "APPROVED" | "RESOLVED" | "COMPLETED" | "REJECTED" | "CLOSED";
   attachments: string[];
-  response: string | null;
   createdAt: string;
   updatedAt: string;
   orderId: string | null;
   guestEmail: string | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
   requestType: string;
   user: { id: string; name: string; email: string } | null;
   orderStatus: string | null;
@@ -64,7 +75,6 @@ type RefundRequest = {
   products?: RefundProduct[];
   items?: RefundProduct[];
   sellerItems?: RefundProduct[];
-  requestedItems?: RefundProduct[];
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -72,15 +82,19 @@ type RefundRequest = {
 function statusBadge(status: RefundRequest["status"]) {
   const map: Record<string, { label: string; className: string }> = {
     OPEN:        { label: "Open",        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" },
-    IN_PROGRESS: { label: "In Progress", className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400" },
-    RESOLVED:    { label: "Resolved",    className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" },
-    CLOSED:      { label: "Closed",      className: "bg-muted text-muted-foreground" },
+    IN_PROGRESS: { label: "Open",        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" },
+    APPROVED:    { label: "Open",        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" },
+    COMPLETED:   { label: "Completed",   className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" },
+    RESOLVED:    { label: "Completed",   className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400" },
+    REJECTED:    { label: "Rejected",    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" },
+    CLOSED:      { label: "Rejected",    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400" },
   };
   const s = map[status] ?? { label: status, className: "bg-muted text-muted-foreground" };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${s.className}`}>{s.label}</span>;
 }
 
 function priorityBadge(priority: RefundRequest["priority"]) {
+  if (!priority) return null;
   const map: Record<string, string> = {
     LOW:    "bg-muted text-muted-foreground",
     MEDIUM: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400",
@@ -113,6 +127,8 @@ function parseItemsFromMessage(message: string): RefundProduct[] {
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 10;
+
 export default function AdminRefundRequestsPage() {
   const [requests, setRequests]     = useState<RefundRequest[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -122,13 +138,16 @@ export default function AdminRefundRequestsPage() {
   const [response, setResponse]     = useState("");
   const [responding, setResponding] = useState(false);
   const [updating, setUpdating]     = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
+  const [chosenAction, setChosenAction]    = useState("");
+  const [page, setPage]                    = useState(1);
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = {
-    total:      requests.length,
-    open:       requests.filter(r => r.status === "OPEN").length,
-    inProgress: requests.filter(r => r.status === "IN_PROGRESS").length,
-    resolved:   requests.filter(r => r.status === "RESOLVED").length,
+    total:     requests.length,
+    open:      requests.filter(r => r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "APPROVED").length,
+    completed: requests.filter(r => r.status === "RESOLVED" || r.status === "COMPLETED").length,
+    rejected:  requests.filter(r => r.status === "CLOSED"   || r.status === "REJECTED").length,
   };
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -155,16 +174,15 @@ export default function AdminRefundRequestsPage() {
 
   // ── Open Detail ────────────────────────────────────────────
   const openDetail = (r: RefundRequest) => {
-    // sellerItems from the list response already contains images
     const listItems =
-      (Array.isArray(r.sellerItems)    && r.sellerItems.length    > 0 ? r.sellerItems    : null) ??
       (Array.isArray(r.requestedItems) && r.requestedItems.length > 0 ? r.requestedItems : null) ??
+      (Array.isArray(r.sellerItems)    && r.sellerItems.length    > 0 ? r.sellerItems    : null) ??
       (Array.isArray(r.items)          && r.items.length          > 0 ? r.items          : null) ??
       (Array.isArray(r.products)       && r.products.length       > 0 ? r.products       : null) ??
-      parseItemsFromMessage(r.message);
+      parseItemsFromMessage(r.message ?? "");
 
-    setSelected({ ...r, sellerItems: listItems.length > 0 ? listItems : undefined });
-    setResponse(r.response ?? "");
+    setSelected({ ...r, requestedItems: listItems.length > 0 ? listItems : undefined });
+    setResponse(r.adminResponse ?? r.response ?? "");
   };
   const handleRespond = async () => {
     if (!selected || !response.trim()) return;
@@ -183,13 +201,21 @@ export default function AdminRefundRequestsPage() {
   };
 
   // ── Update Status ──────────────────────────────────────────────────────────
-  const handleStatusChange = async (id: string, status: string) => {
+  const handleStatusChange = async (id: string, action: "APPROVED" | "REJECTED" | "COMPLETED", message?: string) => {
     setUpdating(true);
     try {
-      await api.post(`/api/admin/refund-requests/${id}/status`, { status });
-      toast.success("Status updated");
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: status as RefundRequest["status"] } : r));
-      if (selected?.id === id) setSelected(prev => prev ? { ...prev, status: status as RefundRequest["status"] } : null);
+      const body: { status: string; message?: string } = { status: action };
+      if (message?.trim()) body.message = message.trim();
+      await api.put(`/api/admin/refund-requests/${id}/status`, body);
+      const label = action === "APPROVED" ? "Approved" : action === "REJECTED" ? "Rejected" : "Completed";
+      toast.success(`Refund request ${label}`);
+      const displayStatus: RefundRequest["status"] =
+        action === "APPROVED" ? "IN_PROGRESS" : action === "REJECTED" ? "CLOSED" : "RESOLVED";
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: displayStatus } : r));
+      if (selected?.id === id) setSelected(prev => prev ? { ...prev, status: displayStatus } : null);
+      setActionMessage("");
+      // After Approve → pre-select "Complete" so the next step is immediately visible
+      setChosenAction(action === "APPROVED" ? "COMPLETED" : "");
     } catch {
       toast.error("Failed to update status");
     } finally {
@@ -202,13 +228,24 @@ export default function AdminRefundRequestsPage() {
     const q = search.toLowerCase();
     const matchSearch =
       !q ||
-      r.subject.toLowerCase().includes(q) ||
+      (r.subject ?? "").toLowerCase().includes(q) ||
+      (r.reason ?? "").toLowerCase().includes(q) ||
       r.orderDisplayId?.toLowerCase().includes(q) ||
-      (r.user?.name ?? r.guestEmail ?? "").toLowerCase().includes(q) ||
-      (r.user?.email ?? r.guestEmail ?? "").toLowerCase().includes(q);
-    const matchStatus = statusFilter === "ALL" || r.status === statusFilter;
+      (r.user?.name ?? r.customerName ?? r.guestEmail ?? "").toLowerCase().includes(q) ||
+      (r.user?.email ?? r.customerEmail ?? r.guestEmail ?? "").toLowerCase().includes(q);
+    const matchStatus =
+      statusFilter === "ALL" ||
+      (statusFilter === "OPEN"     && (r.status === "OPEN"     || r.status === "IN_PROGRESS" || r.status === "APPROVED")) ||
+      (statusFilter === "RESOLVED" && (r.status === "RESOLVED" || r.status === "COMPLETED")) ||
+      (statusFilter === "CLOSED"   && (r.status === "CLOSED"   || r.status === "REJECTED"));
     return matchSearch && matchStatus;
   });
+
+  // Reset to page 1 whenever filter/search changes
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -228,10 +265,10 @@ export default function AdminRefundRequestsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total", value: stats.total,      icon: <DollarSign className="h-4 w-4" />, color: "text-foreground" },
-          { label: "Open",  value: stats.open,        icon: <Clock className="h-4 w-4" />,      color: "text-blue-600 dark:text-blue-400" },
-          { label: "In Progress", value: stats.inProgress, icon: <RotateCcw className="h-4 w-4" />, color: "text-yellow-600 dark:text-yellow-400" },
-          { label: "Resolved",   value: stats.resolved,    icon: <CheckCircle2 className="h-4 w-4" />, color: "text-green-600 dark:text-green-400" },
+          { label: "Total",     value: stats.total,     icon: <DollarSign className="h-4 w-4" />,   color: "text-foreground" },
+          { label: "Open",      value: stats.open,      icon: <Clock className="h-4 w-4" />,         color: "text-blue-600 dark:text-blue-400" },
+          { label: "Completed", value: stats.completed, icon: <CheckCircle2 className="h-4 w-4" />, color: "text-green-600 dark:text-green-400" },
+          { label: "Rejected",  value: stats.rejected,  icon: <XCircle className="h-4 w-4" />,      color: "text-red-600 dark:text-red-400" },
         ].map(s => (
           <Card key={s.label}>
             <CardContent className="flex items-center justify-between pt-5 pb-5">
@@ -263,18 +300,18 @@ export default function AdminRefundRequestsPage() {
           <SelectContent>
             <SelectItem value="ALL">All Statuses</SelectItem>
             <SelectItem value="OPEN">Open</SelectItem>
-            <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-            <SelectItem value="RESOLVED">Resolved</SelectItem>
-            <SelectItem value="CLOSED">Closed</SelectItem>
+            <SelectItem value="RESOLVED">Completed</SelectItem>
+            <SelectItem value="CLOSED">Rejected</SelectItem>
           </SelectContent>
         </Select>
+        {/* FILTER KEY: OPEN→OPEN|IN_PROGRESS|APPROVED, RESOLVED→RESOLVED|COMPLETED, CLOSED→CLOSED|REJECTED */}
       </div>
 
       {/* Table */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {loading ? "Loading…" : `${filtered.length} request${filtered.length !== 1 ? "s" : ""}`}
+            {loading ? "Loading…" : `${filtered.length} request${filtered.length !== 1 ? "s" : ""}${filtered.length > PAGE_SIZE ? ` · page ${page} of ${totalPages}` : ""}`}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -300,7 +337,7 @@ export default function AdminRefundRequestsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map(r => (
+                {paginated.map(r => (
                   <TableRow key={r.id} className="hover:bg-muted/40 transition-colors">
                     <TableCell>
                       {r.orderDisplayId ? (
@@ -314,15 +351,17 @@ export default function AdminRefundRequestsPage() {
                     </TableCell>
                     <TableCell>
                       <p className="text-sm font-medium flex items-center gap-1.5">
-                        {r.user?.name ?? r.guestEmail ?? "Unknown"}
+                        {r.user?.name ?? r.customerName ?? r.guestEmail ?? "Unknown"}
                         {r.isGuest && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Guest</span>
                         )}
                       </p>
-                      <p className="text-xs text-muted-foreground">{r.user?.email ?? r.guestEmail ?? ""}</p>
+                      <p className="text-xs text-muted-foreground">{r.user?.email ?? r.customerEmail ?? r.guestEmail ?? ""}</p>
                     </TableCell>
                     <TableCell className="max-w-[220px]">
-                      <p className="text-sm truncate" title={r.subject}>{r.subject}</p>
+                      <p className="text-sm truncate" title={r.reason ?? r.subject ?? ""}>
+                        {r.reason ? (r.reason.length > 60 ? r.reason.slice(0, 60) + "…" : r.reason) : (r.subject ?? "—")}
+                      </p>
                       <p className="text-xs text-muted-foreground">{r.requestType}</p>
                     </TableCell>
                     <TableCell>{statusBadge(r.status)}</TableCell>
@@ -340,14 +379,53 @@ export default function AdminRefundRequestsPage() {
         </CardContent>
       </Card>
 
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) =>
+                p === "…" ? (
+                  <span key={`ellipsis-${i}`} className="px-2 text-muted-foreground text-sm">…</span>
+                ) : (
+                  <Button
+                    key={p}
+                    variant={p === page ? "default" : "outline"}
+                    size="sm"
+                    className="w-8 px-0"
+                    onClick={() => setPage(p as number)}
+                  >
+                    {p}
+                  </Button>
+                )
+              )}
+            <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Detail / Respond Dialog */}
-      <Dialog open={!!selected} onOpenChange={open => { if (!open) { setSelected(null); setResponse(""); } }}>
+      <Dialog open={!!selected} onOpenChange={open => { if (!open) { setSelected(null); setResponse(""); setActionMessage(""); setChosenAction(""); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-primary" />
               Refund Request
-              {selected && priorityBadge(selected.priority)}
+              {selected?.priority && priorityBadge(selected.priority)}
               {selected && statusBadge(selected.status)}
             </DialogTitle>
           </DialogHeader>
@@ -366,12 +444,12 @@ export default function AdminRefundRequestsPage() {
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide flex items-center gap-1"><User className="h-3 w-3" /> Customer</p>
                   <p className="font-semibold flex items-center gap-1.5">
-                    {selected.user?.name ?? selected.guestEmail ?? "Unknown"}
+                    {selected.user?.name ?? selected.customerName ?? (selected.isGuest ? "Guest User" : "Unknown")}
                     {selected.isGuest && (
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Guest</span>
                     )}
                   </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{selected.user?.email ?? selected.guestEmail}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{selected.user?.email ?? selected.customerEmail ?? selected.guestEmail ?? "—"}</p>
                   <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{fmt(selected.createdAt)}</p>
                 </div>
               </div>
@@ -379,11 +457,11 @@ export default function AdminRefundRequestsPage() {
               {/* Products */}
               {(() => {
                 const items =
-                  (selected.sellerItems?.length    ? selected.sellerItems    : null) ??
                   (selected.requestedItems?.length ? selected.requestedItems : null) ??
+                  (selected.sellerItems?.length    ? selected.sellerItems    : null) ??
                   (selected.items?.length          ? selected.items          : null) ??
                   (selected.products?.length       ? selected.products       : null) ??
-                  parseItemsFromMessage(selected.message);
+                  parseItemsFromMessage(selected.message ?? "");
                 if (!items.length) return null;
                 return (
                   <div className="space-y-2">
@@ -391,38 +469,49 @@ export default function AdminRefundRequestsPage() {
                       <ShoppingBag className="h-3 w-3" /> Items ({items.length})
                     </p>
                     <div className="divide-y rounded-lg border overflow-hidden">
-                      {items.map(p => (
-                        <div key={p.id} className="flex items-center gap-3 p-3 bg-muted/20 hover:bg-muted/40 transition-colors">
-                          {(() => {
-                            const img = p.image ?? p.featuredImage ?? p.product?.image ?? p.product?.featuredImage ?? p.product?.images?.[0] ?? null;
-                            return img ? (
-                              <div className="relative h-14 w-14 shrink-0 rounded-md overflow-hidden border bg-muted">
-                                <Image src={img} alt={p.title} fill className="object-cover" sizes="56px" />
+                      {items.map((p, idx) => (
+                        <div key={p.id ?? p.orderItemId ?? idx} className="flex flex-col gap-2 p-3 bg-muted/20 hover:bg-muted/40 transition-colors">
+                          <div className="flex items-center gap-3">
+                            {(() => {
+                              const img = p.image ?? p.featuredImage ?? p.product?.image ?? p.product?.featuredImage ?? p.product?.images?.[0] ?? null;
+                              return img ? (
+                                <div className="relative h-14 w-14 shrink-0 rounded-md overflow-hidden border bg-muted">
+                                  <Image src={img} alt={p.title} fill className="object-cover" sizes="56px" />
+                                </div>
+                              ) : (
+                                <div className="h-14 w-14 shrink-0 rounded-md border bg-muted flex items-center justify-center">
+                                  <Package className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                              );
+                            })()}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{p.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                {p.category && <span className="text-xs text-muted-foreground">{p.category}</span>}
+                                {p.sellerName && <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{p.sellerName}</span>}
+                                {p.price && <span className="text-xs font-medium">${p.price}</span>}
                               </div>
-                            ) : (
-                              <div className="h-14 w-14 shrink-0 rounded-md border bg-muted flex items-center justify-center">
-                                <Package className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                            );
-                          })()}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{p.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              {p.category && (
-                                <span className="text-xs text-muted-foreground">{p.category}</span>
-                              )}
-                              {p.sellerName && (
-                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{p.sellerName}</span>
-                              )}
-                              {p.price && (
-                                <span className="text-xs font-medium">${p.price}</span>
-                              )}
                             </div>
+                            {p.quantity != null && (
+                              <span className="shrink-0 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">x{p.quantity}</span>
+                            )}
                           </div>
-                          {p.quantity != null && (
-                            <span className="shrink-0 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                              x{p.quantity}
-                            </span>
+                          {/* Per-item reason */}
+                          {p.reason && (
+                            <p className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1">
+                              <span className="font-medium">Reason:</span> {p.reason}
+                            </p>
+                          )}
+                          {/* Per-item attachments */}
+                          {p.attachments && p.attachments.length > 0 && (
+                            <div className="flex gap-2 flex-wrap">
+                              {p.attachments.map((url, ai) => (
+                                <a key={ai} href={url} target="_blank" rel="noopener noreferrer"
+                                  className="block rounded border overflow-hidden hover:opacity-80 transition-opacity">
+                                  <img src={url} alt={`item-attachment-${ai}`} className="h-12 w-12 object-cover" />
+                                </a>
+                              ))}
+                            </div>
                           )}
                         </div>
                       ))}
@@ -431,40 +520,75 @@ export default function AdminRefundRequestsPage() {
                 );
               })()}
 
-              {/* Subject & Message */}
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Subject</p>
-                <p className="font-medium">
-                  {selected.orderDisplayId
-                    ? selected.subject.replace(/#[A-Z0-9]+/g, `${selected.orderDisplayId}`)
-                    : selected.subject}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Reason</p>
-                <pre className="text-sm whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 font-sans">
-                  {selected.message?.match(/Reason:\s*(.+)/)?.[1]?.trim() ?? selected.message?.split("---ITEMS_JSON---")[0].trim()}
-                </pre>
-              </div>
+              {/* Subject / Reason */}
+              {(selected.subject || selected.reason) && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Reason</p>
+                  <pre className="text-sm whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 font-sans">
+                    {selected.reason ??
+                      selected.message?.match(/Reason:\s*(.+)/)?.[1]?.trim() ??
+                      selected.message?.split("---ITEMS_JSON---")[0].trim() ??
+                      selected.subject}
+                  </pre>
+                </div>
+              )}
 
-              {/* Update Status */}
-              <div className="flex items-center gap-3">
-                <Label className="shrink-0 text-sm">Update Status</Label>
-                <Select
-                  value={selected.status}
-                  onValueChange={val => handleStatusChange(selected.id, val)}
-                  disabled={updating}
-                >
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OPEN">Open</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="RESOLVED">Resolved</SelectItem>
-                    <SelectItem value="CLOSED">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Admin Action */}
+              <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin Action</p>
+                {(selected.status === "RESOLVED" || selected.status === "CLOSED" || selected.status === "COMPLETED" || selected.status === "REJECTED") ? (
+                  <p className="text-sm text-muted-foreground italic">
+                    {(selected.status === "RESOLVED" || selected.status === "COMPLETED")
+                      ? "This request has been completed — no further actions available."
+                      : "This request is closed — no further actions available."}
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <Select value={chosenAction} onValueChange={setChosenAction} disabled={updating}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select action…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {selected.status === "OPEN" && (
+                            <>
+                              <SelectItem value="APPROVED" className="text-emerald-600 dark:text-emerald-400 focus:text-emerald-600">
+                                Approve
+                              </SelectItem>
+                              <SelectItem value="REJECTED" className="text-red-600 dark:text-red-400 focus:text-red-600">
+                                Reject
+                              </SelectItem>
+                            </>
+                          )}
+                          {(selected.status === "IN_PROGRESS" || selected.status === "APPROVED") && (
+                            <SelectItem value="COMPLETED" className="text-blue-600 dark:text-blue-400 focus:text-blue-600">
+                              Mark as Completed
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        disabled={!chosenAction || updating}
+                        onClick={() => handleStatusChange(selected.id, chosenAction as "APPROVED" | "REJECTED" | "COMPLETED", actionMessage)}
+                        className={
+                          chosenAction === "APPROVED" ? "bg-emerald-600 hover:bg-emerald-700 text-white" :
+                          chosenAction === "REJECTED" ? "bg-red-600 hover:bg-red-700 text-white" :
+                          chosenAction === "COMPLETED" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""
+                        }
+                      >
+                        {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                      </Button>
+                    </div>
+                    <Textarea
+                      placeholder="Optional message to customer (e.g. reason for rejection, refund timeline…)"
+                      className="min-h-[72px] resize-none text-sm"
+                      value={actionMessage}
+                      onChange={e => setActionMessage(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Optional message sent to customer</p>
+                  </>
+                )}
               </div>
 
               {/* Attachments */}
@@ -482,16 +606,16 @@ export default function AdminRefundRequestsPage() {
               )}
 
               {/* Previous Response */}
-              {selected.response && (
+              {(selected.adminResponse || selected.response) && (
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Previous Response</p>
-                  <pre className="text-sm whitespace-pre-wrap rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-900/20 p-3 font-sans text-green-800 dark:text-green-300">{selected.response}</pre>
+                  <pre className="text-sm whitespace-pre-wrap rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-900/20 p-3 font-sans text-green-800 dark:text-green-300">{selected.adminResponse ?? selected.response}</pre>
                 </div>
               )}
 
               {/* Respond */}
               <div className="space-y-2">
-                <Label className="text-sm">{selected.response ? "Update Response" : "Send Response"}</Label>
+                <Label className="text-sm">{(selected.adminResponse || selected.response) ? "Update Response" : "Send Response"}</Label>
                 <Textarea
                   placeholder="Write your response to the customer…"
                   className="min-h-[100px]"
@@ -499,7 +623,7 @@ export default function AdminRefundRequestsPage() {
                   onChange={e => setResponse(e.target.value)}
                 />
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => { setSelected(null); setResponse(""); }}>Cancel</Button>
+                  <Button variant="outline" onClick={() => { setSelected(null); setResponse(""); setActionMessage(""); setChosenAction(""); }}>Cancel</Button>
                   <Button onClick={handleRespond} disabled={responding || !response.trim()}>
                     {responding ? "Sending…" : "Send Response"}
                   </Button>

@@ -374,6 +374,23 @@ const CancelOrderModal = ({
 };
 
 // --- Refund Request Modal ---
+type RefundItemState = {
+  id: string;          // order item id (orderItemId)
+  productId: string;
+  title: string;
+  image: string;
+  price: string;
+  maxQty: number;
+  sellerName?: string;
+  // per-item editable state
+  selected: boolean;
+  qty: number;
+  reason: string;
+  attachments: File[];
+  uploadedUrls: string[];
+  uploading: boolean;
+};
+
 const RefundRequestModal = ({
   order,
   onClose,
@@ -383,109 +400,153 @@ const RefundRequestModal = ({
   onClose: () => void;
   onSuccess: (requestType: "REFUND" | "PARTIAL_REFUND") => void;
 }) => {
-  const [requestType, setRequestType] = useState<"REFUND" | "PARTIAL_REFUND">("REFUND");
-  const [reason, setReason] = useState("");
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Flatten all items from the order into a single list
-  const allItems: { id: string; productId: string; title: string; image: string; price: string; quantity: number; sellerName?: string }[] = [];
-  if (order.subOrders && order.subOrders.length > 0) {
-    order.subOrders.forEach(sub => {
-      sub.items.forEach(item => {
-        allItems.push({
-          id: item.id,
-          productId: item.productId,
-          title: item.productTitle || item.product?.title || "Product",
-          image: item.productImages?.[0] || item.productFeaturedImage || item.product?.featuredImage || "",
-          price: item.price,
-          quantity: item.quantity,
-          sellerName: sub.sellerName,
+  // Build flat item list once
+  const buildInitialItems = (): RefundItemState[] => {
+    // Always use order.items[] — these have the correct orderItemId the backend expects.
+    // Enrich images from subOrders by matching productId where available.
+    const subOrderImageMap: Record<string, string> = {};
+    if (order.subOrders) {
+      order.subOrders.forEach(sub => {
+        sub.items.forEach(item => {
+          const img = item.productImages?.[0] || item.productFeaturedImage || item.product?.featuredImage || "";
+          if (img) subOrderImageMap[item.productId] = img;
         });
       });
-    });
-  } else {
-    order.items.forEach(item => {
-      allItems.push({
-        id: item.id,
-        productId: item.productId,
-        title: item.product?.title ?? item.title,
-        image: item.product?.featuredImage ?? "",
-        price: item.price,
-        quantity: item.quantity,
-        sellerName: item.sellerName,
-      });
-    });
-  }
+    }
+
+    return order.items.map(item => ({
+      id: item.id,
+      productId: item.productId,
+      title: item.product?.title ?? item.title,
+      image: subOrderImageMap[item.productId] || item.product?.featuredImage || "",
+      price: item.price,
+      maxQty: item.quantity,
+      sellerName: item.sellerName,
+      selected: true,
+      qty: item.quantity,
+      reason: "",
+      attachments: [],
+      uploadedUrls: [],
+      uploading: false,
+    }));
+  };
+
+  const [items, setItems] = useState<RefundItemState[]>(buildInitialItems);
+  const [loading, setLoading] = useState(false);
+  const itemFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const selectedItems = items.filter(i => i.selected);
+
+  const updateItem = (id: string, patch: Partial<RefundItemState>) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+  };
 
   const toggleItem = (id: string) => {
-    setSelectedItemIds(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
+    setItems(prev => prev.map(i =>
+      i.id === id ? { ...i, selected: !i.selected, qty: i.selected ? 1 : i.maxQty } : i
+    ));
+  };
+
+  // Upload a single image to Cloudinary via /api/upload/image, return URL
+  const uploadFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+    const res = await fetch(`${BASE_URL}/api/upload/image`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const data = await res.json();
+    const url = data.url ?? data.secure_url ?? data.imageUrl ?? data.data?.url ?? null;
+    if (!res.ok || !url) throw new Error(data.message || "Image upload failed");
+    return url as string;
+  };
+
+  const handleItemFiles = (itemId: string, files: FileList | null) => {
+    if (!files) return;
+    const valid = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, 5);
+    updateItem(itemId, {
+      attachments: [...(items.find(i => i.id === itemId)?.attachments || []), ...valid].slice(0, 5),
     });
   };
 
-  // Pre-select all items when switching to Full Refund, clear when switching to Partial
-  const handleTypeChange = (type: "REFUND" | "PARTIAL_REFUND") => {
-    setRequestType(type);
-    if (type === "REFUND") {
-      setSelectedItemIds(new Set(allItems.map(i => i.id)));
-    } else {
-      setSelectedItemIds(new Set());
+  const removeItemAttachment = (itemId: string, index: number) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    updateItem(itemId, {
+      attachments: item.attachments.filter((_, i) => i !== index),
+      uploadedUrls: item.uploadedUrls.filter((_, i) => i !== index),
+    });
+  };
+
+  // Upload all pending files and return final URL arrays
+  const uploadAllFiles = async (): Promise<{
+    itemUrls: Record<string, string[]>;
+  }> => {
+    // Upload per-item attachments (only for selected items)
+    const itemUrls: Record<string, string[]> = {};
+    for (const item of items.filter(i => i.selected)) {
+      if (item.attachments.length > 0) {
+        updateItem(item.id, { uploading: true });
+        const urls: string[] = [];
+        for (const file of item.attachments) {
+          urls.push(await uploadFile(file));
+        }
+        itemUrls[item.id] = urls;
+        updateItem(item.id, { uploading: false, uploadedUrls: urls });
+      } else {
+        itemUrls[item.id] = [];
+      }
     }
-  };
 
-  // Initialise Full Refund with all items pre-selected on first render
-  // (allItems is derived synchronously so this is safe)
-  useState(() => {
-    setSelectedItemIds(new Set(allItems.map(i => i.id)));
-  });
-
-  const handleFiles = (files: FileList | null) => {
-    if (!files) return;
-    const valid = Array.from(files).filter(f => f.type.startsWith("image/")).slice(0, 5);
-    setAttachments(prev => [...prev, ...valid].slice(0, 5));
-  };
-
-  const removeAttachment = (index: number) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+    return { itemUrls };
   };
 
   const handleSubmit = async () => {
-    if (!reason.trim()) {
-      toast.error("Please provide a reason for the refund request.");
-      return;
-    }
-    if (selectedItemIds.size === 0) {
+    if (selectedItems.length === 0) {
       toast.error("Please select at least one item.");
       return;
     }
+    for (const item of selectedItems) {
+      if (!item.reason.trim()) {
+        toast.error(`Please provide a reason for "${item.title}".`);
+        return;
+      }
+      if (item.qty < 1 || item.qty > item.maxQty) {
+        toast.error(`Invalid quantity for "${item.title}".`);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
-      // Build the items array from selected checkboxes
-      const selectedItems = allItems
-        .filter(i => selectedItemIds.has(i.id))
-        .map(i => ({
-          productId: i.productId,
-          title: i.title,
-          quantity: i.quantity,
-          price: i.price,
-        }));
+      const { itemUrls } = await uploadAllFiles();
 
-      await api.post(`/api/orders/refund-request/${order.displayId}`, {
-        requestType: requestType.toLowerCase(), // "refund" | "partial_refund"
-        reason,
-        items: selectedItems,
-        images: [],
+      // Strip any leading # from displayId before using in URL
+      const cleanDisplayId = order.displayId.replace(/^#/, "");
+
+      // Always send items array — backend auto-detects REFUND vs PARTIAL_REFUND
+      // (all items at full qty → REFUND, subset/reduced qty → PARTIAL_REFUND)
+      const itemsPayload = selectedItems.map(item => ({
+        orderItemId: item.id,
+        quantity: item.qty,
+        reason: item.reason.trim() || undefined,
+        attachments: itemUrls[item.id] || [],
+      }));
+
+      // Use first item's reason as top-level fallback
+      const fallbackReason = selectedItems[0]?.reason.trim() || "Refund requested";
+
+      await api.post(`/api/orders/refund-request/${cleanDisplayId}`, {
+        items: itemsPayload,
+        reason: fallbackReason,
+        attachments: [],
       });
 
-      toast.success(requestType === "REFUND"
-        ? "Full refund requested successfully."
-        : "Partial refund request submitted successfully.");
-      onSuccess(requestType);
+      const isFullRefund = selectedItems.length === items.length && items.every(i => i.qty === i.maxQty);
+      toast.success(isFullRefund ? "Full refund requested successfully." : "Partial refund request submitted successfully.");
+      onSuccess(isFullRefund ? "REFUND" : "PARTIAL_REFUND");
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Failed to submit refund request.");
@@ -496,8 +557,9 @@ const RefundRequestModal = ({
 
   const isSubmitDisabled =
     loading ||
-    !reason.trim() ||
-    selectedItemIds.size === 0;
+    selectedItems.length === 0 ||
+    selectedItems.some(i => !i.reason.trim()) ||
+    items.some(i => i.uploading);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -516,132 +578,119 @@ const RefundRequestModal = ({
           Order <strong>#{order.displayId}</strong>
         </p>
 
-        {/* Refund Type */}
-        <div className="space-y-2">
-          <Label>Refund Type <span className="text-destructive">*</span></Label>
-          <div className="flex gap-3">
-            {(["REFUND", "PARTIAL_REFUND"] as const).map(type => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => { handleTypeChange(type); }}
-                className={`flex-1 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  requestType === type
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-muted-foreground/30 hover:border-primary"
-                }`}
-              >
-                {type === "REFUND" ? "Full Refund" : "Partial Refund"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Product Selection */}
-        {allItems.length > 0 && (
+        {/* Item list */}
+        {items.length > 0 && (
           <div className="space-y-2">
             <Label>
-              {requestType === "REFUND"
-                ? "Items included in this refund"
-                : "Select items to refund"}{" "}
-              <span className="text-destructive">*</span>
+              Select items to refund <span className="text-destructive">*</span>
             </Label>
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-              {allItems.map(item => {
-                const checked = selectedItemIds.has(item.id);
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {items.map(item => {
+                const checked = item.selected;
                 return (
-                  <label
+                  <div
                     key={item.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                      checked
-                        ? "bg-primary/5 border-primary"
-                        : "hover:border-primary/50"
+                    className={`rounded-lg border transition-colors ${
+                      checked ? "bg-primary/5 border-primary" : "opacity-60"
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleItem(item.id)}
-                      className="h-4 w-4 accent-primary shrink-0"
-                    />
-                    {item.image ? (
-                      <div className="relative h-10 w-10 shrink-0 rounded-md overflow-hidden border bg-muted">
-                        <Image src={item.image} alt={item.title} fill className="object-cover" sizes="40px" />
+                    {/* Row 1: checkbox + image + title + qty */}
+                    <label className="flex items-center gap-3 p-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleItem(item.id)}
+                        className="h-4 w-4 accent-primary shrink-0"
+                      />
+                      {item.image ? (
+                        <div className="relative h-10 w-10 shrink-0 rounded-md overflow-hidden border bg-muted">
+                          <Image src={item.image} alt={item.title} fill className="object-cover" sizes="40px" />
+                        </div>
+                      ) : (
+                        <div className="h-10 w-10 shrink-0 rounded-md border bg-muted flex items-center justify-center">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ${item.price}{item.sellerName && ` · ${item.sellerName}`}
+                        </p>
                       </div>
-                    ) : (
-                      <div className="h-10 w-10 shrink-0 rounded-md border bg-muted flex items-center justify-center">
-                        <Package className="h-4 w-4 text-muted-foreground" />
+                      {/* Qty spinner */}
+                      {checked && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={e => { e.preventDefault(); if (item.qty > 1) updateItem(item.id, { qty: item.qty - 1 }); }}
+                            className="w-6 h-6 rounded border text-sm flex items-center justify-center hover:bg-muted"
+                          >−</button>
+                          <span className="w-6 text-center text-sm font-medium">{item.qty}</span>
+                          <button
+                            type="button"
+                            onClick={e => { e.preventDefault(); if (item.qty < item.maxQty) updateItem(item.id, { qty: item.qty + 1 }); }}
+                            className="w-6 h-6 rounded border text-sm flex items-center justify-center hover:bg-muted"
+                          >+</button>
+                          <span className="text-xs text-muted-foreground ml-1">/ {item.maxQty}</span>
+                        </div>
+                      )}
+                    </label>
+
+                    {/* Row 2: per-item reason + attachments */}
+                    {checked && (
+                      <div className="px-3 pb-3 space-y-2">
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-xs font-medium">Reason</span>
+                          <span className="text-destructive text-xs">*</span>
+                        </div>
+                        <Textarea
+                          placeholder="Reason for returning this item..."
+                          value={item.reason}
+                          onChange={e => updateItem(item.id, { reason: e.target.value })}
+                          rows={2}
+                          className="text-xs"
+                        />
+                        {/* Per-item attachment */}
+                        <div>
+                          <div
+                            className="border border-dashed rounded-md p-2 text-center cursor-pointer hover:border-primary/50 text-xs text-muted-foreground"
+                            onClick={() => itemFileInputRefs.current[item.id]?.click()}
+                          >
+                            <ImagePlus className="h-4 w-4 mx-auto mb-0.5" /> Add photos for this item
+                          </div>
+                          <input
+                            ref={el => { itemFileInputRefs.current[item.id] = el; }}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={e => handleItemFiles(item.id, e.target.files)}
+                          />
+                          {item.attachments.length > 0 && (
+                            <div className="flex gap-2 mt-2 flex-wrap">
+                              {item.attachments.map((file, fi) => (
+                                <div key={fi} className="relative group rounded-md overflow-hidden border bg-muted h-14 w-14 shrink-0">
+                                  <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
+                                  <button
+                                    onClick={() => removeItemAttachment(item.id, fi)}
+                                    className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {item.uploading && <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1"><Loader2 className="animate-spin h-3 w-3" /> Uploading…</p>}
+                        </div>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        ${item.price} × {item.quantity}
-                        {item.sellerName && ` · ${item.sellerName}`}
-                      </p>
-                    </div>
-                  </label>
+                  </div>
                 );
               })}
             </div>
           </div>
         )}
-
-        {/* Reason */}
-        <div className="space-y-2">
-          <Label htmlFor="refundReason">
-            Reason <span className="text-destructive">*</span>
-          </Label>
-          <Textarea
-            id="refundReason"
-            placeholder="Describe the issue and reason for refund..."
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            rows={3}
-          />
-        </div>
-
-        {/* Image Upload */}
-        <div className="space-y-2">
-          <Label>Attachments <span className="text-muted-foreground text-xs">(optional, up to 5)</span></Label>
-          <div
-            className="border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={e => e.preventDefault()}
-            onDrop={e => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
-          >
-            <ImagePlus className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Click or drag images here</p>
-            <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG, WEBP — max 5 files</p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={e => handleFiles(e.target.files)}
-            />
-          </div>
-          {attachments.length > 0 && (
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              {attachments.map((file, i) => (
-                <div key={i} className="relative group rounded-md overflow-hidden border bg-muted h-20">
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt={`preview-${i}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    onClick={() => removeAttachment(i)}
-                    className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Note */}
         <div className="space-y-1 text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
@@ -720,7 +769,26 @@ const CustomerOrdersPage = () => {
 
   useEffect(() => {
     fetchOrders();
+    fetchExistingRefunds();
   }, []);
+
+  const fetchExistingRefunds = async () => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const res = await fetch(`${BASE_URL}/api/orders/refund-requests`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      const list: { orderId?: string }[] = Array.isArray(data) ? data : (data?.requests ?? data?.data ?? []);
+      const ids = new Set(list.map(r => r.orderId).filter(Boolean) as string[]);
+      if (ids.size > 0) setSubmittedRefundOrderIds(ids);
+    } catch {
+      // silently ignore — fall back to session tracking
+    }
+  };
 
   const fetchOrders = async () => {
     try {
