@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { toast } from "sonner";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertCircle, Banknote, CheckCircle2, Clock, Eye, EyeOff, History, XCircle } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -174,43 +175,68 @@ export default function BankDetailsSettingsPage() {
   async function onSubmit(values: ChangeRequestValues) {
     setIsSubmitting(true);
     try {
-      await api.post("/api/sellers/bank-details/change-request", {
-        bankName: values.bankName,
-        accountName: values.accountName,
-        bsb: values.bsb,
-        accountNumber: values.accountNumber,
-        reason: values.reason,
-        currentPassword: values.currentPassword,
+      // Use raw fetch (not api.post) so a 401 wrong-password response
+      // doesn't trigger the global logout interceptor in api.ts.
+      const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
+      const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
+      const res = await fetch(`${BASE_URL}/api/sellers/bank-details/change-request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          bankName: values.bankName,
+          accountName: values.accountName,
+          bsb: values.bsb,
+          accountNumber: values.accountNumber,
+          reason: values.reason,
+          currentPassword: values.currentPassword,
+        }),
       });
 
-      toast.success("Request submitted!", {
-        description: "Your bank details change request has been submitted for review.",
-      });
+      let body: any = {};
+      try { body = await res.json(); } catch { /* non-JSON body */ }
 
-      setDialogOpen(false);
-      form.reset();
-      // Refresh both the current details and history
-      await Promise.all([fetchBankDetails(), fetchHistory()]);
-    } catch (error: any) {
-      const msg: string = error.message || "";
-
-      if (msg.toLowerCase().includes("incorrect password") || msg.includes("401")) {
+      if (res.status === 401) {
+        // Wrong password — show field error, do NOT log out
         form.setError("currentPassword", {
           type: "manual",
-          message: "Incorrect password. Please try again.",
+          message: body?.message?.toLowerCase().includes("password")
+            ? body.message
+            : "Incorrect password. Please try again.",
         });
-      } else if (msg.includes("409") || msg.toLowerCase().includes("pending")) {
+        return;
+      }
+
+      if (res.status === 409 || body?.message?.toLowerCase().includes("pending")) {
         toast.error("Request already pending", {
           description: "You already have a pending bank details change request under review.",
         });
         setDialogOpen(false);
         form.reset();
         await Promise.all([fetchBankDetails(), fetchHistory()]);
-      } else {
-        toast.error("Submission failed", {
-          description: msg || "Please check your details and try again.",
-        });
+        return;
       }
+
+      if (!res.ok) {
+        toast.error("Submission failed", {
+          description: body?.message || `Unexpected error (${res.status}). Please try again.`,
+        });
+        return;
+      }
+
+      toast.success("Request submitted!", {
+        description: "Your bank details change request has been submitted for review.",
+      });
+      setDialogOpen(false);
+      form.reset();
+      await Promise.all([fetchBankDetails(), fetchHistory()]);
+    } catch (error: any) {
+      toast.error("Submission failed", {
+        description: error.message || "Please check your details and try again.",
+      });
     } finally {
       setIsSubmitting(false);
     }
