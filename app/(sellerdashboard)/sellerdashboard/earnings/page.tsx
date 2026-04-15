@@ -329,7 +329,7 @@ export default function SellerEarningsPage() {
                 title={
                   walletLoading ? "Loading..."
                   : pendingPayoutRequest ? "You already have a pending payout request"
-                  : !wallet || wallet.redeemableAmount <= 0 ? "No orders eligible yet - amounts unlock 30 days after the order date"
+                  : !wallet || wallet.redeemableAmount <= 0 ? "No redeemable balance available"
                   : "Request payout"
                 }
               >
@@ -366,7 +366,7 @@ export default function SellerEarningsPage() {
               <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
                 {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.lockedAmount.toFixed(2)}` : "---"}
               </p>
-              <p className="text-xs text-muted-foreground">Unlocks after 30 days</p>
+
             </div>
             <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">Total Paid Out</p>
@@ -375,11 +375,7 @@ export default function SellerEarningsPage() {
               </p>
             </div>
           </div>
-          {wallet && !walletLoading && wallet.lockedAmount > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground border-t pt-3">
-              Locked: ${wallet.lockedAmount.toFixed(2)} - orders unlock for payout 30 days after they are placed.
-            </p>
-          )}
+
         </CardContent>
       </Card>
 
