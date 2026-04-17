@@ -34,6 +34,7 @@ type Product = {
   featured?: boolean;
   tags?: string[] | string;
   artistName?: string;
+  weight?: number | string;
   rejectionReason?: string | null;
   seller?: { id: string; name: string; email: string; storeName?: string; businessName?: string };
 };
@@ -320,6 +321,10 @@ export default function AdminProductDetailPage() {
                 <div className="rounded-lg bg-muted/40 px-3 py-2">
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Featured</p>
                   <p className="text-sm font-medium mt-0.5">{product.featured ? "Yes" : "No"}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 px-3 py-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Weight</p>
+                  <p className="text-sm font-medium mt-0.5">{product.weight != null ? `${product.weight} kg` : "—"}</p>
                 </div>
                 {product.seller && (
                   <div className="rounded-lg bg-muted/40 px-3 py-2">

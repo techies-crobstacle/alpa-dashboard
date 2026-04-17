@@ -42,6 +42,8 @@ interface SellerData {
   storeLogo: string | null;
   storeBanner: string | null;
   storeLocation: string | null;
+  businessSummary: string | null;
+  businessDescription: string | null;
   culturalBackground: string | null;
   culturalStory: string;
   culturalApprovalStatus: string;
@@ -305,6 +307,14 @@ export default function SingleSellerPage() {
               <span className="font-semibold">Store Description:</span>
               <p className="text-sm text-muted-foreground">{seller.storeDescription}</p>
             </div>
+            <div className="md:col-span-2">
+              <span className="font-semibold">Business Summary:</span>
+              <p className="text-sm text-muted-foreground">{seller.businessSummary || "N/A"}</p>
+            </div>
+            <div className="md:col-span-2">
+              <span className="font-semibold">Business Description:</span>
+              <p className="text-sm text-muted-foreground">{seller.businessDescription || "N/A"}</p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -359,12 +369,14 @@ export default function SingleSellerPage() {
       )}
 
       {/* KYC Documents */}
-      {seller.kycDocuments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>KYC Documents</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>KYC Documents</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {seller.kycDocuments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">N/A</p>
+          ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {seller.kycDocuments.map((doc: any, idx: number) => (
                 <div key={idx} className="border rounded-lg overflow-hidden bg-muted/50">
@@ -399,9 +411,9 @@ export default function SingleSellerPage() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Statistics */}
       {statistics && (

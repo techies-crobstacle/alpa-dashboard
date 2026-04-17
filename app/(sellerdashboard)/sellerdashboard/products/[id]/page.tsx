@@ -39,6 +39,7 @@ type Product = {
   featured?: boolean;
   tags?: string[] | string;
   artistName?: string;
+  weight?: number | string;
 };
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
@@ -79,7 +80,7 @@ export default function ProductDetailPage() {
   const editGalleryImagesRef                  = useRef<HTMLInputElement>(null);
   const editGalleryAccumRef                   = useRef<File[]>([]);
   const [editFormData, setEditFormData] = useState({
-    title: "", description: "", price: "", stock: "", category: "",
+    title: "", description: "", price: "", stock: "", weight: "", category: "",
     images: [] as File[], oldImages: [] as string[],
     featuredImage: null as File | null, oldFeaturedImage: null as string | null,
     galleryImages: [] as File[], oldGalleryImages: [] as string[],
@@ -143,6 +144,7 @@ export default function ProductDetailPage() {
       description: product.description ?? "",
       price: product.price?.toString() ?? "",
       stock: product.stock?.toString() ?? "",
+      weight: product.weight?.toString() ?? "",
       category: product.category ?? "",
       images: [], oldImages: product.images ?? [],
       featuredImage: null, oldFeaturedImage: featuredImg,
@@ -172,6 +174,7 @@ export default function ProductDetailPage() {
       form.append("featured", String(editFormData.featured));
       form.append("tags", editFormData.tags);
       if (editFormData.artistName) form.append("artistName", editFormData.artistName.trim());
+      if (editFormData.weight) form.append("weight", editFormData.weight);
 
       const featuredFile = editFeaturedImageRef.current?.files?.[0] ?? null;
       if (featuredFile) {
@@ -363,6 +366,10 @@ export default function ProductDetailPage() {
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Featured</p>
                   <p className="text-sm font-medium mt-0.5">{product.featured ? "Yes" : "No"}</p>
                 </div>
+                <div className="rounded-lg bg-muted/40 px-3 py-2">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Weight</p>
+                  <p className="text-sm font-medium mt-0.5">{product.weight != null ? `${product.weight} kg` : "—"}</p>
+                </div>
                 {tags.length > 0 && (
                   <div className="rounded-lg bg-muted/40 px-3 py-2 col-span-2">
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">Tags</p>
@@ -419,6 +426,10 @@ export default function ProductDetailPage() {
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Stock <span className="text-red-500">*</span></Label>
                   <Input type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="h-10" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Weight (kg)</Label>
+                  <Input type="number" placeholder="1" min="0" step="0.01" value={editFormData.weight} onChange={(e) => setEditFormData({ ...editFormData, weight: e.target.value })} className="h-10" />
                 </div>
 
                 {/* Category */}

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useRouter } from "next/navigation";
 import { ProductAuditHistory } from "@/components/shared/product-audit-history";
 
@@ -88,6 +89,7 @@ type Product = {
   featured?: boolean;
   tags?: string[] | string;
   artistName?: string;
+  weight?: number | string;
 };
 
 // ── Status badge (seller-facing labels) ───────────────────────────────────────
@@ -133,6 +135,7 @@ const addProduct = async (productData: {
   description: string;
   price: string;
   stock: string;
+  weight: string;
   category: string;
   images: File[];
   featuredImage?: File | null;
@@ -146,6 +149,7 @@ const addProduct = async (productData: {
   form.append("description", productData.description);
   form.append("price", productData.price);
   form.append("stock", productData.stock);
+  if (productData.weight) form.append("weight", productData.weight);
   form.append("category", productData.category);
 
   // Send gallery images under 'galleryImages' key.
@@ -310,6 +314,7 @@ function ProjectsPage() {
     featured: false,
     tags: "",
     artistName: "",
+    weight: "1",
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [isRestoringMode, setIsRestoringMode] = useState(false);
@@ -330,6 +335,7 @@ function ProjectsPage() {
     featured: false,
     tags: "",
     artistName: "",
+    weight: "",
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -500,6 +506,7 @@ function ProjectsPage() {
         description: formData.description,
         price: formData.price,
         stock: formData.stock,
+        weight: formData.weight,
         category: formData.category,
         images: [],
         featuredImage: featuredImageFile,
@@ -511,7 +518,7 @@ function ProjectsPage() {
       await addProduct(productData);
       toast.success("Product added successfully!");
       setShowAddModal(false);
-      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featuredImage: null, galleryImages: [], featured: false, tags: "", artistName: "" });
+      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featuredImage: null, galleryImages: [], featured: false, tags: "", artistName: "", weight: "1" });
       addGalleryAccumRef.current = []; // clear accumulator
       loadProducts();
     } catch {
@@ -689,6 +696,7 @@ function ProjectsPage() {
         featured: prod.featured ?? false,
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
         artistName: prod.artistName || "",
+        weight: prod.weight?.toString() || "",
       });
       setShowEditModal(true);
     } catch (err) {
@@ -728,6 +736,7 @@ function ProjectsPage() {
         ? recycleBinProduct.tags.join(", ")
         : (recycleBinProduct.tags || ""),
       artistName: recycleBinProduct.artistName || "",
+      weight: "",
     });
     setShowEditModal(true);
   };
@@ -783,6 +792,9 @@ function ProjectsPage() {
       form.append("tags", editFormData.tags);
       if (editFormData.artistName) {
         form.append("artistName", editFormData.artistName.trim());
+      }
+      if (editFormData.weight) {
+        form.append("weight", editFormData.weight);
       }
 
       // ── RESTORE MODE: restore the deleted product first, then apply edits ──
@@ -1639,27 +1651,22 @@ function ProjectsPage() {
             )}
 
             {/* Edit Product Modal */}
-            {showEditModal && (() => {
+            {(() => {
               const editingProduct = products.find(p => p.id === editProductId);
               const isResubmit = editingProduct?.status === 'REJECTED';
               const isInactive = editingProduct?.status === 'INACTIVE';
               const isActive = editingProduct?.status === 'ACTIVE';
               return (
-              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
-                  <CardHeader className="border-b sticky top-0 bg-background z-10">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-xl font-bold">
-                        {isRestoringMode ? 'Edit & Restore Product' : isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
-                      </CardTitle>
-                      <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
-                    </div>
+              <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); } }}>
+                <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+                  <SheetHeader className="px-6 py-4 border-b shrink-0">
+                    <SheetTitle className="text-xl font-bold">
+                      {isRestoringMode ? 'Edit & Restore Product' : isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
+                    </SheetTitle>
                     {isRestoringMode ? (
                       <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs bg-green-50 border border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300">
                         <RotateCcw className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                        <span>
-                          Review the product details below and make any edits needed before restoring. Once confirmed, the product will be submitted for admin review and go live once approved.
-                        </span>
+                        <span>Review the product details below and make any edits needed before restoring. Once confirmed, the product will be submitted for admin review and go live once approved.</span>
                       </div>
                     ) : (isResubmit || isActive || isInactive) && (
                       <div className={`flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs ${
@@ -1677,8 +1684,8 @@ function ProjectsPage() {
                         </span>
                       </div>
                     )}
-                  </CardHeader>
-                  <CardContent className="space-y-6 p-6">
+                  </SheetHeader>
+                  <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2 col-span-1 md:col-span-2">
                         <Label htmlFor="edit-title" className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
@@ -1706,6 +1713,11 @@ function ProjectsPage() {
                       <div className="space-y-2">
                         <Label htmlFor="edit-stock" className="text-sm font-semibold">Stock Quantity <span className="text-red-500">*</span></Label>
                         <Input id="edit-stock" type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="focus:ring-primary h-10" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-weight" className="text-sm font-semibold">Weight (kg)</Label>
+                        <Input id="edit-weight" type="number" placeholder="1" min="0" step="0.01" value={editFormData.weight} onChange={(e) => setEditFormData({ ...editFormData, weight: e.target.value })} className="focus:ring-primary h-10" />
                       </div>
 
                       <div className="space-y-2 relative" ref={editCatDropdownRef}>
@@ -1941,32 +1953,24 @@ function ProjectsPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-4 pt-4 sticky bottom-0 bg-background/80 backdrop-blur-sm mt-4 border-t py-4">
-                      <Button className="flex-1 h-11 text-base font-semibold shadow-lg shadow-primary/20" onClick={handleEditProduct} disabled={editSubmitting}>
-                        {editSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : isRestoringMode ? "Save & Restore" : "Save Changes"}
-                      </Button>
-                      <Button variant="outline" className="h-11 px-8" onClick={() => {
-                          editGalleryAccumRef.current = []; // reset on cancel
-                          setShowEditModal(false);
-                          setIsRestoringMode(false);
-                        }} disabled={editSubmitting}>Cancel</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                  </div>
+                  <div className="px-6 py-4 border-t bg-muted/10 shrink-0 flex justify-end gap-3">
+                    <Button variant="outline" className="h-10 px-4" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); }} disabled={editSubmitting}>Cancel</Button>
+                    <Button className="h-10 px-6 font-semibold shadow-md" onClick={handleEditProduct} disabled={editSubmitting}>
+                      {editSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : isRestoringMode ? "Save & Restore" : "Save Changes"}
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
             );
             })()}
       {/* Add Product Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
-            <CardHeader className="border-b sticky top-0 bg-background z-10">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-bold">Add New Product</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => { addGalleryAccumRef.current = []; setShowAddModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6">
+      <Sheet open={showAddModal} onOpenChange={(open) => { if (!open) { addGalleryAccumRef.current = []; setShowAddModal(false); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <SheetHeader className="px-6 py-4 border-b shrink-0">
+            <SheetTitle className="text-xl font-bold">Add New Product</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 col-span-1 md:col-span-2">
                   <Label htmlFor="title" className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
@@ -1994,6 +1998,11 @@ function ProjectsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="stock" className="text-sm font-semibold">Initial Stock <span className="text-red-500">*</span></Label>
                   <Input id="stock" type="number" placeholder="0" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} className="focus:ring-primary h-10" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="weight" className="text-sm font-semibold">Weight (kg)</Label>
+                  <Input id="weight" type="number" placeholder="1" min="0" step="0.01" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: e.target.value })} className="focus:ring-primary h-10" />
                 </div>
 
                 <div className="space-y-2 relative" ref={catDropdownRef}>
@@ -2208,16 +2217,15 @@ function ProjectsPage() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-4 pt-4 sticky bottom-0 bg-background/80 backdrop-blur-sm mt-4 border-t py-4">
-                <Button className="flex-1 h-11 text-base font-semibold shadow-lg shadow-primary/20" onClick={handleAddProduct} disabled={submitting}>
-                  {submitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <> <Plus className="w-5 h-5 mr-2" /> Publish Product</>}
-                </Button>
-                <Button variant="outline" className="h-11 px-8" onClick={() => { addGalleryAccumRef.current = []; setShowAddModal(false); }} disabled={submitting}>Cancel</Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+          </div>
+          <div className="px-6 py-4 border-t bg-muted/10 shrink-0 flex justify-end gap-3">
+            <Button variant="outline" className="h-10 px-4" onClick={() => { addGalleryAccumRef.current = []; setShowAddModal(false); }} disabled={submitting}>Cancel</Button>
+            <Button className="h-10 px-6 font-semibold shadow-md" onClick={handleAddProduct} disabled={submitting}>
+              {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Publishing...</> : <><Plus className="w-4 h-4 mr-2" />Publish Product</>}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* View Deleted Product Dialog */}
       <Dialog open={!!viewBinProduct} onOpenChange={(open) => { if (!open) setViewBinProduct(null); }}>

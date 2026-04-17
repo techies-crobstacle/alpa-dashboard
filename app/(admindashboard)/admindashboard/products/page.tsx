@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ProductAuditHistory } from "@/components/shared/product-audit-history";
 
 type Seller = {
@@ -48,6 +49,7 @@ type Product = {
   seller_id?: string;
   sellerId?: string;
   userId?: string;
+  weight?: number | string;
   seller?: { id: string; name: string; email: string; storeName?: string; businessName?: string };
 };
 
@@ -184,6 +186,7 @@ export default function AdminProductsPage() {
     oldGalleryImages: [] as string[],
     tags: "",
     artistName: "",
+    weight: "",
     featured: false,
   });
 
@@ -444,6 +447,7 @@ export default function AdminProductsPage() {
         oldGalleryImages: resolvedGallery, // ← correctly populated now
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : prod.tags || "",
         artistName: prod.artistName || "",
+        weight: prod.weight?.toString() || "",
         featured: prod.featured ?? false,
       });
       setEditProductStatus(prod.status || "");
@@ -472,6 +476,7 @@ export default function AdminProductsPage() {
       form.append("tags", editFormData.tags);
       form.append("featured", String(editFormData.featured));
       if (editFormData.artistName) form.append("artistName", editFormData.artistName.trim());
+      if (editFormData.weight) form.append("weight", editFormData.weight);
 
       // Featured image: prefer new file from ref, fall back to old URL
       const featuredFile = editFeaturedImageRef.current?.files?.[0] ?? null;
@@ -1346,17 +1351,13 @@ export default function AdminProductsPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative">
-            <CardHeader className="border-b sticky top-0 bg-background z-10">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-bold">Edit Product</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} className="h-8 w-8 p-0 rounded-full hover:bg-muted"><X className="h-4 w-4" /></Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6">
+      {/* Edit Drawer */}
+      <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) { editGalleryAccumRef.current = []; setShowEditModal(false); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+          <SheetHeader className="px-6 py-4 border-b shrink-0">
+            <SheetTitle className="text-xl font-bold">Edit Product</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 col-span-2">
                   <Label className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
@@ -1380,6 +1381,11 @@ export default function AdminProductsPage() {
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Stock Quantity <span className="text-red-500">*</span></Label>
                   <Input type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="h-10" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">Weight (kg)</Label>
+                  <Input type="number" placeholder="1" min="0" step="0.01" value={editFormData.weight} onChange={(e) => setEditFormData({ ...editFormData, weight: e.target.value })} className="h-10" />
                 </div>
 
                 {/* Category */}
@@ -1518,7 +1524,7 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
 
-                {/* Gallery Images — FIX: accumulator ref prevents replace-on-reselect */}
+                {/* Gallery Images */}
                 <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20 col-span-2">
                   <div className="flex items-center justify-between mb-1">
                     <Label className="text-sm font-semibold">Gallery Images</Label>
@@ -1534,40 +1540,26 @@ export default function AdminProductsPage() {
                     onChange={(e) => {
                       if (e.target.files && e.target.files.length > 0) {
                         const newFiles = Array.from(e.target.files);
-                        // Accumulate into the ref — never overwrites previous picks
                         editGalleryAccumRef.current = [...editGalleryAccumRef.current, ...newFiles];
-                        // Sync state for preview rendering
-                        setEditFormData((prev) => ({
-                          ...prev,
-                          galleryImages: [...editGalleryAccumRef.current],
-                        }));
-                        // Clear native input so same file can be re-added if needed
+                        setEditFormData((prev) => ({ ...prev, galleryImages: [...editGalleryAccumRef.current] }));
                         e.target.value = "";
                       }
                     }}
                     className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
                   />
                   <div className="flex gap-3 flex-wrap pt-2">
-                    {/* Existing gallery images from server */}
                     {editFormData.oldGalleryImages.map((img, idx) => (
                       <div key={`old-${idx}`} className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
                         <NextImage src={img} alt={`Gallery ${idx}`} fill className="object-cover" />
                         <button
                           type="button"
-                          onClick={() =>
-                            setEditFormData((prev) => ({
-                              ...prev,
-                              oldGalleryImages: prev.oldGalleryImages.filter((_, i) => i !== idx),
-                            }))
-                          }
+                          onClick={() => setEditFormData((prev) => ({ ...prev, oldGalleryImages: prev.oldGalleryImages.filter((_, i) => i !== idx) }))}
                           className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <X className="h-3 w-3" />
                         </button>
                       </div>
                     ))}
-
-                    {/* Newly picked gallery images */}
                     {editFormData.galleryImages.map((file, idx) => (
                       <div key={`new-${idx}`} className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
                         <NextImage src={URL.createObjectURL(file)} alt={`New ${idx}`} fill className="object-cover" />
@@ -1575,7 +1567,7 @@ export default function AdminProductsPage() {
                           type="button"
                           onClick={() => {
                             const updated = editFormData.galleryImages.filter((_, i) => i !== idx);
-                            editGalleryAccumRef.current = updated; // keep ref in sync
+                            editGalleryAccumRef.current = updated;
                             setEditFormData((prev) => ({ ...prev, galleryImages: updated }));
                           }}
                           className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1585,7 +1577,6 @@ export default function AdminProductsPage() {
                         <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
                       </div>
                     ))}
-
                     {editFormData.oldGalleryImages.length === 0 && editFormData.galleryImages.length === 0 && (
                       <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
                         <Package className="h-6 w-6 mb-1 opacity-20" />
@@ -1595,16 +1586,15 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
               </div>
-            </CardContent>
-            <div className="p-6 border-t bg-muted/10 sticky bottom-0 z-10 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} disabled={editSubmitting} className="h-10 px-4">Cancel</Button>
-              <Button onClick={handleEditProduct} disabled={editSubmitting} className="h-10 px-6 font-semibold shadow-md">
-                {editSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Changes"}
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
+          </div>
+          <div className="px-6 py-4 border-t bg-muted/10 shrink-0 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} disabled={editSubmitting} className="h-10 px-4">Cancel</Button>
+            <Button onClick={handleEditProduct} disabled={editSubmitting} className="h-10 px-6 font-semibold shadow-md">
+              {editSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* View Deleted Product Dialog */}
       <Dialog open={!!viewBinProduct} onOpenChange={(open) => { if (!open) setViewBinProduct(null); }}>
