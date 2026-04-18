@@ -414,7 +414,7 @@ const AnalyticsPage = () => {
 				chartTotalRevenue: `$${chartTotalRevenue.toFixed(2)}`,
 				difference: `$${difference.toFixed(2)}`
 			});
-			toast.error(`Data mismatch: Analytics shows $${analyticsRevenue.toFixed(2)} but chart totals $${chartTotalRevenue.toFixed(2)}`);
+			// Removed the toast.error to prevent annoying the user with backend data mismatch details
 		} else {
 			console.log(`✅ Data consistency validated: $${analyticsRevenue.toFixed(2)}`);
 		}
