@@ -826,5 +826,5 @@ const AnalyticsPage = () => {
 		</div>
 	);
 };
-// analytics
+// analytics page
 export default AnalyticsPage;
