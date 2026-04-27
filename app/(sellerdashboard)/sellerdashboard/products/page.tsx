@@ -273,12 +273,14 @@ function ProjectsPage() {
   // ── New attribute-first variant builder state ──────────────────────────────
   // selectedAttrValues: { [attrName]: Set of selected values }
   const [selectedAttrValues, setSelectedAttrValues] = useState<Record<string, string[]>>({});
+  const [customNumericAdd, setCustomNumericAdd] = useState<Record<string, string>>({});
   const [bulkPrice, setBulkPrice] = useState("");
   const [bulkStock, setBulkStock] = useState("");
 
   // ── Edit modal variant state ───────────────────────────────────────────────
   const [editVariants, setEditVariants] = useState<Array<{id?: string; price: string; stock: string; sku: string; attributes: Record<string, string>}>>([]);
   const [editSelectedAttrValues, setEditSelectedAttrValues] = useState<Record<string, string[]>>({});
+  const [customNumericEdit, setCustomNumericEdit] = useState<Record<string, string>>({});
   const [editBulkPrice, setEditBulkPrice] = useState("");
   const [editBulkStock, setEditBulkStock] = useState("");
   const [loading, setLoading] = useState(true);
@@ -753,13 +755,25 @@ function ProjectsPage() {
       });
       // Load existing variants
       if (prod.type === "VARIABLE" && Array.isArray(prod.variants) && prod.variants.length > 0) {
-        const loadedVariants = prod.variants.map((v: any) => ({
-          id: v.id,
-          price: v.price?.toString() || "",
-          stock: v.stock?.toString() || "",
-          sku: v.sku || "",
-          attributes: v.attributes || {},
-        }));
+        const loadedVariants = prod.variants.map((v: any) => {
+          // Backend returns attributes as either plain strings OR objects { value, displayValue, hexColor, valueType }
+          // Normalise to plain { attrName: "value" } so the generate/save logic works correctly
+          const flatAttrs: Record<string, string> = {};
+          Object.entries(v.attributes || {}).forEach(([k, val]: [string, any]) => {
+            if (val && typeof val === "object") {
+              flatAttrs[k] = String(val.value ?? val.displayValue ?? "");
+            } else {
+              flatAttrs[k] = String(val ?? "");
+            }
+          });
+          return {
+            id: v.id,
+            price: v.price?.toString() || "",
+            stock: v.stock?.toString() || "",
+            sku: v.sku || "",
+            attributes: flatAttrs,
+          };
+        });
         setEditVariants(loadedVariants);
         // Pre-populate selectedAttrValues from existing variants
         const attrMap: Record<string, string[]> = {};
@@ -1973,10 +1987,24 @@ function ProjectsPage() {
                             <div className="p-4 space-y-4">
                               {availableAttributes.map((attr) => {
                                 const selected = editSelectedAttrValues[attr.name] ?? [];
+                                const isNumberType = attr.valueType?.toLowerCase() === "number";
+                                const sortedValues = isNumberType
+                                  ? [...(attr.values ?? [])].sort((a: any, b: any) => Number(a?.value ?? 0) - Number(b?.value ?? 0))
+                                  : (attr.values ?? []);
                                 return (
                                   <div key={attr.id} className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                      <Label className="text-xs font-semibold text-foreground">{attr.name}</Label>
+                                      <div className="flex items-center gap-2">
+                                        <Label className="text-xs font-semibold text-foreground">{attr.displayName || attr.name}</Label>
+                                        <span className={cn(
+                                          "text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border",
+                                          isNumberType
+                                            ? "text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
+                                            : "text-muted-foreground bg-muted/50 border-border"
+                                        )}>
+                                          {isNumberType ? "number" : "text"}
+                                        </span>
+                                      </div>
                                       {selected.length > 0 && (
                                         <button
                                           type="button"
@@ -1988,7 +2016,7 @@ function ProjectsPage() {
                                       )}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                      {attr.values?.map((v: any, vi: number) => {
+                                      {sortedValues.map((v: any, vi: number) => {
                                         const rawVal = v?.value;
                                         const strValue: string = rawVal && typeof rawVal === "object"
                                           ? String(rawVal.value ?? rawVal.displayValue ?? "")
@@ -2019,7 +2047,8 @@ function ProjectsPage() {
                                               });
                                             }}
                                             className={cn(
-                                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all select-none",
+                                              "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border transition-all select-none",
+                                              isNumberType ? "rounded font-mono" : "rounded-full",
                                               isSelected
                                                 ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
                                                 : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
@@ -2036,7 +2065,76 @@ function ProjectsPage() {
                                           </button>
                                         );
                                       })}
+                                      {/* Custom selected values (typed in by user) */}
+                                      {selected.filter(sv => !sortedValues.some((v: any) => {
+                                        const raw = v?.value;
+                                        return String(raw && typeof raw === "object" ? (raw.value ?? raw.displayValue ?? "") : raw ?? "") === sv;
+                                      })).map(customVal => (
+                                        <button
+                                          key={`custom-${customVal}`}
+                                          type="button"
+                                          onClick={() => setEditSelectedAttrValues(prev => {
+                                            const cur = prev[attr.name] ?? [];
+                                            const next = cur.filter(x => x !== customVal);
+                                            if (next.length === 0) { const n = { ...prev }; delete n[attr.name]; return n; }
+                                            return { ...prev, [attr.name]: next };
+                                          })}
+                                          className={cn(
+                                            "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20 select-none",
+                                            isNumberType ? "rounded font-mono" : "rounded-full"
+                                          )}
+                                        >
+                                          {customVal}
+                                          <X className="h-3 w-3 flex-shrink-0" />
+                                        </button>
+                                      ))}
                                     </div>
+                                    {attr.name !== "color" && attr.name !== "material" && (
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Input
+                                        type="text"
+                                        placeholder={isNumberType ? "e.g. 6, 7, 8, 9, 10 (comma separated)" : "e.g. S, M, L, XL, XXL (comma separated)"}
+                                        className={cn("h-7 w-56 text-xs", isNumberType && "font-mono")}
+                                        value={customNumericEdit[attr.name] ?? ""}
+                                        onChange={e => setCustomNumericEdit(prev => ({ ...prev, [attr.name]: e.target.value }))}
+                                        onKeyDown={e => {
+                                          if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            const raw = (customNumericEdit[attr.name] ?? "").trim();
+                                            if (!raw) return;
+                                            const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                            if (!vals.length) return;
+                                            setEditSelectedAttrValues(prev => {
+                                              const cur = prev[attr.name] ?? [];
+                                              const added = vals.filter(v => !cur.includes(v));
+                                              return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                            });
+                                            setCustomNumericEdit(prev => ({ ...prev, [attr.name]: "" }));
+                                          }
+                                        }}
+                                      />
+                                      <button
+                                        type="button"
+                                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded border border-border bg-background text-xs font-medium hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-40"
+                                        disabled={!(customNumericEdit[attr.name] ?? "").trim()}
+                                        onClick={() => {
+                                          const raw = (customNumericEdit[attr.name] ?? "").trim();
+                                          if (!raw) return;
+                                          const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                          if (!vals.length) return;
+                                          setEditSelectedAttrValues(prev => {
+                                            const cur = prev[attr.name] ?? [];
+                                            const added = vals.filter(v => !cur.includes(v));
+                                            return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                          });
+                                          setCustomNumericEdit(prev => ({ ...prev, [attr.name]: "" }));
+                                        }}
+                                      >
+                                        <Plus className="h-3 w-3" /> Add
+                                      </button>
+                                      <span className="text-[10px] text-muted-foreground">or press Enter</span>
+                                    </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -2596,10 +2694,24 @@ function ProjectsPage() {
                       <div className="p-4 space-y-4">
                         {availableAttributes.map((attr) => {
                           const selected = selectedAttrValues[attr.name] ?? [];
+                          const isNumberType = attr.valueType?.toLowerCase() === "number";
+                          const sortedValues = isNumberType
+                            ? [...(attr.values ?? [])].sort((a: any, b: any) => Number(a?.value ?? 0) - Number(b?.value ?? 0))
+                            : (attr.values ?? []);
                           return (
                             <div key={attr.id} className="space-y-2">
                               <div className="flex items-center justify-between">
-                                <Label className="text-xs font-semibold text-foreground">{attr.name}</Label>
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs font-semibold text-foreground">{attr.displayName || attr.name}</Label>
+                                  <span className={cn(
+                                    "text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border",
+                                    isNumberType
+                                      ? "text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
+                                      : "text-muted-foreground bg-muted/50 border-border"
+                                  )}>
+                                    {isNumberType ? "number" : "text"}
+                                  </span>
+                                </div>
                                 {selected.length > 0 && (
                                   <button
                                     type="button"
@@ -2611,8 +2723,7 @@ function ProjectsPage() {
                                 )}
                               </div>
                               <div className="flex flex-wrap gap-2">
-                                {attr.values?.map((v: any, vi: number) => {
-                                  // Normalize: v.value may be a string OR nested object {value, displayValue, hexColor}
+                                {sortedValues.map((v: any, vi: number) => {
                                   const rawVal = v?.value;
                                   const strValue: string = rawVal && typeof rawVal === "object"
                                     ? String(rawVal.value ?? rawVal.displayValue ?? "")
@@ -2643,7 +2754,8 @@ function ProjectsPage() {
                                         });
                                       }}
                                       className={cn(
-                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all select-none",
+                                        "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border transition-all select-none",
+                                        isNumberType ? "rounded font-mono" : "rounded-full",
                                         isSelected
                                           ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
                                           : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
@@ -2660,7 +2772,76 @@ function ProjectsPage() {
                                     </button>
                                   );
                                 })}
+                                {/* Custom selected values (typed in by user) */}
+                                {selected.filter(sv => !sortedValues.some((v: any) => {
+                                  const raw = v?.value;
+                                  return String(raw && typeof raw === "object" ? (raw.value ?? raw.displayValue ?? "") : raw ?? "") === sv;
+                                })).map(customVal => (
+                                  <button
+                                    key={`custom-${customVal}`}
+                                    type="button"
+                                    onClick={() => setSelectedAttrValues(prev => {
+                                      const cur = prev[attr.name] ?? [];
+                                      const next = cur.filter(x => x !== customVal);
+                                      if (next.length === 0) { const n = { ...prev }; delete n[attr.name]; return n; }
+                                      return { ...prev, [attr.name]: next };
+                                    })}
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20 select-none",
+                                      isNumberType ? "rounded font-mono" : "rounded-full"
+                                    )}
+                                  >
+                                    {customVal}
+                                    <X className="h-3 w-3 flex-shrink-0" />
+                                  </button>
+                                ))}
                               </div>
+                              {attr.name !== "color" && attr.name !== "material" && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <Input
+                                  type="text"
+                                  placeholder={isNumberType ? "e.g. 6, 7, 8, 9, 10 (comma separated)" : "e.g. S, M, L, XL, XXL (comma separated)"}
+                                  className={cn("h-7 w-56 text-xs", isNumberType && "font-mono")}
+                                  value={customNumericAdd[attr.name] ?? ""}
+                                  onChange={e => setCustomNumericAdd(prev => ({ ...prev, [attr.name]: e.target.value }))}
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      const raw = (customNumericAdd[attr.name] ?? "").trim();
+                                      if (!raw) return;
+                                      const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                      if (!vals.length) return;
+                                      setSelectedAttrValues(prev => {
+                                        const cur = prev[attr.name] ?? [];
+                                        const added = vals.filter(v => !cur.includes(v));
+                                        return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                      });
+                                      setCustomNumericAdd(prev => ({ ...prev, [attr.name]: "" }));
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded border border-border bg-background text-xs font-medium hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-40"
+                                  disabled={!(customNumericAdd[attr.name] ?? "").trim()}
+                                  onClick={() => {
+                                    const raw = (customNumericAdd[attr.name] ?? "").trim();
+                                    if (!raw) return;
+                                    const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                    if (!vals.length) return;
+                                    setSelectedAttrValues(prev => {
+                                      const cur = prev[attr.name] ?? [];
+                                      const added = vals.filter(v => !cur.includes(v));
+                                      return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                    });
+                                    setCustomNumericAdd(prev => ({ ...prev, [attr.name]: "" }));
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3" /> Add
+                                </button>
+                                <span className="text-[10px] text-muted-foreground">or press Enter</span>
+                              </div>
+                              )}
                             </div>
                           );
                         })}

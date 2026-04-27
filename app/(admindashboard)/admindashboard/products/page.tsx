@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Package, DollarSign, Edit, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle, AlertCircle, Trash2, RotateCcw, Layers, RefreshCcw } from "lucide-react";
+import { Package, DollarSign, Edit, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle, AlertCircle, Trash2, RotateCcw, Layers, RefreshCcw, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,8 @@ type Product = {
   userId?: string;
   weight?: number | string;
   seller?: { id: string; name: string; email: string; storeName?: string; businessName?: string };
+  type?: "SIMPLE" | "VARIABLE";
+  variants?: Array<{ price?: number | string; stock?: number | string; sku?: string }>;
 };
 
 type TabCounts = { all: number; pending: number; approved: number; rejected: number; inactive: number };
@@ -64,6 +66,22 @@ function StatusBadge({ status }: { status: string }) {
     case "INACTIVE": return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inactive</span>;
     default:         return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">{status}</span>;
   }
+}
+
+// ─── Price display helper ─────────────────────────────────────────────────────
+type PriceDisplayable = { price?: number | string | null; type?: string; variants?: Array<{ price?: number | string }> };
+function formatPrice(product: PriceDisplayable): string {
+  if (product.type === "VARIABLE" && Array.isArray(product.variants) && product.variants.length > 0) {
+    const prices = product.variants
+      .map(v => Number(v.price))
+      .filter(p => !isNaN(p) && p > 0);
+    if (prices.length === 0) return "—";
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max ? `$${min.toFixed(2)}` : `$${min.toFixed(2)} – $${max.toFixed(2)}`;
+  }
+  const p = Number(product.price);
+  return isNaN(p) || p === 0 ? "—" : `$${p.toFixed(2)}`;
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -194,9 +212,40 @@ export default function AdminProductsPage() {
   // ── Variant state for edit modal ───────────────────────────────────────────
   const [editVariants, setEditVariants] = useState<Array<{id?: string; price: string; stock: string; sku: string; attributes: Record<string, string>}>>([]);
   const [editSelectedAttrValues, setEditSelectedAttrValues] = useState<Record<string, string[]>>({});
+  const [customNumericEdit, setCustomNumericEdit] = useState<Record<string, string>>({});
   const [editBulkPrice, setEditBulkPrice] = useState("");
   const [editBulkStock, setEditBulkStock] = useState("");
   const [availableAttributes, setAvailableAttributes] = useState<any[]>([]);
+
+  // ── Create-attribute inline form ───────────────────────────────────────────
+  const [showCreateAttr, setShowCreateAttr] = useState(false);
+  const [newAttrName, setNewAttrName] = useState("");
+  const [newAttrDisplayName, setNewAttrDisplayName] = useState("");
+  const [newAttrValueType, setNewAttrValueType] = useState<"text" | "number">("text");
+  const [newAttrValuesInput, setNewAttrValuesInput] = useState("");
+  const [isCreatingAttr, setIsCreatingAttr] = useState(false);
+
+  async function handleCreateAttribute() {
+    const name = newAttrName.trim();
+    const displayName = newAttrDisplayName.trim() || name;
+    if (!name) { toast.error("Attribute name is required"); return; }
+    const rawValues = newAttrValuesInput.split(",").map(v => v.trim()).filter(Boolean);
+    if (rawValues.length === 0) { toast.error("Add at least one value"); return; }
+    const values = rawValues.map(v => ({ value: v, displayValue: v }));
+    setIsCreatingAttr(true);
+    try {
+      const res = await api.post("/api/attributes", { name, displayName, valueType: newAttrValueType, values });
+      if (!res?.id && !res?.attribute?.id) throw new Error(res?.message || "Failed to create attribute");
+      toast.success(`Attribute "${displayName}" created`);
+      await loadAttributes();
+      setShowCreateAttr(false);
+      setNewAttrName(""); setNewAttrDisplayName(""); setNewAttrValueType("text"); setNewAttrValuesInput("");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to create attribute");
+    } finally {
+      setIsCreatingAttr(false);
+    }
+  }
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
@@ -255,7 +304,8 @@ export default function AdminProductsPage() {
   const loadAttributes = async () => {
     try {
       const res = await api.get("/api/attributes");
-      setAvailableAttributes(res?.attributes || []);
+      const attrs = res?.attributes || [];
+      setAvailableAttributes(attrs);
     } catch (e) {
       console.error("Error fetching attributes:", e);
     }
@@ -465,13 +515,25 @@ export default function AdminProductsPage() {
 
       // Load variants for VARIABLE products
       if (prod.type === "VARIABLE" && Array.isArray(prod.variants) && prod.variants.length > 0) {
-        const loadedVariants = prod.variants.map((v: any) => ({
-          id: v.id,
-          price: v.price?.toString() || "",
-          stock: v.stock?.toString() || "",
-          sku: v.sku || "",
-          attributes: v.attributes || {},
-        }));
+        const loadedVariants = prod.variants.map((v: any) => {
+          // Backend returns attributes as either plain strings OR objects { value, displayValue, hexColor, valueType }
+          // Normalise to plain { attrName: "value" } so the generate/save logic works correctly
+          const flatAttrs: Record<string, string> = {};
+          Object.entries(v.attributes || {}).forEach(([k, val]: [string, any]) => {
+            if (val && typeof val === "object") {
+              flatAttrs[k] = String(val.value ?? val.displayValue ?? "");
+            } else {
+              flatAttrs[k] = String(val ?? "");
+            }
+          });
+          return {
+            id: v.id,
+            price: v.price?.toString() || "",
+            stock: v.stock?.toString() || "",
+            sku: v.sku || "",
+            attributes: flatAttrs,
+          };
+        });
         setEditVariants(loadedVariants);
         const attrMap: Record<string, string[]> = {};
         loadedVariants.forEach((v: any) => {
@@ -983,7 +1045,7 @@ export default function AdminProductsPage() {
                           <p className="text-sm font-medium">{product.sellerName}</p>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </td>
-                      <td className="px-4 py-2 text-sm font-semibold">${product.price}</td>
+                      <td className="px-4 py-2 text-sm font-semibold">{formatPrice(product)}</td>
                       <td className="px-4 py-2 text-sm">{product.stock}</td>
                       <td className="px-4 py-2 text-sm text-muted-foreground whitespace-nowrap">
                         {new Date(product.deletedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
@@ -1057,7 +1119,12 @@ export default function AdminProductsPage() {
             <CardTitle className="text-sm font-medium">Estimated Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">${currentProducts.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0).toLocaleString()}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold">${currentProducts.reduce((s, p) => {
+            const price = p.type === "VARIABLE" && Array.isArray(p.variants) && p.variants.length > 0
+              ? Math.min(...p.variants.map(v => Number(v.price)).filter(n => !isNaN(n) && n > 0))
+              : Number(p.price);
+            return s + (isFinite(price) ? price : 0) * (Number((p as any).sales) || 0);
+          }, 0).toLocaleString()}</div></CardContent>
         </Card>
       </div>
 
@@ -1148,7 +1215,7 @@ export default function AdminProductsPage() {
                       )}
                     </td>
                     <td className="px-4 py-2">{product.category}</td>
-                    <td className="px-4 py-2 text-primary font-bold">${product.price}</td>
+                    <td className="px-4 py-2 text-primary font-bold">{formatPrice(product)}</td>
                     <td className="px-4 py-2">{product.stock}</td>
                     <td className="px-4 py-2">
                       <StatusBadge status={product.status} />
@@ -1537,16 +1604,131 @@ export default function AdminProductsPage() {
 
                 {availableAttributes.length > 0 ? (
                   <div className="rounded-xl border bg-muted/10 divide-y overflow-hidden">
-                    <div className="px-4 py-2.5 bg-muted/30">
+                    <div className="px-4 py-2.5 bg-muted/30 flex items-center justify-between">
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 1 — Select Attribute Values</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateAttr(v => !v)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                      >
+                        <Plus className="h-3 w-3" />
+                        New Attribute
+                      </button>
                     </div>
+                    {showCreateAttr && (
+                      <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 border-b space-y-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Create New Attribute</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Name <span className="text-red-500">*</span></Label>
+                            <Input
+                              placeholder="e.g. shoe_size"
+                              className="h-8 text-xs"
+                              value={newAttrName}
+                              onChange={e => setNewAttrName(e.target.value)}
+                            />
+                            <p className="text-[10px] text-muted-foreground">Lowercase, no spaces (used as key)</p>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Display Name</Label>
+                            <Input
+                              placeholder="e.g. Shoe Size"
+                              className="h-8 text-xs"
+                              value={newAttrDisplayName}
+                              onChange={e => setNewAttrDisplayName(e.target.value)}
+                            />
+                            <p className="text-[10px] text-muted-foreground">Label shown to customers</p>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Value Type <span className="text-red-500">*</span></Label>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setNewAttrValueType("text")}
+                              className={cn(
+                                "flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition-all",
+                                newAttrValueType === "text"
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background border-border hover:border-primary/50"
+                              )}
+                            >
+                              Text
+                              <span className="block text-[10px] font-normal opacity-70 mt-0.5">S, M, L, XL</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setNewAttrValueType("number")}
+                              className={cn(
+                                "flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition-all",
+                                newAttrValueType === "number"
+                                  ? "bg-primary text-primary-foreground border-primary"
+                                  : "bg-background border-border hover:border-primary/50"
+                              )}
+                            >
+                              Number
+                              <span className="block text-[10px] font-normal opacity-70 mt-0.5">6, 7, 8, 9, 10</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Values <span className="text-red-500">*</span></Label>
+                          <Input
+                            placeholder={newAttrValueType === "number" ? "6, 7, 8, 9, 10, 11" : "XS, S, M, L, XL"}
+                            className="h-8 text-xs"
+                            value={newAttrValuesInput}
+                            onChange={e => setNewAttrValuesInput(e.target.value)}
+                          />
+                          <p className="text-[10px] text-muted-foreground">Comma-separated list of values</p>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => { setShowCreateAttr(false); setNewAttrName(""); setNewAttrDisplayName(""); setNewAttrValueType("text"); setNewAttrValuesInput(""); }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            disabled={isCreatingAttr}
+                            onClick={handleCreateAttribute}
+                          >
+                            {isCreatingAttr ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                            Create Attribute
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <div className="p-4 space-y-4">
                       {availableAttributes.map((attr) => {
                         const selected = editSelectedAttrValues[attr.name] ?? [];
+                        const isNumberType = attr.valueType?.toLowerCase() === "number";
+                        const sortedValues = isNumberType
+                          ? [...(attr.values ?? [])].sort((a: any, b: any) => {
+                              const aVal = Number(a?.value ?? 0);
+                              const bVal = Number(b?.value ?? 0);
+                              return aVal - bVal;
+                            })
+                          : (attr.values ?? []);
                         return (
                           <div key={attr.id} className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <Label className="text-xs font-semibold text-foreground">{attr.name}</Label>
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs font-semibold text-foreground">{attr.displayName || attr.name}</Label>
+                                <span className={cn(
+                                  "text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border",
+                                  isNumberType
+                                    ? "text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
+                                    : "text-muted-foreground bg-muted/50 border-border"
+                                )}>
+                                  {isNumberType ? "number" : "text"}
+                                </span>
+                              </div>
                               {selected.length > 0 && (
                                 <button type="button" className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
                                   onClick={() => setEditSelectedAttrValues(prev => { const n = { ...prev }; delete n[attr.name]; return n; })}>
@@ -1555,7 +1737,7 @@ export default function AdminProductsPage() {
                               )}
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              {attr.values?.map((v: any, vi: number) => {
+                              {sortedValues.map((v: any, vi: number) => {
                                 const rawVal = v?.value;
                                 const strValue: string = rawVal && typeof rawVal === "object"
                                   ? String(rawVal.value ?? rawVal.displayValue ?? "")
@@ -1580,7 +1762,8 @@ export default function AdminProductsPage() {
                                       });
                                     }}
                                     className={cn(
-                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all select-none",
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border transition-all select-none",
+                                      isNumberType ? "rounded font-mono" : "rounded-full",
                                       isSelected
                                         ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
                                         : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
@@ -1592,17 +1775,138 @@ export default function AdminProductsPage() {
                                   </button>
                                 );
                               })}
+                              {/* Custom selected values (typed in by user) */}
+                              {selected.filter(sv => !sortedValues.some((v: any) => {
+                                const raw = v?.value;
+                                return String(raw && typeof raw === "object" ? (raw.value ?? raw.displayValue ?? "") : raw ?? "") === sv;
+                              })).map(customVal => (
+                                <button
+                                  key={`custom-${customVal}`}
+                                  type="button"
+                                  onClick={() => setEditSelectedAttrValues(prev => {
+                                    const cur = prev[attr.name] ?? [];
+                                    const next = cur.filter(x => x !== customVal);
+                                    if (next.length === 0) { const n = { ...prev }; delete n[attr.name]; return n; }
+                                    return { ...prev, [attr.name]: next };
+                                  })}
+                                  className={cn(
+                                    "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20 select-none",
+                                    isNumberType ? "rounded font-mono" : "rounded-full"
+                                  )}
+                                >
+                                  {customVal}
+                                  <X className="h-3 w-3 flex-shrink-0" />
+                                </button>
+                              ))}
                             </div>
+                            {attr.name !== "color" && attr.name !== "material" && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Input
+                                type="text"
+                                placeholder={isNumberType ? "e.g. 6, 7, 8, 9, 10 (comma separated)" : "e.g. S, M, L, XL, XXL (comma separated)"}
+                                className={cn("h-7 w-56 text-xs", isNumberType && "font-mono")}
+                                value={customNumericEdit[attr.name] ?? ""}
+                                onChange={e => setCustomNumericEdit(prev => ({ ...prev, [attr.name]: e.target.value }))}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    const raw = (customNumericEdit[attr.name] ?? "").trim();
+                                    if (!raw) return;
+                                    const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                    if (!vals.length) return;
+                                    setEditSelectedAttrValues(prev => {
+                                      const cur = prev[attr.name] ?? [];
+                                      const added = vals.filter(v => !cur.includes(v));
+                                      return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                    });
+                                    setCustomNumericEdit(prev => ({ ...prev, [attr.name]: "" }));
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 h-7 px-2.5 rounded border border-border bg-background text-xs font-medium hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-40"
+                                disabled={!(customNumericEdit[attr.name] ?? "").trim()}
+                                onClick={() => {
+                                  const raw = (customNumericEdit[attr.name] ?? "").trim();
+                                  if (!raw) return;
+                                  const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                  if (!vals.length) return;
+                                  setEditSelectedAttrValues(prev => {
+                                    const cur = prev[attr.name] ?? [];
+                                    const added = vals.filter(v => !cur.includes(v));
+                                    return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                  });
+                                  setCustomNumericEdit(prev => ({ ...prev, [attr.name]: "" }));
+                                }}
+                              >
+                                <Plus className="h-3 w-3" /> Add
+                              </button>
+                              <span className="text-[10px] text-muted-foreground">or press Enter</span>
+                            </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-xl border border-dashed p-6 text-center space-y-1">
-                    <Layers className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                    <p className="text-sm font-medium text-muted-foreground">No attributes configured</p>
-                    <p className="text-xs text-muted-foreground/70">Attributes (e.g. Size, Colour) must be set up first.</p>
+                  <div className="rounded-xl border overflow-hidden">
+                    {!showCreateAttr ? (
+                      <div className="border-dashed p-6 text-center space-y-3">
+                        <Layers className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                        <p className="text-sm font-medium text-muted-foreground">No attributes configured</p>
+                        <p className="text-xs text-muted-foreground/70">Create an attribute (e.g. Size, Colour) to enable variants.</p>
+                        <Button type="button" size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => setShowCreateAttr(true)}>
+                          <Plus className="h-3.5 w-3.5" />
+                          Create First Attribute
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-blue-50/50 dark:bg-blue-950/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Create New Attribute</p>
+                          <button type="button" onClick={() => setShowCreateAttr(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Name <span className="text-red-500">*</span></Label>
+                            <Input placeholder="e.g. shoe_size" className="h-8 text-xs" value={newAttrName} onChange={e => setNewAttrName(e.target.value)} />
+                            <p className="text-[10px] text-muted-foreground">Lowercase, no spaces</p>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Display Name</Label>
+                            <Input placeholder="e.g. Shoe Size" className="h-8 text-xs" value={newAttrDisplayName} onChange={e => setNewAttrDisplayName(e.target.value)} />
+                            <p className="text-[10px] text-muted-foreground">Label shown to customers</p>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Value Type <span className="text-red-500">*</span></Label>
+                          <div className="flex gap-2">
+                            <button type="button" onClick={() => setNewAttrValueType("text")} className={cn("flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition-all", newAttrValueType === "text" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50")}>
+                              Text<span className="block text-[10px] font-normal opacity-70 mt-0.5">S, M, L, XL</span>
+                            </button>
+                            <button type="button" onClick={() => setNewAttrValueType("number")} className={cn("flex-1 py-2 px-3 rounded-lg border text-xs font-medium transition-all", newAttrValueType === "number" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50")}>
+                              Number<span className="block text-[10px] font-normal opacity-70 mt-0.5">6, 7, 8, 9, 10</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Values <span className="text-red-500">*</span></Label>
+                          <Input placeholder={newAttrValueType === "number" ? "6, 7, 8, 9, 10, 11" : "XS, S, M, L, XL"} className="h-8 text-xs" value={newAttrValuesInput} onChange={e => setNewAttrValuesInput(e.target.value)} />
+                          <p className="text-[10px] text-muted-foreground">Comma-separated</p>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setShowCreateAttr(false); setNewAttrName(""); setNewAttrDisplayName(""); setNewAttrValueType("text"); setNewAttrValuesInput(""); }}>Cancel</Button>
+                          <Button type="button" size="sm" className="h-7 text-xs gap-1" disabled={isCreatingAttr} onClick={handleCreateAttribute}>
+                            {isCreatingAttr ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                            Create Attribute
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1937,7 +2241,7 @@ export default function AdminProductsPage() {
                   <p className="font-semibold text-base">{viewBinProduct.title}</p>
                   {viewBinProduct.category && <p className="text-muted-foreground">{viewBinProduct.category}</p>}
                   <div className="flex flex-wrap gap-3">
-                    <span><span className="text-muted-foreground">Price:</span> <span className="font-semibold">${viewBinProduct.price}</span></span>
+                    <span><span className="text-muted-foreground">Price:</span> <span className="font-semibold">{formatPrice(viewBinProduct)}</span></span>
                     <span><span className="text-muted-foreground">Stock:</span> <span className="font-semibold">{viewBinProduct.stock}</span></span>
                   </div>
                   {viewBinProduct.seller && (
