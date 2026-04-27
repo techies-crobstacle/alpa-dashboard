@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, AlertCircle, XCircle, Clock, CheckCircle2, RefreshCcw } from "lucide-react";
+import { Plus, Package, DollarSign, Edit, Trash2, Loader2, X, Eye, Search, Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, AlertCircle, XCircle, Clock, CheckCircle2, RefreshCcw, Layers } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { apiClient, api } from "@/lib/api";
@@ -58,7 +58,7 @@ const fetchSellerProfile = async (): Promise<SellerProfile> => {
 const fetchProducts = async () => {
   const token = getAuthToken();
   if (!token) throw new Error("No authentication token found. Please log in.");
-  const response = await fetch(`${BASE_URL}/api/products/my-products`, {
+  const response = await fetch(`${BASE_URL}/api/products/my-products?includeVariants=true`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -141,14 +141,21 @@ const addProduct = async (productData: {
   featuredImage?: File | null;
   galleryImages?: File[];
   artistName?: string;
+  type?: "SIMPLE" | "VARIABLE";
+  variants?: Array<{ price: string; stock: string; sku: string; attributes: Record<string, string> }>;
 }) => {
   const token = getAuthToken();
   if (!token) throw new Error("No authentication token found. Please log in.");
   const form = new FormData();
   form.append("title", productData.title);
   form.append("description", productData.description);
-  form.append("price", productData.price);
-  form.append("stock", productData.stock);
+  form.append("type", productData.type || "SIMPLE");
+  if ((productData.type || "SIMPLE") === "VARIABLE" && productData.variants) {
+    form.append("variants", JSON.stringify(productData.variants));
+  } else {
+    form.append("price", productData.price);
+    form.append("stock", productData.stock);
+  }
   if (productData.weight) form.append("weight", productData.weight);
   form.append("category", productData.category);
 
@@ -259,6 +266,21 @@ function ProjectsPage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
+  const [availableAttributes, setAvailableAttributes] = useState<any[]>([]);
+  const [addVariants, setAddVariants] = useState<Array<{price: string; stock: string; sku: string; attributes: Record<string, string>}>>([]);
+  const [newVariantForm, setNewVariantForm] = useState<{price: string; stock: string; sku: string; attributes: Record<string, string>}>({ price: '', stock: '', sku: '', attributes: {} });
+
+  // ── New attribute-first variant builder state ──────────────────────────────
+  // selectedAttrValues: { [attrName]: Set of selected values }
+  const [selectedAttrValues, setSelectedAttrValues] = useState<Record<string, string[]>>({});
+  const [bulkPrice, setBulkPrice] = useState("");
+  const [bulkStock, setBulkStock] = useState("");
+
+  // ── Edit modal variant state ───────────────────────────────────────────────
+  const [editVariants, setEditVariants] = useState<Array<{id?: string; price: string; stock: string; sku: string; attributes: Record<string, string>}>>([]);
+  const [editSelectedAttrValues, setEditSelectedAttrValues] = useState<Record<string, string[]>>({});
+  const [editBulkPrice, setEditBulkPrice] = useState("");
+  const [editBulkStock, setEditBulkStock] = useState("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -315,6 +337,7 @@ function ProjectsPage() {
     tags: "",
     artistName: "",
     weight: "1",
+    type: "SIMPLE" as "SIMPLE" | "VARIABLE",
   });
   const [showEditModal, setShowEditModal] = useState(false);
   const [isRestoringMode, setIsRestoringMode] = useState(false);
@@ -336,6 +359,7 @@ function ProjectsPage() {
     tags: "",
     artistName: "",
     weight: "",
+    type: "SIMPLE" as "SIMPLE" | "VARIABLE",
   });
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -373,6 +397,21 @@ function ProjectsPage() {
     }
   };
 
+  const loadAttributes = async () => {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${BASE_URL}/api/attributes`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableAttributes(data.attributes || []);
+      }
+    } catch (error) {
+      console.error("Error fetching attributes:", error);
+    }
+  };
+
   const loadSellerProfile = async () => {
     try {
       setProfileLoading(true);
@@ -403,6 +442,7 @@ function ProjectsPage() {
     }
     loadProducts();
     loadCategories();
+    loadAttributes();
     loadSellerProfile();
   }, []);
 
@@ -489,8 +529,16 @@ function ProjectsPage() {
       return;
     }
     
-    if (!formData.title || !formData.price || !formData.stock) {
-      toast.error("Please fill in all required fields");
+    if (!formData.title) {
+      toast.error("Please fill in the product title");
+      return;
+    }
+    if (formData.type === "SIMPLE" && (!formData.price || !formData.stock)) {
+      toast.error("Please fill in price and stock for a Simple product");
+      return;
+    }
+    if (formData.type === "VARIABLE" && addVariants.length === 0) {
+      toast.error("Please add at least one variant for a Variable product");
       return;
     }
     try {
@@ -514,12 +562,16 @@ function ProjectsPage() {
         featured: formData.featured,
         tags: formData.tags,
         artistName: formData.artistName,
+        type: formData.type,
+        variants: formData.type === "VARIABLE" ? addVariants : undefined,
       };
       await addProduct(productData);
       toast.success("Product added successfully!");
       setShowAddModal(false);
-      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featuredImage: null, galleryImages: [], featured: false, tags: "", artistName: "", weight: "1" });
+      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featuredImage: null, galleryImages: [], featured: false, tags: "", artistName: "", weight: "1", type: "SIMPLE" });
       addGalleryAccumRef.current = []; // clear accumulator
+      setAddVariants([]);
+      setNewVariantForm({ price: '', stock: '', sku: '', attributes: {} });
       loadProducts();
     } catch {
       toast.error("Failed to add product");
@@ -697,7 +749,32 @@ function ProjectsPage() {
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : (prod.tags || ""),
         artistName: prod.artistName || "",
         weight: prod.weight?.toString() || "",
+        type: (prod.type === "VARIABLE" ? "VARIABLE" : "SIMPLE") as "SIMPLE" | "VARIABLE",
       });
+      // Load existing variants
+      if (prod.type === "VARIABLE" && Array.isArray(prod.variants) && prod.variants.length > 0) {
+        const loadedVariants = prod.variants.map((v: any) => ({
+          id: v.id,
+          price: v.price?.toString() || "",
+          stock: v.stock?.toString() || "",
+          sku: v.sku || "",
+          attributes: v.attributes || {},
+        }));
+        setEditVariants(loadedVariants);
+        // Pre-populate selectedAttrValues from existing variants
+        const attrMap: Record<string, string[]> = {};
+        loadedVariants.forEach((v: any) => {
+          Object.entries(v.attributes).forEach(([k, val]) => {
+            if (!attrMap[k]) attrMap[k] = [];
+            const strVal = String(val);
+            if (!attrMap[k].includes(strVal)) attrMap[k].push(strVal);
+          });
+        });
+        setEditSelectedAttrValues(attrMap);
+      } else {
+        setEditVariants([]);
+        setEditSelectedAttrValues({});
+      }
       setShowEditModal(true);
     } catch (err) {
       setEditProductId(null); // clear the ID so modal doesn't open
@@ -737,14 +814,25 @@ function ProjectsPage() {
         : (recycleBinProduct.tags || ""),
       artistName: recycleBinProduct.artistName || "",
       weight: "",
+      type: "SIMPLE" as "SIMPLE" | "VARIABLE",
     });
+    setEditVariants([]);
+    setEditSelectedAttrValues({});
     setShowEditModal(true);
   };
 
   const handleEditProduct = async () => {
     if (!editProductId) return;
-    if (!editFormData.title || !editFormData.price || !editFormData.stock) {
-      toast.error("Please fill in all required fields");
+    if (!editFormData.title) {
+      toast.error("Please fill in the product title");
+      return;
+    }
+    if (editFormData.type === "SIMPLE" && (!editFormData.price || !editFormData.stock)) {
+      toast.error("Please fill in price and stock");
+      return;
+    }
+    if (editFormData.type === "VARIABLE" && editVariants.length === 0) {
+      toast.error("Please generate at least one variant");
       return;
     }
     try {
@@ -753,8 +841,13 @@ function ProjectsPage() {
       const form = new FormData();
       form.append("title", editFormData.title.trim());
       form.append("description", editFormData.description.trim());
-      form.append("price", String(editFormData.price));
-      form.append("stock", String(editFormData.stock));
+      form.append("type", editFormData.type);
+      if (editFormData.type === "VARIABLE") {
+        form.append("variants", JSON.stringify(editVariants));
+      } else {
+        form.append("price", String(editFormData.price));
+        form.append("stock", String(editFormData.stock));
+      }
       form.append("category", editFormData.category.trim());
 
       // featuredImage: read from native input ref — always current
@@ -823,6 +916,8 @@ function ProjectsPage() {
         setEditProductId(null);
         setIsRestoringMode(false);
         editGalleryAccumRef.current = [];
+        setEditVariants([]);
+        setEditSelectedAttrValues({});
         loadProducts();
         return;
       }
@@ -859,6 +954,8 @@ function ProjectsPage() {
       setEditProductId(null);
       setIsRestoringMode(false);
       editGalleryAccumRef.current = []; // clear accumulator
+      setEditVariants([]);
+      setEditSelectedAttrValues({});
       loadProducts();
     } catch (err: unknown) {
       const error = err as Error;
@@ -975,32 +1072,51 @@ function ProjectsPage() {
   };
 
   const totalProducts = products.length;
-  const totalStock = products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
-  const totalRevenue = products.reduce((sum, p) => sum + (Number(p.price) * (Number(p.sales) || 0)), 0);
+
+  const totalStock = useMemo(
+    () => products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0),
+    [products]
+  );
+  const totalRevenue = useMemo(
+    () => products.reduce((sum, p) => sum + (Number(p.price) * (Number(p.sales) || 0)), 0),
+    [products]
+  );
 
   // Get unique categories from products
-  const categories = Array.from(new Set(products.map((p) => p.category).filter(Boolean)));
+  const categories = useMemo(
+    () => Array.from(new Set(products.map((p) => p.category).filter(Boolean))),
+    [products]
+  );
 
   // Per-status counts
-  const statusCounts = {
+  const statusCounts = useMemo(() => ({
     all: products.length,
     ACTIVE: products.filter(p => p.status === 'ACTIVE').length,
     PENDING: products.filter(p => p.status === 'PENDING').length,
     REJECTED: products.filter(p => p.status === 'REJECTED').length,
     INACTIVE: products.filter(p => p.status === 'INACTIVE').length,
-  };
+  }), [products]);
 
   // Filtered products by search, category, and status
-  const filteredProducts = products.filter(
-    (p) =>
-      (p.title.toLowerCase().includes(search.toLowerCase()) ||
-        (p.category?.toLowerCase().includes(search.toLowerCase()))) &&
-      (categoryFilter ? p.category === categoryFilter : true) &&
-      (statusFilter !== 'all' ? p.status === statusFilter : true)
+  const filteredProducts = useMemo(
+    () => products.filter(
+      (p) =>
+        (p.title.toLowerCase().includes(search.toLowerCase()) ||
+          (p.category?.toLowerCase().includes(search.toLowerCase()))) &&
+        (categoryFilter ? p.category === categoryFilter : true) &&
+        (statusFilter !== 'all' ? p.status === statusFilter : true)
+    ),
+    [products, search, categoryFilter, statusFilter]
   );
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage)),
+    [filteredProducts.length, itemsPerPage]
+  );
+  const paginatedProducts = useMemo(
+    () => filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [filteredProducts, currentPage, itemsPerPage]
+  );
 
   const handlePageChange = (page: number) => {
     setCurrentPage(Math.min(Math.max(1, page), totalPages));
@@ -1657,8 +1773,8 @@ function ProjectsPage() {
               const isInactive = editingProduct?.status === 'INACTIVE';
               const isActive = editingProduct?.status === 'ACTIVE';
               return (
-              <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); } }}>
-                <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+              <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) { editGalleryAccumRef.current = []; setEditVariants([]); setEditSelectedAttrValues({}); setShowEditModal(false); setIsRestoringMode(false); } }}>
+                <SheetContent side="right" className={cn("w-full flex flex-col p-0 gap-0 overflow-hidden transition-all duration-300", editFormData.type === "VARIABLE" ? "sm:max-w-5xl" : "sm:max-w-xl")} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
                   <SheetHeader className="px-6 py-4 border-b shrink-0">
                     <SheetTitle className="text-xl font-bold">
                       {isRestoringMode ? 'Edit & Restore Product' : isResubmit ? 'Edit & Resubmit Product' : isInactive ? 'Update Product' : 'Edit Product'}
@@ -1686,6 +1802,33 @@ function ProjectsPage() {
                     )}
                   </SheetHeader>
                   <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                    {/* Product Type Selector */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Product Type</Label>
+                      <div className="flex rounded-lg border p-1 bg-muted/20 gap-1">
+                        {(["SIMPLE", "VARIABLE"] as const).map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            className={cn(
+                              "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                              editFormData.type === type
+                                ? "bg-background shadow-sm text-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                            onClick={() => setEditFormData((prev) => ({ ...prev, type }))}
+                          >
+                            {type === "SIMPLE" ? "Simple Product" : "Variable Product"}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {editFormData.type === "SIMPLE"
+                          ? "A single product with one price and stock quantity."
+                          : "A product with multiple variants (e.g. different sizes or colours, each with their own price and stock)."}
+                      </p>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2 col-span-1 md:col-span-2">
                         <Label htmlFor="edit-title" className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
@@ -1702,6 +1845,8 @@ function ProjectsPage() {
                         <Input id="edit-artistName" placeholder="Enter artist name" value={editFormData.artistName} onChange={(e) => setEditFormData({ ...editFormData, artistName: e.target.value })} className="focus:ring-primary h-10" />
                       </div>
 
+                      {editFormData.type === "SIMPLE" && (
+                        <>
                       <div className="space-y-2">
                         <Label htmlFor="edit-price" className="text-sm font-semibold">Price ($) <span className="text-red-500">*</span></Label>
                         <div className="relative">
@@ -1714,6 +1859,8 @@ function ProjectsPage() {
                         <Label htmlFor="edit-stock" className="text-sm font-semibold">Stock Quantity <span className="text-red-500">*</span></Label>
                         <Input id="edit-stock" type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="focus:ring-primary h-10" />
                       </div>
+                        </>
+                      )}
 
                       <div className="space-y-2">
                         <Label htmlFor="edit-weight" className="text-sm font-semibold">Weight (kg)</Label>
@@ -1789,11 +1936,311 @@ function ProjectsPage() {
                                 <div className="py-6 text-center text-sm text-muted-foreground">No category found.</div>
                               )}
                             </div>
+                            <div className="border-t mt-1 pt-2 px-3 pb-2 bg-muted/30">
+                              <p className="text-[11px] text-muted-foreground text-center">
+                                Category not listed? <a href="/sellerdashboard/categories" className="text-primary hover:underline font-medium">Request a new one</a> from the Categories page
+                              </p>
+                            </div>
                           </div>
                         )}
                       </div>
 
                     </div>
+
+                    {/* Variable Product – Attribute-First Variant Builder */}
+                    {editFormData.type === "VARIABLE" && (
+                      <div className="space-y-5">
+                        {/* Section header */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold">Product Variants <span className="text-red-500">*</span></p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Select attribute values → generate all combinations automatically.</p>
+                          </div>
+                          {editVariants.length > 0 && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full">
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />
+                              {editVariants.length} variant{editVariants.length !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Step 1 – Attribute value selection */}
+                        {availableAttributes.length > 0 ? (
+                          <div className="rounded-xl border bg-muted/10 divide-y overflow-hidden">
+                            <div className="px-4 py-2.5 bg-muted/30">
+                              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 1 — Select Attribute Values</p>
+                            </div>
+                            <div className="p-4 space-y-4">
+                              {availableAttributes.map((attr) => {
+                                const selected = editSelectedAttrValues[attr.name] ?? [];
+                                return (
+                                  <div key={attr.id} className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <Label className="text-xs font-semibold text-foreground">{attr.name}</Label>
+                                      {selected.length > 0 && (
+                                        <button
+                                          type="button"
+                                          className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                                          onClick={() => setEditSelectedAttrValues(prev => { const n = { ...prev }; delete n[attr.name]; return n; })}
+                                        >
+                                          Clear
+                                        </button>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {attr.values?.map((v: any, vi: number) => {
+                                        const rawVal = v?.value;
+                                        const strValue: string = rawVal && typeof rawVal === "object"
+                                          ? String(rawVal.value ?? rawVal.displayValue ?? "")
+                                          : String(rawVal ?? "");
+                                        const displayText: string = v?.displayName
+                                          || (rawVal && typeof rawVal === "object" ? (rawVal.displayValue ?? rawVal.value) : null)
+                                          || v?.displayValue
+                                          || strValue;
+                                        const hexColor: string | null = v?.hexCode
+                                          || (rawVal && typeof rawVal === "object" ? rawVal.hexColor : null)
+                                          || v?.hexColor
+                                          || null;
+                                        const isSelected = selected.includes(strValue);
+                                        return (
+                                          <button
+                                            key={v?.id ?? vi}
+                                            type="button"
+                                            onClick={() => {
+                                              setEditSelectedAttrValues(prev => {
+                                                const cur = prev[attr.name] ?? [];
+                                                const next = isSelected
+                                                  ? cur.filter(x => x !== strValue)
+                                                  : [...cur, strValue];
+                                                if (next.length === 0) {
+                                                  const n = { ...prev }; delete n[attr.name]; return n;
+                                                }
+                                                return { ...prev, [attr.name]: next };
+                                              });
+                                            }}
+                                            className={cn(
+                                              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all select-none",
+                                              isSelected
+                                                ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
+                                                : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
+                                            )}
+                                          >
+                                            {hexColor && (
+                                              <span
+                                                className="h-3 w-3 rounded-full border border-white/50 flex-shrink-0"
+                                                style={{ backgroundColor: hexColor }}
+                                              />
+                                            )}
+                                            {displayText}
+                                            {isSelected && <Check className="h-3 w-3 flex-shrink-0" />}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed p-6 text-center space-y-1">
+                            <Layers className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                            <p className="text-sm font-medium text-muted-foreground">No attributes configured</p>
+                            <p className="text-xs text-muted-foreground/70">Attributes (e.g. Size, Colour) must be set up by an admin first.</p>
+                          </div>
+                        )}
+
+                        {/* Step 2 – Generate button */}
+                        {Object.keys(editSelectedAttrValues).length > 0 && (
+                          <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 2 — Generate Variants</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {(() => {
+                                    const counts = Object.values(editSelectedAttrValues).map(v => v.length);
+                                    const total = counts.reduce((a, b) => a * b, 1);
+                                    return `${total} combination${total !== 1 ? "s" : ""} will be created`;
+                                  })()}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="gap-1.5 h-8 text-xs font-semibold"
+                                onClick={() => {
+                                  const attrNames = Object.keys(editSelectedAttrValues);
+                                  const attrValueSets = attrNames.map(k => editSelectedAttrValues[k]);
+                                  const cartesian = (sets: string[][]): string[][] => {
+                                    if (sets.length === 0) return [[]];
+                                    const [first, ...rest] = sets;
+                                    const restProduct = cartesian(rest);
+                                    return first.flatMap(v => restProduct.map(p => [v, ...p]));
+                                  };
+                                  const combos = cartesian(attrValueSets);
+                                  if (combos.length > 100) {
+                                    toast.error("Too many variants — maximum 100 allowed. Reduce your attribute selections.");
+                                    return;
+                                  }
+                                  const generated = combos.map((combo) => {
+                                    const attrs: Record<string, string> = {};
+                                    attrNames.forEach((name, i) => { attrs[name] = combo[i]; });
+                                    const skuParts = combo.map(v => String(v).replace(/\s+/g, "-").toUpperCase());
+                                    const sku = `SKU-${skuParts.join("-")}`;
+                                    const existing = editVariants.find(v =>
+                                      JSON.stringify(v.attributes) === JSON.stringify(attrs)
+                                    );
+                                    return {
+                                      id: existing?.id,
+                                      attributes: attrs,
+                                      price: existing?.price ?? "",
+                                      stock: existing?.stock ?? "",
+                                      sku: existing?.sku ?? sku,
+                                    };
+                                  });
+                                  setEditVariants(generated);
+                                  toast.success(`${generated.length} variant${generated.length !== 1 ? "s" : ""} generated!`);
+                                }}
+                              >
+                                <RefreshCcw className="h-3.5 w-3.5" />
+                                Generate Variants
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 3 – Variant table */}
+                        {editVariants.length > 0 && (
+                          <div className="rounded-xl border overflow-hidden">
+                            {/* Bulk edit toolbar */}
+                            <div className="px-4 py-3 bg-muted/30 border-b flex flex-wrap items-center gap-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+                                Step 3 — Set Prices &amp; Stock
+                              </p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-muted-foreground">Bulk set:</span>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="relative">
+                                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                    <Input
+                                      type="number"
+                                      placeholder="Price"
+                                      className="pl-5 h-7 w-24 text-xs"
+                                      value={editBulkPrice}
+                                      onChange={e => setEditBulkPrice(e.target.value)}
+                                    />
+                                  </div>
+                                  <Input
+                                    type="number"
+                                    placeholder="Stock"
+                                    className="h-7 w-20 text-xs"
+                                    value={editBulkStock}
+                                    onChange={e => setEditBulkStock(e.target.value)}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs px-3"
+                                    onClick={() => {
+                                      if (!editBulkPrice && !editBulkStock) return;
+                                      setEditVariants(prev => prev.map(v => ({
+                                        ...v,
+                                        ...(editBulkPrice ? { price: editBulkPrice } : {}),
+                                        ...(editBulkStock ? { stock: editBulkStock } : {}),
+                                      })));
+                                      setEditBulkPrice(""); setEditBulkStock("");
+                                      toast.success("Applied to all variants");
+                                    }}
+                                  >
+                                    Apply All
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Table */}
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-xs">
+                                <thead className="bg-muted/20 border-b">
+                                  <tr>
+                                    {Object.keys(editVariants[0]?.attributes ?? {}).map(k => (
+                                      <th key={k} className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">{k}</th>
+                                    ))}
+                                    <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Price ($)*</th>
+                                    <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Stock*</th>
+                                    <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">SKU</th>
+                                    <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Del</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-muted/60">
+                                  {editVariants.map((variant, idx) => (
+                                    <tr key={idx} className={cn("hover:bg-muted/10 transition-colors", (!variant.price || !variant.stock) && "bg-amber-50/40 dark:bg-amber-950/10")}>
+                                      {Object.entries(variant.attributes).map(([k, v]) => (
+                                        <td key={k} className="px-3 py-2">
+                                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium text-[11px]">
+                                            {typeof v === "object" && v !== null
+                                              ? String((v as any).value ?? (v as any).displayValue ?? JSON.stringify(v))
+                                              : String(v ?? "")}
+                                          </span>
+                                        </td>
+                                      ))}
+                                      <td className="px-3 py-2">
+                                        <div className="relative">
+                                          <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                          <Input
+                                            type="number"
+                                            placeholder="0.00"
+                                            step="0.01"
+                                            className={cn("pl-5 h-7 w-24 text-xs", !variant.price && "border-amber-400 focus-visible:ring-amber-400")}
+                                            value={variant.price}
+                                            onChange={e => setEditVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, price: e.target.value } : v2))}
+                                          />
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <Input
+                                          type="number"
+                                          placeholder="0"
+                                          className={cn("h-7 w-20 text-xs", !variant.stock && "border-amber-400 focus-visible:ring-amber-400")}
+                                          value={variant.stock}
+                                          onChange={e => setEditVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, stock: e.target.value } : v2))}
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <Input
+                                          type="text"
+                                          className="h-7 w-32 text-xs font-mono"
+                                          value={variant.sku}
+                                          onChange={e => setEditVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, sku: e.target.value } : v2))}
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2 text-center">
+                                        <button
+                                          type="button"
+                                          className="h-6 w-6 rounded-full inline-flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                          onClick={() => setEditVariants(prev => prev.filter((_, i) => i !== idx))}
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            {/* Table footer */}
+                            <div className="px-4 py-2.5 bg-muted/10 border-t flex items-center justify-between">
+                              <p className="text-[11px] text-muted-foreground">
+                                {editVariants.filter(v => v.price && v.stock).length}/{editVariants.length} variants have price &amp; stock set
+                              </p>
+                              {editVariants.some(v => !v.price || !v.stock) && (
+                                <span className="text-[11px] text-amber-600 font-medium">⚠ Fill in price &amp; stock for all variants before publishing</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="space-y-3">
                       <Label className="text-sm font-semibold">Promotion Tags</Label>
@@ -1850,39 +2297,44 @@ function ProjectsPage() {
                       />
                       <div className="flex gap-3 flex-wrap pt-2">
                         {editFormData.oldFeaturedImage && !editFormData.featuredImage && (
-                          <div className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                          <div className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
                             <Image
                               src={editFormData.oldFeaturedImage}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-cover transition-transform group-hover:scale-110"
                               alt="Featured"
-                              width={80}
-                              height={80}
+                              width={96}
+                              height={96}
                               onError={(e) => (e.target as HTMLImageElement).style.display='none'}
                               unoptimized
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => setEditFormData({ ...editFormData, oldFeaturedImage: null })}>
-                                <X className="h-3 w-3" />
+                              <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full" onClick={() => setEditFormData({ ...editFormData, oldFeaturedImage: null })}>
+                                <X className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
                         )}
                         {editFormData.featuredImage && (
-                          <div className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                          <div className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
                             <Image
                               src={URL.createObjectURL(editFormData.featuredImage)}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-cover transition-transform group-hover:scale-110"
                               alt="New Featured"
-                              width={80}
-                              height={80}
+                              width={96}
+                              height={96}
                             />
                             <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full" onClick={() => { if (editFeaturedImageRef.current) editFeaturedImageRef.current.value = ''; setEditFormData(prev => ({ ...prev, featuredImage: null })); }}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         )}
                         {!editFormData.oldFeaturedImage && !editFormData.featuredImage && (
-                          <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
-                            <Package className="h-6 w-6 mb-1 opacity-20" />
-                            <p className="text-xs">No featured image</p>
+                          <div className="h-24 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                            <Package className="h-8 w-8 mb-2 opacity-20" />
+                            <p className="text-xs">No featured image selected</p>
                           </div>
                         )}
                       </div>
@@ -1904,58 +2356,58 @@ function ProjectsPage() {
                       />
                       <div className="flex gap-3 flex-wrap pt-2">
                         {editFormData.oldGalleryImages && editFormData.oldGalleryImages.length > 0 && editFormData.oldGalleryImages.map((img, idx) => (
-                          <div key={idx} className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                          <div key={idx} className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
                             <Image
                               src={img}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-cover transition-transform group-hover:scale-110"
                               alt="Gallery"
-                              width={80}
-                              height={80}
+                              width={96}
+                              height={96}
                               onError={(e) => (e.target as HTMLImageElement).style.display='none'}
                               unoptimized
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => {
+                              <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full" onClick={() => {
                                 const updated = editFormData.oldGalleryImages.filter((_, i) => i !== idx);
                                 setEditFormData(prev => ({ ...prev, oldGalleryImages: updated }));
                               }}>
-                                <X className="h-3 w-3" />
+                                <X className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
                         ))}
                         {editFormData.galleryImages && editFormData.galleryImages.length > 0 && editFormData.galleryImages.map((file, idx) => (
-                          <div key={idx} className="relative group h-20 w-20 rounded border overflow-hidden flex items-center justify-center bg-muted">
+                          <div key={idx} className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
                             <Image
                               src={URL.createObjectURL(file)}
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-cover transition-transform group-hover:scale-110"
                               alt="New Gallery"
-                              width={80}
-                              height={80}
+                              width={96}
+                              height={96}
                             />
                             <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Button variant="destructive" size="icon" className="h-6 w-6 rounded-full" onClick={() => {
+                              <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full" onClick={() => {
                                 const updated = editFormData.galleryImages.filter((_, i) => i !== idx);
                                 editGalleryAccumRef.current = updated; // keep ref in sync
                                 setEditFormData(prev => ({ ...prev, galleryImages: updated }));
                               }}>
-                                <X className="h-3 w-3" />
+                                <X className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
                         ))}
                         {(!editFormData.oldGalleryImages || editFormData.oldGalleryImages.length === 0) && editFormData.galleryImages.length === 0 && (
-                          <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
-                            <Package className="h-6 w-6 mb-1 opacity-20" />
-                            <p className="text-xs">No gallery images</p>
+                          <div className="h-24 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                            <Package className="h-8 w-8 mb-2 opacity-20" />
+                            <p className="text-xs">No gallery images selected</p>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
                   <div className="px-6 py-4 border-t bg-muted/10 shrink-0 flex justify-end gap-3">
-                    <Button variant="outline" className="h-10 px-4" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); setIsRestoringMode(false); }} disabled={editSubmitting}>Cancel</Button>
+                    <Button variant="outline" className="h-10 px-4" onClick={() => { editGalleryAccumRef.current = []; setEditVariants([]); setEditSelectedAttrValues({}); setShowEditModal(false); setIsRestoringMode(false); }} disabled={editSubmitting}>Cancel</Button>
                     <Button className="h-10 px-6 font-semibold shadow-md" onClick={handleEditProduct} disabled={editSubmitting}>
                       {editSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : isRestoringMode ? "Save & Restore" : "Save Changes"}
                     </Button>
@@ -1965,12 +2417,41 @@ function ProjectsPage() {
             );
             })()}
       {/* Add Product Modal */}
-      <Sheet open={showAddModal} onOpenChange={(open) => { if (!open) { addGalleryAccumRef.current = []; setShowAddModal(false); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      <Sheet open={showAddModal} onOpenChange={(open) => { if (!open) { addGalleryAccumRef.current = []; setShowAddModal(false); setAddVariants([]); setNewVariantForm({ price: '', stock: '', sku: '', attributes: {} }); setSelectedAttrValues({}); setBulkPrice(""); setBulkStock(""); } }}>
+        <SheetContent side="right" className={cn("w-full flex flex-col p-0 gap-0 overflow-hidden transition-all duration-300", formData.type === "VARIABLE" ? "sm:max-w-5xl" : "sm:max-w-xl")} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <SheetHeader className="px-6 py-4 border-b shrink-0">
             <SheetTitle className="text-xl font-bold">Add New Product</SheetTitle>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+              {/* Product Type Selector */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Product Type</Label>
+                <div className="flex rounded-lg border p-1 bg-muted/20 gap-1">
+                  {(["SIMPLE", "VARIABLE"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={cn(
+                        "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                        formData.type === type
+                          ? "bg-background shadow-sm text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                      onClick={() => {
+                        setFormData((prev) => ({ ...prev, type }));
+                      }}
+                    >
+                      {type === "SIMPLE" ? "Simple Product" : "Variable Product"}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formData.type === "SIMPLE"
+                    ? "A single product with one price and stock quantity."
+                    : "A product with multiple variants (e.g. different sizes or colours, each with their own price and stock)."}
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2 col-span-1 md:col-span-2">
                   <Label htmlFor="title" className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
@@ -1987,18 +2468,22 @@ function ProjectsPage() {
                   <Input id="artistName" placeholder="Enter artist name" value={formData.artistName} onChange={(e) => setFormData({ ...formData, artistName: e.target.value })} className="focus:ring-primary h-10" />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="price" className="text-sm font-semibold">Price ($) <span className="text-red-500">*</span></Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input id="price" type="number" placeholder="0.00" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="pl-9 focus:ring-primary h-10" />
-                  </div>
-                </div>
+                {formData.type === "SIMPLE" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="price" className="text-sm font-semibold">Price ($) <span className="text-red-500">*</span></Label>
+                      <div className="relative">
+                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="price" type="number" placeholder="0.00" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="pl-9 focus:ring-primary h-10" />
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="stock" className="text-sm font-semibold">Initial Stock <span className="text-red-500">*</span></Label>
-                  <Input id="stock" type="number" placeholder="0" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} className="focus:ring-primary h-10" />
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="stock" className="text-sm font-semibold">Initial Stock <span className="text-red-500">*</span></Label>
+                      <Input id="stock" type="number" placeholder="0" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} className="focus:ring-primary h-10" />
+                    </div>
+                  </>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="weight" className="text-sm font-semibold">Weight (kg)</Label>
@@ -2084,6 +2569,306 @@ function ProjectsPage() {
                 </div>
 
               </div>
+
+              {/* Variable Product – Attribute-First Variant Builder */}
+              {formData.type === "VARIABLE" && (
+                <div className="space-y-5">
+                  {/* Section header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">Product Variants <span className="text-red-500">*</span></p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Select attribute values → generate all combinations automatically.</p>
+                    </div>
+                    {addVariants.length > 0 && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />
+                        {addVariants.length} variant{addVariants.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Step 1 – Attribute value selection */}
+                  {availableAttributes.length > 0 ? (
+                    <div className="rounded-xl border bg-muted/10 divide-y overflow-hidden">
+                      <div className="px-4 py-2.5 bg-muted/30">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 1 — Select Attribute Values</p>
+                      </div>
+                      <div className="p-4 space-y-4">
+                        {availableAttributes.map((attr) => {
+                          const selected = selectedAttrValues[attr.name] ?? [];
+                          return (
+                            <div key={attr.id} className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs font-semibold text-foreground">{attr.name}</Label>
+                                {selected.length > 0 && (
+                                  <button
+                                    type="button"
+                                    className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                                    onClick={() => setSelectedAttrValues(prev => { const n = { ...prev }; delete n[attr.name]; return n; })}
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {attr.values?.map((v: any, vi: number) => {
+                                  // Normalize: v.value may be a string OR nested object {value, displayValue, hexColor}
+                                  const rawVal = v?.value;
+                                  const strValue: string = rawVal && typeof rawVal === "object"
+                                    ? String(rawVal.value ?? rawVal.displayValue ?? "")
+                                    : String(rawVal ?? "");
+                                  const displayText: string = v?.displayName
+                                    || (rawVal && typeof rawVal === "object" ? (rawVal.displayValue ?? rawVal.value) : null)
+                                    || v?.displayValue
+                                    || strValue;
+                                  const hexColor: string | null = v?.hexCode
+                                    || (rawVal && typeof rawVal === "object" ? rawVal.hexColor : null)
+                                    || v?.hexColor
+                                    || null;
+                                  const isSelected = selected.includes(strValue);
+                                  return (
+                                    <button
+                                      key={v?.id ?? vi}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedAttrValues(prev => {
+                                          const cur = prev[attr.name] ?? [];
+                                          const next = isSelected
+                                            ? cur.filter(x => x !== strValue)
+                                            : [...cur, strValue];
+                                          if (next.length === 0) {
+                                            const n = { ...prev }; delete n[attr.name]; return n;
+                                          }
+                                          return { ...prev, [attr.name]: next };
+                                        });
+                                      }}
+                                      className={cn(
+                                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all select-none",
+                                        isSelected
+                                          ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
+                                          : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
+                                      )}
+                                    >
+                                      {hexColor && (
+                                        <span
+                                          className="h-3 w-3 rounded-full border border-white/50 flex-shrink-0"
+                                          style={{ backgroundColor: hexColor }}
+                                        />
+                                      )}
+                                      {displayText}
+                                      {isSelected && <Check className="h-3 w-3 flex-shrink-0" />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed p-6 text-center space-y-1">
+                      <Layers className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                      <p className="text-sm font-medium text-muted-foreground">No attributes configured</p>
+                      <p className="text-xs text-muted-foreground/70">Attributes (e.g. Size, Colour) must be set up by an admin first.</p>
+                    </div>
+                  )}
+
+                  {/* Step 2 – Generate button */}
+                  {Object.keys(selectedAttrValues).length > 0 && (
+                    <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 2 — Generate Variants</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {(() => {
+                              const counts = Object.values(selectedAttrValues).map(v => v.length);
+                              const total = counts.reduce((a, b) => a * b, 1);
+                              return `${total} combination${total !== 1 ? "s" : ""} will be created`;
+                            })()}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="gap-1.5 h-8 text-xs font-semibold"
+                          onClick={() => {
+                            // Cartesian product
+                            const attrNames = Object.keys(selectedAttrValues);
+                            const attrValueSets = attrNames.map(k => selectedAttrValues[k]);
+                            const cartesian = (sets: string[][]): string[][] => {
+                              if (sets.length === 0) return [[]];
+                              const [first, ...rest] = sets;
+                              const restProduct = cartesian(rest);
+                              return first.flatMap(v => restProduct.map(p => [v, ...p]));
+                            };
+                            const combos = cartesian(attrValueSets);
+                            if (combos.length > 100) {
+                              toast.error("Too many variants — maximum 100 allowed. Reduce your attribute selections.");
+                              return;
+                            }
+                            const generated = combos.map((combo) => {
+                              const attrs: Record<string, string> = {};
+                              attrNames.forEach((name, i) => { attrs[name] = combo[i]; });
+                              const skuParts = combo.map(v => String(v).replace(/\s+/g, "-").toUpperCase());
+                              const sku = `SKU-${skuParts.join("-")}`;
+                              // Preserve existing prices/stocks if re-generating
+                              const existing = addVariants.find(v =>
+                                JSON.stringify(v.attributes) === JSON.stringify(attrs)
+                              );
+                              return {
+                                attributes: attrs,
+                                price: existing?.price ?? "",
+                                stock: existing?.stock ?? "",
+                                sku: existing?.sku ?? sku,
+                              };
+                            });
+                            setAddVariants(generated);
+                            toast.success(`${generated.length} variant${generated.length !== 1 ? "s" : ""} generated!`);
+                          }}
+                        >
+                          <RefreshCcw className="h-3.5 w-3.5" />
+                          Generate Variants
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step 3 – Variant table */}
+                  {addVariants.length > 0 && (
+                    <div className="rounded-xl border overflow-hidden">
+                      {/* Bulk edit toolbar */}
+                      <div className="px-4 py-3 bg-muted/30 border-b flex flex-wrap items-center gap-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+                          Step 3 — Set Prices &amp; Stock
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-muted-foreground">Bulk set:</span>
+                          <div className="flex items-center gap-1.5">
+                            <div className="relative">
+                              <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                              <Input
+                                type="number"
+                                placeholder="Price"
+                                className="pl-5 h-7 w-24 text-xs"
+                                value={bulkPrice}
+                                onChange={e => setBulkPrice(e.target.value)}
+                              />
+                            </div>
+                            <Input
+                              type="number"
+                              placeholder="Stock"
+                              className="h-7 w-20 text-xs"
+                              value={bulkStock}
+                              onChange={e => setBulkStock(e.target.value)}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs px-3"
+                              onClick={() => {
+                                if (!bulkPrice && !bulkStock) return;
+                                setAddVariants(prev => prev.map(v => ({
+                                  ...v,
+                                  ...(bulkPrice ? { price: bulkPrice } : {}),
+                                  ...(bulkStock ? { stock: bulkStock } : {}),
+                                })));
+                                setBulkPrice(""); setBulkStock("");
+                                toast.success("Applied to all variants");
+                              }}
+                            >
+                              Apply All
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Table */}
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-muted/20 border-b">
+                            <tr>
+                              {Object.keys(addVariants[0]?.attributes ?? {}).map(k => (
+                                <th key={k} className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">{k}</th>
+                              ))}
+                              <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Price ($)*</th>
+                              <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Stock*</th>
+                              <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">SKU</th>
+                              <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Del</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-muted/60">
+                            {addVariants.map((variant, idx) => (
+                              <tr key={idx} className={cn("hover:bg-muted/10 transition-colors", (!variant.price || !variant.stock) && "bg-amber-50/40 dark:bg-amber-950/10")}>
+                                {Object.entries(variant.attributes).map(([k, v]) => (
+                                  <td key={k} className="px-3 py-2">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium text-[11px]">
+                                      {typeof v === "object" && v !== null
+                                        ? String((v as any).value ?? (v as any).displayValue ?? JSON.stringify(v))
+                                        : String(v ?? "")}
+                                    </span>
+                                  </td>
+                                ))}
+                                <td className="px-3 py-2">
+                                  <div className="relative">
+                                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                    <Input
+                                      type="number"
+                                      placeholder="0.00"
+                                      step="0.01"
+                                      className={cn("pl-5 h-7 w-24 text-xs", !variant.price && "border-amber-400 focus-visible:ring-amber-400")}
+                                      value={variant.price}
+                                      onChange={e => setAddVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, price: e.target.value } : v2))}
+                                    />
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Input
+                                    type="number"
+                                    placeholder="0"
+                                    className={cn("h-7 w-20 text-xs", !variant.stock && "border-amber-400 focus-visible:ring-amber-400")}
+                                    value={variant.stock}
+                                    onChange={e => setAddVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, stock: e.target.value } : v2))}
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Input
+                                    type="text"
+                                    className="h-7 w-32 text-xs font-mono"
+                                    value={variant.sku}
+                                    onChange={e => setAddVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, sku: e.target.value } : v2))}
+                                  />
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                  <button
+                                    type="button"
+                                    className="h-6 w-6 rounded-full inline-flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                    onClick={() => setAddVariants(prev => prev.filter((_, i) => i !== idx))}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Table footer */}
+                      <div className="px-4 py-2.5 bg-muted/10 border-t flex items-center justify-between">
+                        <p className="text-[11px] text-muted-foreground">
+                          {addVariants.filter(v => v.price && v.stock).length}/{addVariants.length} variants have price &amp; stock set
+                        </p>
+                        {addVariants.some(v => !v.price || !v.stock) && (
+                          <span className="text-[11px] text-amber-600 font-medium">⚠ Fill in price &amp; stock for all variants before publishing</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
 
               <div className="space-y-3">
                 <Label className="text-sm font-semibold">Promotion Tags</Label>

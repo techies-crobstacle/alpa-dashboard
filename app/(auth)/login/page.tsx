@@ -500,7 +500,7 @@ function LoginForm() {
             > */}
             <a
               href={
-                "https://alpa-be.onrender.com/api/auth/saml/login" +
+                `${API_BASE_URL}/api/auth/saml/login` +
                 (redirectTo
                   ? "?redirectTo=" + encodeURIComponent(redirectTo)
                   : "")

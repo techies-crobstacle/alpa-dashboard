@@ -17,6 +17,24 @@ function setCookie(name: string, value: string, days = 7) {
   document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
 }
 
+// Decode JWT payload without verification (client-side only, for role routing)
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 // Inner component that reads search params (must be inside Suspense)
 function LoginCallbackContent() {
   const router = useRouter();
@@ -25,19 +43,57 @@ function LoginCallbackContent() {
   const [stage, setStage] = useState<Stage>("exchanging");
 
   useEffect(() => {
+    const token = searchParams.get("token");
+    const type = searchParams.get("type");
     const ticket = searchParams.get("ticket");
     const redirectTo = searchParams.get("redirectTo");
 
-    // ── Validate params ──────────────────────────────────────────────────────
+    // Only allow internal paths — block open redirects
+    const safePath = redirectTo && redirectTo.startsWith("/") ? redirectTo : null;
+
+    // ── SAML SSO flow: backend sends token + type=saml directly ─────────────
+    if (type === "saml" && token) {
+      try {
+        const payload = decodeJwtPayload(token);
+        const role = (payload?.role as string) ?? "";
+
+        // Persist session — short-lived token (15 min), keep cookie duration matching
+        localStorage.setItem("alpa_token", token);
+        setCookie("token", token, 1); // 1 day max; backend expiry governs actual session
+
+        if (role) {
+          setCookie("userRole", role, 1);
+        }
+
+        setStage("success");
+
+        toast.success("Signed in successfully!", {
+          description: "Redirecting you to your destination…",
+        });
+
+        const roleDest =
+          role === "ADMIN" || role === "admin" ? "/admindashboard" :
+          role === "SELLER" || role === "seller" ? "/sellerdashboard" :
+          "/customerdashboard";
+        const dest = safePath ?? roleDest;
+
+        setTimeout(() => {
+          router.replace(dest);
+          router.refresh();
+        }, 800);
+      } catch (err) {
+        console.error("[SAML] Token processing error:", err);
+        router.replace("/login?error=invalid_callback");
+      }
+      return;
+    }
+
+    // ── WatchGuard ticket-exchange flow ──────────────────────────────────────
     if (!ticket) {
       router.replace("/login");
       return;
     }
 
-    // Only allow internal paths — block open redirects
-    const safePath = redirectTo && redirectTo.startsWith("/") ? redirectTo : null;
-
-    // ── Exchange the ticket for a real token ─────────────────────────────────
     const exchangeTicket = async () => {
       try {
         const response = await fetch(

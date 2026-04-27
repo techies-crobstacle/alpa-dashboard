@@ -1,12 +1,12 @@
 "use client";
 
 import React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Package, DollarSign, Edit, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle, AlertCircle, Trash2, RotateCcw } from "lucide-react";
+import { Package, DollarSign, Edit, X, Search, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, CheckCircle, XCircle, AlertCircle, Trash2, RotateCcw, Layers, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -188,7 +188,15 @@ export default function AdminProductsPage() {
     artistName: "",
     weight: "",
     featured: false,
+    type: "SIMPLE" as "SIMPLE" | "VARIABLE",
   });
+
+  // ── Variant state for edit modal ───────────────────────────────────────────
+  const [editVariants, setEditVariants] = useState<Array<{id?: string; price: string; stock: string; sku: string; attributes: Record<string, string>}>>([]);
+  const [editSelectedAttrValues, setEditSelectedAttrValues] = useState<Record<string, string[]>>({});
+  const [editBulkPrice, setEditBulkPrice] = useState("");
+  const [editBulkStock, setEditBulkStock] = useState("");
+  const [availableAttributes, setAvailableAttributes] = useState<any[]>([]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(12);
@@ -242,7 +250,18 @@ export default function AdminProductsPage() {
       console.error("Error fetching categories:", e);
     }
   };
-  useEffect(() => { loadCategories(); }, []);
+
+  // ── attributes (for variable product variants) ─────────────────────────────
+  const loadAttributes = async () => {
+    try {
+      const res = await api.get("/api/attributes");
+      setAvailableAttributes(res?.attributes || []);
+    } catch (e) {
+      console.error("Error fetching attributes:", e);
+    }
+  };
+
+  useEffect(() => { loadCategories(); loadAttributes(); }, []);
 
   // ── unified tab fetch (uses new endpoint) ────────────────────────────────
   const fetchTabProducts = async (
@@ -406,32 +425,23 @@ export default function AdminProductsPage() {
     setEditProductId(productId);
     setEditSubmitting(false);
     editGalleryAccumRef.current = [];
+    setEditVariants([]);
+    setEditSelectedAttrValues({});
 
     try {
       const res = await api.get(`/api/products/${productId}`);
       const prod = res.product || res;
 
-      // Log the raw product to diagnose key names
       console.log("[openEditModal] raw product keys:", Object.keys(prod));
-      console.log("[openEditModal] raw product:", JSON.stringify(prod, null, 2));
 
-      // ── FIX: resolve gallery images from ALL possible keys ──────────────
-      // APIs sometimes return gallery as "galleryImages", "images", or both.
-      // We merge them, deduplicate, and exclude the featured image.
       const featuredImg: string | null = prod.featuredImage || null;
-
       const rawGallery: string[] = [
         ...(Array.isArray(prod.galleryImages) ? prod.galleryImages : []),
         ...(Array.isArray(prod.images) ? prod.images : []),
       ];
-
-      // Deduplicate and remove featured image from gallery list
       const resolvedGallery: string[] = [...new Set(rawGallery)].filter(
         (img) => img !== featuredImg
       );
-
-      console.log("[openEditModal] featuredImage:", featuredImg);
-      console.log("[openEditModal] resolvedGallery:", resolvedGallery);
 
       setEditFormData({
         title: prod.title || "",
@@ -444,13 +454,35 @@ export default function AdminProductsPage() {
         featuredImage: null,
         oldFeaturedImage: featuredImg,
         galleryImages: [],
-        oldGalleryImages: resolvedGallery, // ← correctly populated now
+        oldGalleryImages: resolvedGallery,
         tags: Array.isArray(prod.tags) ? prod.tags.join(", ") : prod.tags || "",
         artistName: prod.artistName || "",
         weight: prod.weight?.toString() || "",
         featured: prod.featured ?? false,
+        type: (prod.type === "VARIABLE" ? "VARIABLE" : "SIMPLE") as "SIMPLE" | "VARIABLE",
       });
       setEditProductStatus(prod.status || "");
+
+      // Load variants for VARIABLE products
+      if (prod.type === "VARIABLE" && Array.isArray(prod.variants) && prod.variants.length > 0) {
+        const loadedVariants = prod.variants.map((v: any) => ({
+          id: v.id,
+          price: v.price?.toString() || "",
+          stock: v.stock?.toString() || "",
+          sku: v.sku || "",
+          attributes: v.attributes || {},
+        }));
+        setEditVariants(loadedVariants);
+        const attrMap: Record<string, string[]> = {};
+        loadedVariants.forEach((v: any) => {
+          Object.entries(v.attributes).forEach(([k, val]) => {
+            if (!attrMap[k]) attrMap[k] = [];
+            const strVal = String(val);
+            if (!attrMap[k].includes(strVal)) attrMap[k].push(strVal);
+          });
+        });
+        setEditSelectedAttrValues(attrMap);
+      }
 
       setShowEditModal(true);
     } catch (err: any) {
@@ -460,8 +492,16 @@ export default function AdminProductsPage() {
 
   const handleEditProduct = async () => {
     if (!editProductId) return;
-    if (!editFormData.title || !editFormData.price || !editFormData.stock) {
-      toast.error("Please fill in all required fields");
+    if (!editFormData.title) {
+      toast.error("Please fill in the product title");
+      return;
+    }
+    if (editFormData.type === "SIMPLE" && (!editFormData.price || !editFormData.stock)) {
+      toast.error("Please fill in price and stock");
+      return;
+    }
+    if (editFormData.type === "VARIABLE" && editVariants.length === 0) {
+      toast.error("Please generate at least one variant");
       return;
     }
 
@@ -470,8 +510,13 @@ export default function AdminProductsPage() {
       const form = new FormData();
       form.append("title", editFormData.title.trim());
       form.append("description", editFormData.description.trim());
-      form.append("price", String(editFormData.price));
-      form.append("stock", String(editFormData.stock));
+      form.append("type", editFormData.type);
+      if (editFormData.type === "VARIABLE") {
+        form.append("variants", JSON.stringify(editVariants));
+      } else {
+        form.append("price", String(editFormData.price));
+        form.append("stock", String(editFormData.stock));
+      }
       form.append("category", editFormData.category.trim());
       form.append("tags", editFormData.tags);
       form.append("featured", String(editFormData.featured));
@@ -483,55 +528,33 @@ export default function AdminProductsPage() {
       if (featuredFile) {
         form.append("featuredImage", featuredFile);
       } else if (editFormData.oldFeaturedImage) {
-        // Tell backend to keep the existing featured image
         form.append("oldFeaturedImage", editFormData.oldFeaturedImage);
       }
 
-      // ── Gallery images ────────────────────────────────────────────────────
-      // Send old and new gallery images in SEPARATE fields so backend can distinguish them.
-      // This prevents the backend from wiping old images when new ones are added.
-      
-      // 1. Append existing URLs to keep them (in "existingGalleryImages" field)
+      // Gallery images — send existing URLs + new files
       if (editFormData.oldGalleryImages?.length > 0) {
         editFormData.oldGalleryImages.forEach((url) => {
           form.append("existingGalleryImages", url);
         });
       }
-
-      // 2. Append new File objects (in "galleryImages" field)
       const galleryFiles = [...editGalleryAccumRef.current];
       if (galleryFiles.length > 0) {
         galleryFiles.forEach((f) => {
           form.append("galleryImages", f);
         });
       }
-      
-      // If NO new files but old images exist, explicitly send them
-      // This ensures the backend knows to KEEP the old images, not delete them
       if (galleryFiles.length === 0 && editFormData.oldGalleryImages?.length > 0) {
         form.append("keepExistingGallery", "true");
       }
 
-      // Debug — verify in browser console before sending
-      console.log("[handleEditProduct] Gallery images summary:", {
-        existingUrls: editFormData.oldGalleryImages.length,
-        newFiles: galleryFiles.length,
-        totalImages: editFormData.oldGalleryImages.length + galleryFiles.length,
-        keepExisting: galleryFiles.length === 0 && editFormData.oldGalleryImages?.length > 0
-      });
-      console.log("[handleEditProduct] existing URLs:", editFormData.oldGalleryImages);
-      console.log("[handleEditProduct] new files:", galleryFiles.map((f) => f.name));
-
-      const stockNum = Number(editFormData.stock);
+      const stockNum = editFormData.type === "SIMPLE" ? Number(editFormData.stock) : Math.max(...editVariants.map(v => Number(v.stock) || 0));
       const wasRejected = editProductStatus === "REJECTED";
 
       await api.put(`/api/products/${editProductId}`, form);
 
       if (wasRejected) {
-        // Auto-approve so the product moves out of REJECTED/PENDING
         await api.post(`/api/admin/products/approve/${editProductId}`);
-        if (stockNum <= 2) {
-          // Low stock — approve puts it ACTIVE, then deactivate immediately
+        if (editFormData.type === "SIMPLE" && stockNum <= 2) {
           await api.put(`/api/admin/products/deactivate/${editProductId}`, { reason: "Auto-deactivated due to low stock (≤ 2 units). Please update stock to re-activate." });
           toast.success("Product approved and saved — marked Inactive due to low stock (≤ 2). Update stock to activate.", { duration: 7000 });
         } else {
@@ -545,7 +568,8 @@ export default function AdminProductsPage() {
       setEditProductId(null);
       setEditProductStatus("");
       editGalleryAccumRef.current = [];
-      // Clear all tab caches so every tab re-fetches on next view (product may have moved tabs)
+      setEditVariants([]);
+      setEditSelectedAttrValues({});
       fetchedTabsRef.current = new Set();
       fetchTabProducts(selectedSellerRef.current, activeViewRef.current);
     } catch (err: any) {
@@ -1352,244 +1376,528 @@ export default function AdminProductsPage() {
       )}
 
       {/* Edit Drawer */}
-      <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) { editGalleryAccumRef.current = []; setShowEditModal(false); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-xl flex flex-col p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+      <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) { editGalleryAccumRef.current = []; setEditVariants([]); setEditSelectedAttrValues({}); setShowEditModal(false); } }}>
+        <SheetContent side="right" className={cn("w-full flex flex-col p-0 gap-0 overflow-hidden transition-all duration-300", editFormData.type === "VARIABLE" ? "sm:max-w-5xl" : "sm:max-w-xl")} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <SheetHeader className="px-6 py-4 border-b shrink-0">
             <SheetTitle className="text-xl font-bold">Edit Product</SheetTitle>
+            {editProductStatus === "REJECTED" ? (
+              <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs bg-blue-50 border border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-800 dark:text-blue-300">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                <span>This product was rejected. Saving will auto-approve it and make it Active.</span>
+              </div>
+            ) : editProductStatus === "ACTIVE" ? (
+              <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs bg-yellow-50 border border-yellow-200 text-yellow-700 dark:bg-yellow-950/30 dark:border-yellow-800 dark:text-yellow-300">
+                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+                <span>Editing a live product will set it to Inactive. Use the activate toggle to re-list it when ready.</span>
+              </div>
+            ) : null}
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 col-span-2">
-                  <Label className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
-                  <Input placeholder="Give your product a clear name" value={editFormData.title} onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })} className="h-10" />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label className="text-sm font-semibold">Detailed Description</Label>
-                  <Textarea placeholder="Product details..." value={editFormData.description} rows={4} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })} className="resize-none" />
-                </div>
-                <div className="space-y-2 col-span-2">
-                  <Label className="text-sm font-semibold">Artist Name (Optional)</Label>
-                  <Input placeholder="Enter artist name" value={editFormData.artistName} onChange={(e) => setEditFormData({ ...editFormData, artistName: e.target.value })} className="h-10" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Price ($) <span className="text-red-500">*</span></Label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input type="number" placeholder="0.00" value={editFormData.price} onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })} className="pl-9 h-10" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Stock Quantity <span className="text-red-500">*</span></Label>
-                  <Input type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="h-10" />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Weight (kg)</Label>
-                  <Input type="number" placeholder="1" min="0" step="0.01" value={editFormData.weight} onChange={(e) => setEditFormData({ ...editFormData, weight: e.target.value })} className="h-10" />
-                </div>
-
-                {/* Category */}
-                <div className="space-y-2 relative" ref={editCatDropdownRef}>
-                  <Label className="text-sm font-semibold">Category <span className="text-red-500">*</span></Label>
-                  <div
-                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm hover:border-primary/50 cursor-pointer"
-                    onClick={() => setIsEditCatOpen((v) => !v)}
+            {/* Product Type Selector */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Product Type</Label>
+              <div className="flex rounded-lg border p-1 bg-muted/20 gap-1">
+                {(["SIMPLE", "VARIABLE"] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={cn(
+                      "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
+                      editFormData.type === type
+                        ? "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => setEditFormData((prev) => ({ ...prev, type }))}
                   >
-                    <span className={editFormData.category ? "text-foreground font-medium" : "text-muted-foreground"}>{editFormData.category || "Select a category"}</span>
-                    <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", isEditCatOpen && "rotate-180")} />
+                    {type === "SIMPLE" ? "Simple Product" : "Variable Product"}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {editFormData.type === "SIMPLE"
+                  ? "A single product with one price and stock quantity."
+                  : "A product with multiple variants (e.g. different sizes or colours, each with their own price and stock)."}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label className="text-sm font-semibold">Product Title <span className="text-red-500">*</span></Label>
+                <Input placeholder="Give your product a clear name" value={editFormData.title} onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })} className="focus:ring-primary h-10" />
+              </div>
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label className="text-sm font-semibold">Detailed Description</Label>
+                <Textarea placeholder="Product details..." value={editFormData.description} rows={4} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })} className="resize-none focus:ring-primary py-2" />
+              </div>
+              <div className="space-y-2 col-span-1 md:col-span-2">
+                <Label className="text-sm font-semibold">Artist Name (Optional)</Label>
+                <Input placeholder="Enter artist name" value={editFormData.artistName} onChange={(e) => setEditFormData({ ...editFormData, artistName: e.target.value })} className="focus:ring-primary h-10" />
+              </div>
+
+              {editFormData.type === "SIMPLE" && (
+                <>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Price ($) <span className="text-red-500">*</span></Label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input type="number" placeholder="0.00" value={editFormData.price} onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })} className="pl-9 focus:ring-primary h-10" />
+                    </div>
                   </div>
-                  {isEditCatOpen && (
-                    <div className="absolute z-[60] w-full mt-1 bg-background rounded-lg border shadow-xl p-1">
-                      <div className="flex items-center border-b px-3 pb-2 pt-1">
-                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                        <input
-                          className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
-                          placeholder="Search categories..." value={editCatSearch} autoFocus
-                          onChange={(e) => setEditCatSearch(e.target.value)} onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      <div className="max-h-[220px] overflow-y-auto mt-1">
-                        {availableCategories.length === 0 ? (
-                          <div className="py-4 text-center">
-                            <Button variant="ghost" size="sm" className="text-xs text-primary underline"
-                              onClick={(e) => { e.stopPropagation(); loadCategories(); }}>Refresh Categories</Button>
-                          </div>
-                        ) : availableCategories.filter((c) => c.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).map((cat) => (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">Stock Quantity <span className="text-red-500">*</span></Label>
+                    <Input type="number" placeholder="0" value={editFormData.stock} onChange={(e) => setEditFormData({ ...editFormData, stock: e.target.value })} className="focus:ring-primary h-10" />
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Weight (kg)</Label>
+                <Input type="number" placeholder="1" min="0" step="0.01" value={editFormData.weight} onChange={(e) => setEditFormData({ ...editFormData, weight: e.target.value })} className="focus:ring-primary h-10" />
+              </div>
+
+              <div className="space-y-2 relative" ref={editCatDropdownRef}>
+                <Label className="text-sm font-semibold">Category <span className="text-red-500">*</span></Label>
+                <div
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-all hover:border-primary/50 cursor-pointer"
+                  onClick={() => setIsEditCatOpen(!isEditCatOpen)}
+                >
+                  <span className={editFormData.category ? "text-foreground font-medium" : "text-muted-foreground"}>
+                    {editFormData.category || "Select a category"}
+                  </span>
+                  <ChevronDown className={cn("h-4 w-4 opacity-50 transition-transform duration-200", isEditCatOpen && "rotate-180")} />
+                </div>
+                {isEditCatOpen && (
+                  <div className="absolute z-[60] w-full mt-1 bg-background text-popover-foreground rounded-lg border shadow-xl p-1 animate-in fade-in zoom-in-95 slide-in-from-bottom-2">
+                    <div className="flex items-center border-b px-3 pb-2 pt-1">
+                      <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                      <input
+                        className="flex h-9 w-full rounded-md bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+                        placeholder="Search categories..."
+                        value={editCatSearch}
+                        onChange={(e) => setEditCatSearch(e.target.value)}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="max-h-[220px] overflow-y-auto mt-1 custom-scrollbar">
+                      {availableCategories.length === 0 ? (
+                        <div className="py-4 text-center">
+                          <Button variant="ghost" size="sm" className="text-xs text-primary underline"
+                            onClick={(e) => { e.stopPropagation(); loadCategories(); }}>Refresh Categories</Button>
+                        </div>
+                      ) : availableCategories
+                        .filter(cat => cat.categoryName.toLowerCase().includes(editCatSearch.toLowerCase()))
+                        .map((cat) => (
                           <div
                             key={cat.categoryName}
                             className={cn(
-                              "flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
+                              "group relative flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
                               editFormData.category === cat.categoryName && "bg-primary/5 text-primary font-medium"
                             )}
-                            onClick={(e) => { e.stopPropagation(); setEditFormData({ ...editFormData, category: cat.categoryName }); setIsEditCatOpen(false); setEditCatSearch(""); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditFormData({ ...editFormData, category: cat.categoryName });
+                              setIsEditCatOpen(false);
+                              setEditCatSearch("");
+                            }}
                           >
-                            <div className={cn("mr-2 flex h-4 w-4 items-center justify-center rounded border border-primary transition-all",
-                              editFormData.category === cat.categoryName ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50")}>
+                            <div className={cn(
+                              "mr-2 flex h-4 w-4 items-center justify-center rounded border border-primary transition-all",
+                              editFormData.category === cat.categoryName ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50"
+                            )}>
                               {editFormData.category === cat.categoryName && <Check className="h-3 w-3" />}
                             </div>
                             {cat.categoryName}
                           </div>
                         ))}
-                        {availableCategories.length > 0 && availableCategories.filter((c) => c.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).length === 0 && (
-                          <div className="py-6 text-center text-sm text-muted-foreground">No category found.</div>
-                        )}
-                      </div>
+                      {availableCategories.length > 0 && availableCategories.filter(cat => cat.categoryName.toLowerCase().includes(editCatSearch.toLowerCase())).length === 0 && (
+                        <div className="py-6 text-center text-sm text-muted-foreground">No category found.</div>
+                      )}
                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Variable Product – Attribute-First Variant Builder */}
+            {editFormData.type === "VARIABLE" && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Product Variants <span className="text-red-500">*</span></p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Select attribute values → generate all combinations automatically.</p>
+                  </div>
+                  {editVariants.length > 0 && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary inline-block" />
+                      {editVariants.length} variant{editVariants.length !== 1 ? "s" : ""}
+                    </span>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors col-span-2">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-semibold cursor-pointer">Featured Product</Label>
-                    <p className="text-[11px] text-muted-foreground">Highlight this product on the homepage</p>
-                  </div>
-                  <Switch
-                    checked={editFormData.featured}
-                    onCheckedChange={(checked) => setEditFormData({ ...editFormData, featured: checked })}
-                  />
-                </div>
-
-                <div className="space-y-3 col-span-2">
-                  <Label className="text-sm font-semibold">Promotion Tags</Label>
-                  <div className="flex flex-wrap gap-4 pt-1">
-                    {["New Arrival", "Sale", "Best Seller", "Limited Edition"].map(tag => {
-                      const currentTags = editFormData.tags ? editFormData.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
-                      const isChecked = currentTags.includes(tag);
-                      return (
-                        <div
-                          key={tag}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all cursor-pointer select-none",
-                            isChecked ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-muted/10 border-transparent hover:bg-muted/20"
-                          )}
-                          onClick={() => {
-                            const newTags = isChecked
-                              ? currentTags.filter(t => t !== tag)
-                              : [...currentTags, tag];
-                            setEditFormData({ ...editFormData, tags: newTags.join(", ") });
-                          }}
-                        >
-                          <div className={cn(
-                            "flex h-4 w-4 items-center justify-center rounded border border-primary transition-all",
-                            isChecked ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50"
-                          )}>
-                            {isChecked && <Check className="h-3 w-3" />}
+                {availableAttributes.length > 0 ? (
+                  <div className="rounded-xl border bg-muted/10 divide-y overflow-hidden">
+                    <div className="px-4 py-2.5 bg-muted/30">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 1 — Select Attribute Values</p>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {availableAttributes.map((attr) => {
+                        const selected = editSelectedAttrValues[attr.name] ?? [];
+                        return (
+                          <div key={attr.id} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs font-semibold text-foreground">{attr.name}</Label>
+                              {selected.length > 0 && (
+                                <button type="button" className="text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                                  onClick={() => setEditSelectedAttrValues(prev => { const n = { ...prev }; delete n[attr.name]; return n; })}>
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {attr.values?.map((v: any, vi: number) => {
+                                const rawVal = v?.value;
+                                const strValue: string = rawVal && typeof rawVal === "object"
+                                  ? String(rawVal.value ?? rawVal.displayValue ?? "")
+                                  : String(rawVal ?? "");
+                                const displayText: string = v?.displayName
+                                  || (rawVal && typeof rawVal === "object" ? (rawVal.displayValue ?? rawVal.value) : null)
+                                  || v?.displayValue || strValue;
+                                const hexColor: string | null = v?.hexCode
+                                  || (rawVal && typeof rawVal === "object" ? rawVal.hexColor : null)
+                                  || v?.hexColor || null;
+                                const isSelected = selected.includes(strValue);
+                                return (
+                                  <button
+                                    key={v?.id ?? vi}
+                                    type="button"
+                                    onClick={() => {
+                                      setEditSelectedAttrValues(prev => {
+                                        const cur = prev[attr.name] ?? [];
+                                        const next = isSelected ? cur.filter(x => x !== strValue) : [...cur, strValue];
+                                        if (next.length === 0) { const n = { ...prev }; delete n[attr.name]; return n; }
+                                        return { ...prev, [attr.name]: next };
+                                      });
+                                    }}
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all select-none",
+                                      isSelected
+                                        ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
+                                        : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
+                                    )}
+                                  >
+                                    {hexColor && <span className="h-3 w-3 rounded-full border border-white/50 flex-shrink-0" style={{ backgroundColor: hexColor }} />}
+                                    {displayText}
+                                    {isSelected && <Check className="h-3 w-3 flex-shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <span className="text-sm font-medium">{tag}</span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed p-6 text-center space-y-1">
+                    <Layers className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                    <p className="text-sm font-medium text-muted-foreground">No attributes configured</p>
+                    <p className="text-xs text-muted-foreground/70">Attributes (e.g. Size, Colour) must be set up first.</p>
+                  </div>
+                )}
+
+                {Object.keys(editSelectedAttrValues).length > 0 && (
+                  <div className="rounded-xl border bg-muted/10 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 2 — Generate Variants</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {(() => {
+                            const counts = Object.values(editSelectedAttrValues).map(v => v.length);
+                            const total = counts.reduce((a, b) => a * b, 1);
+                            return `${total} combination${total !== 1 ? "s" : ""} will be created`;
+                          })()}
+                        </p>
+                      </div>
+                      <Button type="button" size="sm" className="gap-1.5 h-8 text-xs font-semibold"
+                        onClick={() => {
+                          const attrNames = Object.keys(editSelectedAttrValues);
+                          const attrValueSets = attrNames.map(k => editSelectedAttrValues[k]);
+                          const cartesian = (sets: string[][]): string[][] => {
+                            if (sets.length === 0) return [[]];
+                            const [first, ...rest] = sets;
+                            const restProduct = cartesian(rest);
+                            return first.flatMap(v => restProduct.map(p => [v, ...p]));
+                          };
+                          const combos = cartesian(attrValueSets);
+                          if (combos.length > 100) { toast.error("Too many variants — maximum 100 allowed."); return; }
+                          const generated = combos.map((combo) => {
+                            const attrs: Record<string, string> = {};
+                            attrNames.forEach((name, i) => { attrs[name] = combo[i]; });
+                            const skuParts = combo.map(v => String(v).replace(/\s+/g, "-").toUpperCase());
+                            const sku = `SKU-${skuParts.join("-")}`;
+                            const existing = editVariants.find(v => JSON.stringify(v.attributes) === JSON.stringify(attrs));
+                            return { id: existing?.id, attributes: attrs, price: existing?.price ?? "", stock: existing?.stock ?? "", sku: existing?.sku ?? sku };
+                          });
+                          setEditVariants(generated);
+                          toast.success(`${generated.length} variant${generated.length !== 1 ? "s" : ""} generated!`);
+                        }}
+                      >
+                        <RefreshCcw className="h-3.5 w-3.5" />
+                        Generate Variants
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {editVariants.length > 0 && (
+                  <div className="rounded-xl border overflow-hidden">
+                    <div className="px-4 py-3 bg-muted/30 border-b flex flex-wrap items-center gap-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+                        Step 3 — Set Prices &amp; Stock
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Bulk set:</span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="relative">
+                            <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <Input type="number" placeholder="Price" className="pl-5 h-7 w-24 text-xs" value={editBulkPrice} onChange={e => setEditBulkPrice(e.target.value)} />
+                          </div>
+                          <Input type="number" placeholder="Stock" className="h-7 w-20 text-xs" value={editBulkStock} onChange={e => setEditBulkStock(e.target.value)} />
+                          <Button type="button" variant="outline" size="sm" className="h-7 text-xs px-3"
+                            onClick={() => {
+                              if (!editBulkPrice && !editBulkStock) return;
+                              setEditVariants(prev => prev.map(v => ({
+                                ...v,
+                                ...(editBulkPrice ? { price: editBulkPrice } : {}),
+                                ...(editBulkStock ? { stock: editBulkStock } : {}),
+                              })));
+                              setEditBulkPrice(""); setEditBulkStock("");
+                              toast.success("Applied to all variants");
+                            }}
+                          >Apply All</Button>
                         </div>
-                      );
-                    })}
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-muted/20 border-b">
+                          <tr>
+                            {Object.keys(editVariants[0]?.attributes ?? {}).map(k => (
+                              <th key={k} className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">{k}</th>
+                            ))}
+                            <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Price ($)*</th>
+                            <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Stock*</th>
+                            <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">SKU</th>
+                            <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Del</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-muted/60">
+                          {editVariants.map((variant, idx) => (
+                            <tr key={idx} className={cn("hover:bg-muted/10 transition-colors", (!variant.price || !variant.stock) && "bg-amber-50/40 dark:bg-amber-950/10")}>
+                              {Object.entries(variant.attributes).map(([k, v]) => (
+                                <td key={k} className="px-3 py-2">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium text-[11px]">
+                                    {typeof v === "object" && v !== null
+                                      ? String((v as any).value ?? (v as any).displayValue ?? JSON.stringify(v))
+                                      : String(v ?? "")}
+                                  </span>
+                                </td>
+                              ))}
+                              <td className="px-3 py-2">
+                                <div className="relative">
+                                  <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                                  <Input type="number" placeholder="0.00" step="0.01"
+                                    className={cn("pl-5 h-7 w-24 text-xs", !variant.price && "border-amber-400 focus-visible:ring-amber-400")}
+                                    value={variant.price}
+                                    onChange={e => setEditVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, price: e.target.value } : v2))}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-3 py-2">
+                                <Input type="number" placeholder="0"
+                                  className={cn("h-7 w-20 text-xs", !variant.stock && "border-amber-400 focus-visible:ring-amber-400")}
+                                  value={variant.stock}
+                                  onChange={e => setEditVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, stock: e.target.value } : v2))}
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <Input type="text" className="h-7 w-32 text-xs font-mono" value={variant.sku}
+                                  onChange={e => setEditVariants(prev => prev.map((v2, i) => i === idx ? { ...v2, sku: e.target.value } : v2))}
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <button type="button"
+                                  className="h-6 w-6 rounded-full inline-flex items-center justify-center text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                  onClick={() => setEditVariants(prev => prev.filter((_, i) => i !== idx))}>
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-2.5 bg-muted/10 border-t flex items-center justify-between">
+                      <p className="text-[11px] text-muted-foreground">
+                        {editVariants.filter(v => v.price && v.stock).length}/{editVariants.length} variants have price &amp; stock set
+                      </p>
+                      {editVariants.some(v => !v.price || !v.stock) && (
+                        <span className="text-[11px] text-amber-600 font-medium">⚠ Fill in price &amp; stock for all variants before publishing</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                {/* Featured Image */}
-                <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20 col-span-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-sm font-semibold">Featured Image</Label>
-                    <span className="text-[10px] text-muted-foreground">Main product image</span>
-                  </div>
-                  <input
-                    ref={editFeaturedImageRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] ?? null;
-                      setEditFormData((prev) => ({ ...prev, featuredImage: file }));
-                    }}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
-                  />
-                  <div className="flex gap-3 flex-wrap pt-2">
-                    {editFormData.oldFeaturedImage && !editFormData.featuredImage && (
-                      <div className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
-                        <NextImage src={editFormData.oldFeaturedImage} alt="Featured" fill className="object-cover" />
-                        <button type="button"
-                          onClick={() => setEditFormData((prev) => ({ ...prev, oldFeaturedImage: null }))}
-                          className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
-                    {editFormData.featuredImage && (
-                      <div className="relative h-20 w-20 rounded border overflow-hidden bg-muted">
-                        <NextImage src={URL.createObjectURL(editFormData.featuredImage)} alt="New Featured" fill className="object-cover" />
-                        <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
-                      </div>
-                    )}
-                    {!editFormData.oldFeaturedImage && !editFormData.featuredImage && (
-                      <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
-                        <Package className="h-6 w-6 mb-1 opacity-20" />
-                        <p className="text-xs">No featured image</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Gallery Images */}
-                <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20 col-span-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <Label className="text-sm font-semibold">Gallery Images</Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      {editFormData.oldGalleryImages.length + editFormData.galleryImages.length} image(s) total
-                    </span>
-                  </div>
-                  <input
-                    ref={editGalleryImagesRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        const newFiles = Array.from(e.target.files);
-                        editGalleryAccumRef.current = [...editGalleryAccumRef.current, ...newFiles];
-                        setEditFormData((prev) => ({ ...prev, galleryImages: [...editGalleryAccumRef.current] }));
-                        e.target.value = "";
-                      }
-                    }}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
-                  />
-                  <div className="flex gap-3 flex-wrap pt-2">
-                    {editFormData.oldGalleryImages.map((img, idx) => (
-                      <div key={`old-${idx}`} className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
-                        <NextImage src={img} alt={`Gallery ${idx}`} fill className="object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => setEditFormData((prev) => ({ ...prev, oldGalleryImages: prev.oldGalleryImages.filter((_, i) => i !== idx) }))}
-                          className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                    {editFormData.galleryImages.map((file, idx) => (
-                      <div key={`new-${idx}`} className="relative group h-20 w-20 rounded border overflow-hidden bg-muted">
-                        <NextImage src={URL.createObjectURL(file)} alt={`New ${idx}`} fill className="object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const updated = editFormData.galleryImages.filter((_, i) => i !== idx);
-                            editGalleryAccumRef.current = updated;
-                            setEditFormData((prev) => ({ ...prev, galleryImages: updated }));
-                          }}
-                          className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                        <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
-                      </div>
-                    ))}
-                    {editFormData.oldGalleryImages.length === 0 && editFormData.galleryImages.length === 0 && (
-                      <div className="h-20 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
-                        <Package className="h-6 w-6 mb-1 opacity-20" />
-                        <p className="text-xs">No gallery images</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                )}
               </div>
+            )}
+
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">Promotion Tags</Label>
+              <div className="flex flex-wrap gap-4 pt-1">
+                {["New Arrival", "Sale", "Best Seller", "Limited Edition"].map(tag => {
+                  const currentTags = editFormData.tags ? editFormData.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
+                  const isChecked = currentTags.includes(tag);
+                  return (
+                    <div
+                      key={tag}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all cursor-pointer select-none",
+                        isChecked ? "bg-primary/10 border-primary text-primary shadow-sm" : "bg-muted/10 border-transparent hover:bg-muted/20"
+                      )}
+                      onClick={() => {
+                        const newTags = isChecked ? currentTags.filter(t => t !== tag) : [...currentTags, tag];
+                        setEditFormData({ ...editFormData, tags: newTags.join(", ") });
+                      }}
+                    >
+                      <div className={cn("flex h-4 w-4 items-center justify-center rounded border border-primary transition-all",
+                        isChecked ? "bg-primary text-primary-foreground" : "bg-transparent opacity-50")}>
+                        {isChecked && <Check className="h-3 w-3" />}
+                      </div>
+                      <span className="text-sm font-medium">{tag}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/30 transition-colors">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-semibold cursor-pointer">Featured Product</Label>
+                <p className="text-[11px] text-muted-foreground">Highlight this product on the homepage</p>
+              </div>
+              <Switch checked={editFormData.featured} onCheckedChange={(checked) => setEditFormData({ ...editFormData, featured: checked })} />
+            </div>
+
+            {/* Featured Image */}
+            <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20">
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-sm font-semibold">Featured Image</Label>
+                <span className="text-[10px] text-muted-foreground">Main product image</span>
+              </div>
+              <input
+                ref={editFeaturedImageRef}
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  setEditFormData((prev) => ({ ...prev, featuredImage: file }));
+                }}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+              />
+              <div className="flex gap-3 flex-wrap pt-2">
+                {editFormData.oldFeaturedImage && !editFormData.featuredImage && (
+                  <div className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
+                    <NextImage src={editFormData.oldFeaturedImage} alt="Featured" fill className="object-cover transition-transform group-hover:scale-110" unoptimized />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full"
+                        onClick={() => setEditFormData((prev) => ({ ...prev, oldFeaturedImage: null }))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {editFormData.featuredImage && (
+                  <div className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
+                    <NextImage src={URL.createObjectURL(editFormData.featuredImage)} alt="New Featured" fill className="object-cover transition-transform group-hover:scale-110" />
+                    <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full"
+                        onClick={() => { if (editFeaturedImageRef.current) editFeaturedImageRef.current.value = ''; setEditFormData(prev => ({ ...prev, featuredImage: null })); }}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {!editFormData.oldFeaturedImage && !editFormData.featuredImage && (
+                  <div className="h-24 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                    <Package className="h-8 w-8 mb-2 opacity-20" />
+                    <p className="text-xs">No featured image selected</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Gallery Images */}
+            <div className="space-y-3 p-4 rounded-xl border border-dashed bg-muted/20">
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-sm font-semibold">Gallery Images</Label>
+                <span className="text-[10px] text-muted-foreground">{editFormData.oldGalleryImages.length + editFormData.galleryImages.length} image(s) total</span>
+              </div>
+              <input
+                ref={editGalleryImagesRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    const newFiles = Array.from(e.target.files);
+                    editGalleryAccumRef.current = [...editGalleryAccumRef.current, ...newFiles];
+                    setEditFormData((prev) => ({ ...prev, galleryImages: [...editGalleryAccumRef.current] }));
+                    e.target.value = "";
+                  }
+                }}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm cursor-pointer file:border-0 file:bg-transparent file:text-sm file:font-medium"
+              />
+              <div className="flex gap-3 flex-wrap pt-2">
+                {editFormData.oldGalleryImages.map((img, idx) => (
+                  <div key={`old-${idx}`} className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
+                    <NextImage src={img} alt={`Gallery ${idx}`} fill className="object-cover transition-transform group-hover:scale-110" unoptimized />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full"
+                        onClick={() => setEditFormData((prev) => ({ ...prev, oldGalleryImages: prev.oldGalleryImages.filter((_, i) => i !== idx) }))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {editFormData.galleryImages.map((file, idx) => (
+                  <div key={`new-${idx}`} className="relative group h-24 w-24 rounded-lg border-2 border-muted overflow-hidden bg-background shadow-sm">
+                    <NextImage src={URL.createObjectURL(file)} alt={`New ${idx}`} fill className="object-cover transition-transform group-hover:scale-110" />
+                    <span className="absolute bottom-0 left-0 right-0 bg-primary/80 text-white text-[9px] text-center py-0.5">New</span>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button variant="destructive" size="icon" className="h-7 w-7 rounded-full"
+                        onClick={() => {
+                          const updated = editFormData.galleryImages.filter((_, i) => i !== idx);
+                          editGalleryAccumRef.current = updated;
+                          setEditFormData((prev) => ({ ...prev, galleryImages: updated }));
+                        }}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {editFormData.oldGalleryImages.length === 0 && editFormData.galleryImages.length === 0 && (
+                  <div className="h-24 w-full flex flex-col items-center justify-center text-muted-foreground bg-background/50 rounded-lg border-2 border-dashed border-muted">
+                    <Package className="h-8 w-8 mb-2 opacity-20" />
+                    <p className="text-xs">No gallery images selected</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
           <div className="px-6 py-4 border-t bg-muted/10 shrink-0 flex justify-end gap-3">
-            <Button variant="outline" onClick={() => { editGalleryAccumRef.current = []; setShowEditModal(false); }} disabled={editSubmitting} className="h-10 px-4">Cancel</Button>
-            <Button onClick={handleEditProduct} disabled={editSubmitting} className="h-10 px-6 font-semibold shadow-md">
+            <Button variant="outline" className="h-10 px-4" onClick={() => { editGalleryAccumRef.current = []; setEditVariants([]); setEditSelectedAttrValues({}); setShowEditModal(false); }} disabled={editSubmitting}>Cancel</Button>
+            <Button className="h-10 px-6 font-semibold shadow-md" onClick={handleEditProduct} disabled={editSubmitting}>
               {editSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : "Save Changes"}
             </Button>
           </div>
