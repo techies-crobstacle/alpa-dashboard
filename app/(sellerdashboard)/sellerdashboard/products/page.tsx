@@ -90,7 +90,23 @@ type Product = {
   tags?: string[] | string;
   artistName?: string;
   weight?: number | string;
+  type?: "SIMPLE" | "VARIABLE";
+  variants?: Array<{ price?: number | string }>;
 };
+
+function formatPrice(product: Product): string {
+  if (product.type === "VARIABLE" && Array.isArray(product.variants) && product.variants.length > 0) {
+    const prices = product.variants
+      .map(v => Number(v.price))
+      .filter(p => !isNaN(p) && p > 0);
+    if (prices.length === 0) return "—";
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return min === max ? `$${min.toFixed(2)}` : `$${min.toFixed(2)} – $${max.toFixed(2)}`;
+  }
+  const p = Number(product.price);
+  return isNaN(p) || p === 0 ? "—" : `$${p.toFixed(2)}`;
+}
 
 // ── Status badge (seller-facing labels) ───────────────────────────────────────
 function StatusBadge({ status, stock }: { status?: string; stock?: number }) {
@@ -274,6 +290,7 @@ function ProjectsPage() {
   // selectedAttrValues: { [attrName]: Set of selected values }
   const [selectedAttrValues, setSelectedAttrValues] = useState<Record<string, string[]>>({});
   const [customNumericAdd, setCustomNumericAdd] = useState<Record<string, string>>({});
+  const [customSizeModeAdd, setCustomSizeModeAdd] = useState<Record<string, "text" | "number">>({});
   const [bulkPrice, setBulkPrice] = useState("");
   const [bulkStock, setBulkStock] = useState("");
 
@@ -281,6 +298,7 @@ function ProjectsPage() {
   const [editVariants, setEditVariants] = useState<Array<{id?: string; price: string; stock: string; sku: string; attributes: Record<string, string>}>>([]);
   const [editSelectedAttrValues, setEditSelectedAttrValues] = useState<Record<string, string[]>>({});
   const [customNumericEdit, setCustomNumericEdit] = useState<Record<string, string>>({});
+  const [customSizeModeEdit, setCustomSizeModeEdit] = useState<Record<string, "text" | "number">>({});
   const [editBulkPrice, setEditBulkPrice] = useState("");
   const [editBulkStock, setEditBulkStock] = useState("");
   const [loading, setLoading] = useState(true);
@@ -567,7 +585,27 @@ function ProjectsPage() {
         type: formData.type,
         variants: formData.type === "VARIABLE" ? addVariants : undefined,
       };
-      await addProduct(productData);
+      const addResult = await addProduct(productData);
+      // For VARIABLE products, sync variants via bulk endpoint
+      if (formData.type === "VARIABLE" && addVariants.length > 0) {
+        const newProductId = addResult?.product?.id || addResult?.id;
+        if (newProductId) {
+          const token = getAuthToken();
+          await fetch(`${BASE_URL}/api/products/${newProductId}/variants/bulk`, {
+            method: "PUT",
+            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              variants: addVariants.map(v => ({
+                sku: v.sku,
+                price: Number(v.price),
+                stock: Number(v.stock),
+                isActive: true,
+                attributes: v.attributes,
+              }))
+            }),
+          });
+        }
+      }
       toast.success("Product added successfully!");
       setShowAddModal(false);
       setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featuredImage: null, galleryImages: [], featured: false, tags: "", artistName: "", weight: "1", type: "SIMPLE" });
@@ -960,6 +998,24 @@ function ProjectsPage() {
           errorMsg = errorData.message || errorData.error || errorMsg;
         } catch {}
         throw new Error(errorMsg);
+      }
+
+      // For VARIABLE products, sync variants via bulk endpoint
+      if (editFormData.type === "VARIABLE" && editVariants.length > 0) {
+        await fetch(`${BASE_URL}/api/products/${editProductId}/variants/bulk`, {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            variants: editVariants.map(v => ({
+              ...(v.id ? { id: v.id } : {}),
+              sku: v.sku,
+              price: Number(v.price),
+              stock: Number(v.stock),
+              isActive: true,
+              attributes: v.attributes,
+            }))
+          }),
+        });
       }
 
       toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
@@ -1464,7 +1520,7 @@ function ProjectsPage() {
                     )}
                   </td>
                   <td className="px-4 py-2">{product.category}</td>
-                  <td className="px-4 py-2">${product.price}</td>
+                  <td className="px-4 py-2">{formatPrice(product)}</td>
                   <td className={cn("px-4 py-2 font-medium", (product.stock ?? 0) <= 2 && product.status === 'INACTIVE' ? "text-red-600" : "")}>
                     {product.stock}
                     {(product.stock ?? 0) <= 2 && product.status === 'INACTIVE' && (
@@ -1988,6 +2044,7 @@ function ProjectsPage() {
                               {availableAttributes.map((attr) => {
                                 const selected = editSelectedAttrValues[attr.name] ?? [];
                                 const isNumberType = attr.valueType?.toLowerCase() === "number";
+                                const effectiveMode = customSizeModeEdit[attr.name] ?? (isNumberType ? "number" : "text");
                                 const sortedValues = isNumberType
                                   ? [...(attr.values ?? [])].sort((a: any, b: any) => Number(a?.value ?? 0) - Number(b?.value ?? 0))
                                   : (attr.values ?? []);
@@ -1995,14 +2052,14 @@ function ProjectsPage() {
                                   <div key={attr.id} className="space-y-2">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2">
-                                        <Label className="text-xs font-semibold text-foreground">{attr.displayName || attr.name}</Label>
+                                        <Label className="text-xs font-semibold text-foreground">{(attr.displayName || attr.name).replace(/^\w/, (c: string) => c.toUpperCase())}</Label>
                                         <span className={cn(
                                           "text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border",
-                                          isNumberType
+                                          effectiveMode === "number"
                                             ? "text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
                                             : "text-muted-foreground bg-muted/50 border-border"
                                         )}>
-                                          {isNumberType ? "number" : "text"}
+                                          {effectiveMode === "number" ? "number" : "text"}
                                         </span>
                                       </div>
                                       {selected.length > 0 && (
@@ -2016,7 +2073,7 @@ function ProjectsPage() {
                                       )}
                                     </div>
                                     <div className="flex flex-wrap gap-2">
-                                      {sortedValues.map((v: any, vi: number) => {
+                                      {!isNumberType && sortedValues.map((v: any, vi: number) => {
                                         const rawVal = v?.value;
                                         const strValue: string = rawVal && typeof rawVal === "object"
                                           ? String(rawVal.value ?? rawVal.displayValue ?? "")
@@ -2090,19 +2147,53 @@ function ProjectsPage() {
                                       ))}
                                     </div>
                                     {attr.name !== "color" && attr.name !== "material" && (
-                                    <div className="flex items-center gap-2 mt-1">
-                                      <Input
-                                        type="text"
-                                        placeholder={isNumberType ? "e.g. 6, 7, 8, 9, 10 (comma separated)" : "e.g. S, M, L, XL, XXL (comma separated)"}
-                                        className={cn("h-7 w-56 text-xs", isNumberType && "font-mono")}
-                                        value={customNumericEdit[attr.name] ?? ""}
-                                        onChange={e => setCustomNumericEdit(prev => ({ ...prev, [attr.name]: e.target.value }))}
-                                        onKeyDown={e => {
-                                          if (e.key === "Enter") {
-                                            e.preventDefault();
+                                    <div className="space-y-2 mt-2 pt-2 border-t border-dashed">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[10px] text-muted-foreground font-medium">Add sizes as:</span>
+                                        <button type="button"
+                                          onClick={() => setCustomSizeModeEdit(prev => ({ ...prev, [attr.name]: "text" }))}
+                                          className={cn("px-2 py-0.5 rounded text-[10px] font-medium border transition-all",
+                                            effectiveMode === "text" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50"
+                                          )}>Text</button>
+                                        <button type="button"
+                                          onClick={() => setCustomSizeModeEdit(prev => ({ ...prev, [attr.name]: "number" }))}
+                                          className={cn("px-2 py-0.5 rounded text-[10px] font-medium border transition-all",
+                                            effectiveMode === "number" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50"
+                                          )}>Number</button>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          type="text"
+                                          placeholder={effectiveMode === "number" ? "Custom: 8.5, 9.5, 10.5..." : "Custom: 2XL, 6XL..."}
+                                          className={cn("h-7 w-44 text-xs", effectiveMode === "number" && "font-mono")}
+                                          value={customNumericEdit[attr.name] ?? ""}
+                                          onChange={e => setCustomNumericEdit(prev => ({ ...prev, [attr.name]: e.target.value }))}
+                                          onKeyDown={e => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              const raw = (customNumericEdit[attr.name] ?? "").trim();
+                                              if (!raw) return;
+                                              const isNum = effectiveMode === "number";
+                                              const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNum || !isNaN(Number(s))));
+                                              if (!vals.length) return;
+                                              setEditSelectedAttrValues(prev => {
+                                                const cur = prev[attr.name] ?? [];
+                                                const added = vals.filter(v => !cur.includes(v));
+                                                return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                              });
+                                              setCustomNumericEdit(prev => ({ ...prev, [attr.name]: "" }));
+                                            }
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center gap-1 h-7 px-2.5 rounded border border-border bg-background text-xs font-medium hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-40"
+                                          disabled={!(customNumericEdit[attr.name] ?? "").trim()}
+                                          onClick={() => {
                                             const raw = (customNumericEdit[attr.name] ?? "").trim();
                                             if (!raw) return;
-                                            const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                            const isNum = effectiveMode === "number";
+                                            const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNum || !isNaN(Number(s))));
                                             if (!vals.length) return;
                                             setEditSelectedAttrValues(prev => {
                                               const cur = prev[attr.name] ?? [];
@@ -2110,29 +2201,11 @@ function ProjectsPage() {
                                               return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
                                             });
                                             setCustomNumericEdit(prev => ({ ...prev, [attr.name]: "" }));
-                                          }
-                                        }}
-                                      />
-                                      <button
-                                        type="button"
-                                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded border border-border bg-background text-xs font-medium hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-40"
-                                        disabled={!(customNumericEdit[attr.name] ?? "").trim()}
-                                        onClick={() => {
-                                          const raw = (customNumericEdit[attr.name] ?? "").trim();
-                                          if (!raw) return;
-                                          const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
-                                          if (!vals.length) return;
-                                          setEditSelectedAttrValues(prev => {
-                                            const cur = prev[attr.name] ?? [];
-                                            const added = vals.filter(v => !cur.includes(v));
-                                            return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
-                                          });
-                                          setCustomNumericEdit(prev => ({ ...prev, [attr.name]: "" }));
-                                        }}
-                                      >
-                                        <Plus className="h-3 w-3" /> Add
-                                      </button>
-                                      <span className="text-[10px] text-muted-foreground">or press Enter</span>
+                                          }}
+                                        >
+                                          <Plus className="h-3 w-3" /> Add
+                                        </button>
+                                      </div>
                                     </div>
                                     )}
                                   </div>
@@ -2676,6 +2749,7 @@ function ProjectsPage() {
                     <div>
                       <p className="text-sm font-semibold">Product Variants <span className="text-red-500">*</span></p>
                       <p className="text-xs text-muted-foreground mt-0.5">Select attribute values → generate all combinations automatically.</p>
+                  
                     </div>
                     {addVariants.length > 0 && (
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full">
@@ -2695,6 +2769,7 @@ function ProjectsPage() {
                         {availableAttributes.map((attr) => {
                           const selected = selectedAttrValues[attr.name] ?? [];
                           const isNumberType = attr.valueType?.toLowerCase() === "number";
+                          const effectiveMode = customSizeModeAdd[attr.name] ?? (isNumberType ? "number" : "text");
                           const sortedValues = isNumberType
                             ? [...(attr.values ?? [])].sort((a: any, b: any) => Number(a?.value ?? 0) - Number(b?.value ?? 0))
                             : (attr.values ?? []);
@@ -2702,14 +2777,14 @@ function ProjectsPage() {
                             <div key={attr.id} className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <Label className="text-xs font-semibold text-foreground">{attr.displayName || attr.name}</Label>
+                                  <Label className="text-xs font-semibold text-foreground">{(attr.displayName || attr.name).replace(/^\w/, (c: string) => c.toUpperCase())}</Label>
                                   <span className={cn(
                                     "text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border",
-                                    isNumberType
+                                    effectiveMode === "number"
                                       ? "text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800"
                                       : "text-muted-foreground bg-muted/50 border-border"
                                   )}>
-                                    {isNumberType ? "number" : "text"}
+                                    {effectiveMode === "number" ? "number" : "text"}
                                   </span>
                                 </div>
                                 {selected.length > 0 && (
@@ -2723,7 +2798,7 @@ function ProjectsPage() {
                                 )}
                               </div>
                               <div className="flex flex-wrap gap-2">
-                                {sortedValues.map((v: any, vi: number) => {
+                                {!isNumberType && sortedValues.map((v: any, vi: number) => {
                                   const rawVal = v?.value;
                                   const strValue: string = rawVal && typeof rawVal === "object"
                                     ? String(rawVal.value ?? rawVal.displayValue ?? "")
@@ -2797,19 +2872,53 @@ function ProjectsPage() {
                                 ))}
                               </div>
                               {attr.name !== "color" && attr.name !== "material" && (
-                              <div className="flex items-center gap-2 mt-1">
-                                <Input
-                                  type="text"
-                                  placeholder={isNumberType ? "e.g. 6, 7, 8, 9, 10 (comma separated)" : "e.g. S, M, L, XL, XXL (comma separated)"}
-                                  className={cn("h-7 w-56 text-xs", isNumberType && "font-mono")}
-                                  value={customNumericAdd[attr.name] ?? ""}
-                                  onChange={e => setCustomNumericAdd(prev => ({ ...prev, [attr.name]: e.target.value }))}
-                                  onKeyDown={e => {
-                                    if (e.key === "Enter") {
-                                      e.preventDefault();
+                              <div className="space-y-2 mt-2 pt-2 border-t border-dashed">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-muted-foreground font-medium">Add sizes as:</span>
+                                  <button type="button"
+                                    onClick={() => setCustomSizeModeAdd(prev => ({ ...prev, [attr.name]: "text" }))}
+                                    className={cn("px-2 py-0.5 rounded text-[10px] font-medium border transition-all",
+                                      effectiveMode === "text" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50"
+                                    )}>Text</button>
+                                  <button type="button"
+                                    onClick={() => setCustomSizeModeAdd(prev => ({ ...prev, [attr.name]: "number" }))}
+                                    className={cn("px-2 py-0.5 rounded text-[10px] font-medium border transition-all",
+                                      effectiveMode === "number" ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50"
+                                    )}>Number</button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="text"
+                                    placeholder={effectiveMode === "number" ? "Custom: 8.5, 9.5, 10.5..." : "Custom: 2XL, 6XL..."}
+                                    className={cn("h-7 w-44 text-xs", effectiveMode === "number" && "font-mono")}
+                                    value={customNumericAdd[attr.name] ?? ""}
+                                    onChange={e => setCustomNumericAdd(prev => ({ ...prev, [attr.name]: e.target.value }))}
+                                    onKeyDown={e => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        const raw = (customNumericAdd[attr.name] ?? "").trim();
+                                        if (!raw) return;
+                                        const isNum = effectiveMode === "number";
+                                        const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNum || !isNaN(Number(s))));
+                                        if (!vals.length) return;
+                                        setSelectedAttrValues(prev => {
+                                          const cur = prev[attr.name] ?? [];
+                                          const added = vals.filter(v => !cur.includes(v));
+                                          return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
+                                        });
+                                        setCustomNumericAdd(prev => ({ ...prev, [attr.name]: "" }));
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded border border-border bg-background text-xs font-medium hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-40"
+                                    disabled={!(customNumericAdd[attr.name] ?? "").trim()}
+                                    onClick={() => {
                                       const raw = (customNumericAdd[attr.name] ?? "").trim();
                                       if (!raw) return;
-                                      const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
+                                      const isNum = effectiveMode === "number";
+                                      const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNum || !isNaN(Number(s))));
                                       if (!vals.length) return;
                                       setSelectedAttrValues(prev => {
                                         const cur = prev[attr.name] ?? [];
@@ -2817,29 +2926,11 @@ function ProjectsPage() {
                                         return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
                                       });
                                       setCustomNumericAdd(prev => ({ ...prev, [attr.name]: "" }));
-                                    }
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded border border-border bg-background text-xs font-medium hover:border-primary/50 hover:bg-primary/5 transition-all disabled:opacity-40"
-                                  disabled={!(customNumericAdd[attr.name] ?? "").trim()}
-                                  onClick={() => {
-                                    const raw = (customNumericAdd[attr.name] ?? "").trim();
-                                    if (!raw) return;
-                                    const vals = raw.split(",").map(s => s.trim()).filter(s => s && (!isNumberType || !isNaN(Number(s))));
-                                    if (!vals.length) return;
-                                    setSelectedAttrValues(prev => {
-                                      const cur = prev[attr.name] ?? [];
-                                      const added = vals.filter(v => !cur.includes(v));
-                                      return added.length ? { ...prev, [attr.name]: [...cur, ...added] } : prev;
-                                    });
-                                    setCustomNumericAdd(prev => ({ ...prev, [attr.name]: "" }));
-                                  }}
-                                >
-                                  <Plus className="h-3 w-3" /> Add
-                                </button>
-                                <span className="text-[10px] text-muted-foreground">or press Enter</span>
+                                    }}
+                                  >
+                                    <Plus className="h-3 w-3" /> Add
+                                  </button>
+                                </div>
                               </div>
                               )}
                             </div>
