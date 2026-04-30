@@ -49,6 +49,8 @@ type OrderItem = {
   orderId: string;
   subOrderId?: string | null;
   productId: string;
+  variantId?: string | null;
+  variantAttributes?: Record<string, string> | null;
   quantity: number;
   price: string;
   createdAt: string;
@@ -1007,7 +1009,14 @@ export default function OrdersPage() {
                 <p className="text-muted-foreground font-medium mb-1">Items</p>
                 {order.items.map((item, i) => (
                   <div key={i} className="flex justify-between gap-4 text-xs">
-                    <span className="text-left break-words">{item.product.title} x{item.quantity}</span>
+                    <span className="text-left break-words">
+                      {item.product.title} x{item.quantity}
+                      {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
+                        <span className="ml-1 text-muted-foreground">
+                          ({Object.entries(item.variantAttributes).map(([k, v]) => `${k}: ${v}`).join(", ")})
+                        </span>
+                      )}
+                    </span>
                     <span className="shrink-0 font-medium">${item.price}</span>
                   </div>
                 ))}
@@ -1574,18 +1583,29 @@ export default function OrdersPage() {
                     <Label className="text-xs uppercase text-muted-foreground tracking-wider flex items-center gap-1"><ClipboardList className="h-3 w-3" /> Order Items</Label>
                     <div className="text-sm space-y-1">
                       {order.items.map((item, i) => (
-                        <div key={i} className="flex items-center gap-2">
+                        <div key={i} className="flex items-start gap-2">
                           {item.product.featuredImage && (
                             <Image
                               src={item.product.featuredImage}
                               alt={item.product.title || "Featured image"}
                               width={40}
                               height={40}
-                              className="w-10 h-10 object-cover rounded"
+                              className="w-10 h-10 object-cover rounded flex-shrink-0"
                               unoptimized
                             />
                           )}
-                          <span>{item.product.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
+                          <div className="min-w-0">
+                            <span>{item.product.title} <span className="text-muted-foreground">x {item.quantity}</span></span>
+                            {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {Object.entries(item.variantAttributes).map(([k, v]) => (
+                                  <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">
+                                    {k}: {v}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

@@ -2019,6 +2019,8 @@ type OrderItem = {
   orderId: string;
   subOrderId?: string | null;
   productId: string;
+  variantId?: string | null;
+  variantAttributes?: Record<string, string> | null;
   quantity: number;
   price: string;
   createdAt: string;
@@ -2111,6 +2113,7 @@ type DetailedSubOrder = {
     id: string;
     quantity: number;
     price: string;
+    variantAttributes?: Record<string, string> | null;
     product: {
       id: string;
       title: string;
@@ -2169,6 +2172,7 @@ type DetailedOrder = {
     id: string;
     quantity: number;
     price: string;
+    variantAttributes?: Record<string, string> | null;
     product: {
       id: string;
       title: string;
@@ -2598,7 +2602,13 @@ function BulkStatusUpdateModal({ orderIds, orders, onClose, onSuccess }: BulkSta
 
 export default function AdminOrdersPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"bySeller" | "all">("all");
+  const [activeTab, setActiveTab] = useState<"bySeller" | "all">(
+    () => {
+      if (typeof window === "undefined") return "all";
+      const saved = sessionStorage.getItem("adminOrders_activeTab");
+      return saved === "bySeller" ? "bySeller" : "all";
+    }
+  );
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<string>("");
   const [orders, setOrders] = useState<Order[]>([]);
@@ -2687,7 +2697,11 @@ export default function AdminOrdersPage() {
         ? res.filter((u: { role: string }) => u.role === "SELLER")
         : (res.users || []).filter((u: { role: string }) => u.role === "SELLER");
       setSellers(sellersOnly);
-      if (sellersOnly.length > 0) setSelectedSeller(sellersOnly[0].id);
+      const saved = typeof window !== "undefined" ? sessionStorage.getItem("adminOrders_selectedSeller") : null;
+      const validSaved = saved && sellersOnly.some((u: { id: string }) => u.id === saved);
+      if (!selectedSeller && sellersOnly.length > 0) {
+        setSelectedSeller(validSaved ? saved! : sellersOnly[0].id);
+      }
     } catch {
       toast.error("Failed to load sellers");
     } finally {
@@ -2972,7 +2986,7 @@ export default function AdminOrdersPage() {
           <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1 gap-1 self-end md:self-auto">
             <button
               type="button"
-              onClick={() => setActiveTab("all")}
+              onClick={() => { setActiveTab("all"); sessionStorage.setItem("adminOrders_activeTab", "all"); }}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
                 activeTab === "all"
@@ -2985,7 +2999,7 @@ export default function AdminOrdersPage() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("bySeller")}
+              onClick={() => { setActiveTab("bySeller"); sessionStorage.setItem("adminOrders_activeTab", "bySeller"); }}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
                 activeTab === "bySeller"
@@ -3033,7 +3047,7 @@ export default function AdminOrdersPage() {
                           "flex cursor-pointer select-none items-center rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-primary/5 hover:text-primary",
                           selectedSeller === seller.id && "bg-primary/5 text-primary font-medium"
                         )}
-                        onClick={(e) => { e.stopPropagation(); setSelectedSeller(seller.id); setIsSellerDropdownOpen(false); } }
+                        onClick={(e) => { e.stopPropagation(); setSelectedSeller(seller.id); sessionStorage.setItem("adminOrders_selectedSeller", seller.id); setIsSellerDropdownOpen(false); } }
                       >
                         <div className={cn(
                           "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-primary transition-all",
@@ -3247,7 +3261,7 @@ export default function AdminOrdersPage() {
                             {/* Items */}
                             <div className="flex-1 space-y-1.5">
                               {sub.items.map((item) => (
-                                <div key={item.id} className="flex items-center gap-2">
+                                <div key={item.id} className="flex items-start gap-2">
                                   {item.product.featuredImage && (
                                     <Image
                                       src={item.product.featuredImage}
@@ -3259,6 +3273,13 @@ export default function AdminOrdersPage() {
                                   )}
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium truncate">{item.product.title}</p>
+                                    {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {Object.entries(item.variantAttributes).map(([k, v]) => (
+                                          <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
+                                        ))}
+                                      </div>
+                                    )}
                                     <p className="text-xs text-muted-foreground">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
                                   </div>
                                 </div>
@@ -3311,7 +3332,7 @@ export default function AdminOrdersPage() {
                           <div className="flex-1 space-y-1.5">
                             {order.items && order.items.length > 0 ? (
                               order.items.map((item) => (
-                                <div key={item.id} className="flex items-center gap-2">
+                                <div key={item.id} className="flex items-start gap-2">
                                   {item.product.featuredImage && (
                                     <Image
                                       src={item.product.featuredImage}
@@ -3323,6 +3344,13 @@ export default function AdminOrdersPage() {
                                   )}
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium truncate">{item.product.title}</p>
+                                    {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                        {Object.entries(item.variantAttributes).map(([k, v]) => (
+                                          <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
+                                        ))}
+                                      </div>
+                                    )}
                                     <p className="text-xs text-muted-foreground">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
                                   </div>
                                 </div>
@@ -3795,18 +3823,25 @@ export default function AdminOrdersPage() {
                     )}
                     <div className="text-sm space-y-1">
                       {order.items.map((item, i) => (
-                        <div key={item.id || i} className="flex items-center gap-2">
+                        <div key={item.id || i} className="flex items-start gap-2">
                           {(item.product.featuredImage || item.product.images?.[0]) && (
                             <Image
                               src={item.product.featuredImage ?? item.product.images![0]}
                               alt={item.product.title}
                               width={40}
                               height={40}
-                              className="w-10 h-10 object-cover rounded"
+                              className="w-10 h-10 object-cover rounded flex-shrink-0"
                             />
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="truncate font-medium">{item.product.title}</p>
+                            {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {Object.entries(item.variantAttributes).map(([k, v]) => (
+                                  <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
+                                ))}
+                              </div>
+                            )}
                             <p className="text-xs text-muted-foreground">
                               ${parseFloat(item.price).toLocaleString()} x {item.quantity}
                             </p>

@@ -22,7 +22,7 @@ type Product = {
   id: string;
   title: string;
   description?: string;
-  price: number;
+  price: number | string;
   stock: number;
   category?: string;
   images?: string[];
@@ -37,6 +37,14 @@ type Product = {
   weight?: number | string;
   rejectionReason?: string | null;
   seller?: { id: string; name: string; email: string; storeName?: string; businessName?: string };
+  type?: "SIMPLE" | "VARIABLE";
+  variants?: Array<{
+    id?: string;
+    price?: number | string;
+    stock?: number | string;
+    sku?: string;
+    attributes?: Record<string, any>;
+  }>;
 };
 
 // ─── Skeleton loader ───────────────────────────────────────────────────────────
@@ -298,7 +306,15 @@ export default function AdminProductDetailPage() {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1 text-2xl font-bold text-primary">
                   <DollarSign className="h-5 w-5" />
-                  {Number(product.price).toFixed(2)}
+                  {(() => {
+                    if (product.price == null) return "—";
+                    if (typeof product.price === "string" && product.price.includes("-")) {
+                      const [min, max] = product.price.split("-").map((p) => p.trim());
+                      return min === max ? min : `${min} - ${max}`;
+                    }
+                    const num = Number(product.price);
+                    return isNaN(num) ? "—" : num.toFixed(2);
+                  })()}
                 </div>
                 <div className="text-sm text-muted-foreground border rounded-lg px-3 py-1">
                   Stock: <span className="font-semibold text-foreground">{product.stock}</span>
@@ -361,6 +377,55 @@ export default function AdminProductDetailPage() {
           <ProductAuditHistory productId={product.id} productTitle={product.title} />
         </CardContent>
       </Card>
+
+      {/* ── Variants Table ───────────────────────────────────────────────────── */}
+      {product.type === "VARIABLE" && Array.isArray(product.variants) && product.variants.length > 0 && (() => {
+        // Collect all attribute keys across all variants
+        const attrKeys = Array.from(
+          new Set(product.variants!.flatMap((v) => Object.keys(v.attributes ?? {})))
+        );
+        return (
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-lg font-semibold mb-4">Variants ({product.variants!.length})</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      {attrKeys.map((k) => (
+                        <th key={k} className="text-left px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{k}</th>
+                      ))}
+                      <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Price</th>
+                      <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Stock</th>
+                      <th className="text-left px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground font-medium">SKU</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {product.variants!.map((v, i) => (
+                      <tr key={v.id ?? i} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                        {attrKeys.map((k) => {
+                          const val = v.attributes?.[k];
+                          const display = val && typeof val === "object"
+                            ? String(val.displayValue ?? val.value ?? "")
+                            : String(val ?? "—");
+                          return (
+                            <td key={k} className="px-3 py-2 font-medium">{display}</td>
+                          );
+                        })}
+                        <td className="px-3 py-2">
+                          {v.price != null ? `$${v.price}` : "—"}
+                        </td>
+                        <td className="px-3 py-2">{v.stock ?? "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{v.sku || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* ── Reject Modal ─────────────────────────────────────────────────────── */}
       {showRejectModal && (

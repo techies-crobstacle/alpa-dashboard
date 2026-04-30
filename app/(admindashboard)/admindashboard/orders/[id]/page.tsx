@@ -31,10 +31,11 @@ import {
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type OrderItem = {
-  product?: { title?: string; images?: string[]; price?: number };
+  product?: { title?: string; images?: string[]; featuredImage?: string | null; price?: number };
   title?: string;
   quantity: number;
   price?: any;
+  variantAttributes?: Record<string, string> | null;
 };
 
 type SubOrderInfo = {
@@ -55,6 +56,7 @@ type SubOrderInfo = {
     id: string;
     quantity: number;
     price: string;
+    variantAttributes?: Record<string, string> | null;
     product: { title: string; featuredImage?: string | null };
   }[];
 };
@@ -325,6 +327,7 @@ function mapDetailedToOrder(d: any): Order {
             id: item.id,
             quantity: item.quantity,
             price: item.price,
+            variantAttributes: item.variantAttributes ?? null,
             product: {
               title: item.product?.title ?? "Unknown",
               featuredImage: item.product?.featuredImage ?? null,
@@ -340,8 +343,10 @@ function mapDetailedToOrder(d: any): Order {
           id: item.id,
           quantity: item.quantity,
           price: item.price,
+          variantAttributes: item.variantAttributes ?? null,
           product: {
             title: item.product?.title,
+            featuredImage: item.product?.featuredImage ?? null,
             images: item.product?.featuredImage ? [item.product.featuredImage] : [],
           },
         }))
@@ -828,7 +833,7 @@ function OrderDetailContent() {
               <CardContent className="p-0">
                 <div className="divide-y">
                   {sub.items.map((item, i) => (
-                    <div key={item.id || i} className="flex items-center gap-4 px-4 py-3">
+                    <div key={item.id || i} className="flex items-start gap-4 px-4 py-3">
                       {item.product.featuredImage ? (
                         <Image
                           src={item.product.featuredImage}
@@ -845,6 +850,13 @@ function OrderDetailContent() {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{item.product.title}</p>
+                        {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {Object.entries(item.variantAttributes).map(([k, v]) => (
+                              <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
+                            ))}
+                          </div>
+                        )}
                         <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                       </div>
                       <p className="font-semibold text-sm shrink-0">${parseFloat(item.price).toLocaleString()}</p>
@@ -911,11 +923,11 @@ function OrderDetailContent() {
             {order.items && order.items.length > 0 ? (
               <div className="divide-y">
                 {order.items.map((item, i) => (
-                  <div key={i} className="flex items-center gap-4 px-4 py-3">
-                    {item.product?.images?.[0] ? (
+                  <div key={i} className="flex items-start gap-4 px-4 py-3">
+                    {(item.product?.featuredImage || item.product?.images?.[0]) ? (
                       <Image
-                        src={item.product.images[0]}
-                        alt={item.product.title || "Product"}
+                        src={(item.product.featuredImage ?? item.product.images![0])!}
+                        alt={item.product?.title || "Product"}
                         width={56}
                         height={56}
                         className="rounded-lg object-cover border shrink-0"
@@ -928,6 +940,13 @@ function OrderDetailContent() {
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{item.product?.title || item.title || "Unknown Product"}</p>
+                      {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {Object.entries(item.variantAttributes).map(([k, v]) => (
+                            <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
+                          ))}
+                        </div>
+                      )}
                       <p className="text-sm text-muted-foreground">Qty: {renderValue(item.quantity)}</p>
                     </div>
                     {item.price != null && (

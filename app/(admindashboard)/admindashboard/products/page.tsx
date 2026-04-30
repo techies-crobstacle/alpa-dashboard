@@ -71,6 +71,16 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Price display helper ─────────────────────────────────────────────────────
 type PriceDisplayable = { price?: number | string | null; type?: string; variants?: Array<{ price?: number | string }> };
 function formatPrice(product: PriceDisplayable): string {
+  // If API returns a pre-computed price string (e.g. "28 - 30" for variable products)
+  if (typeof product.price === "string" && product.price.trim() !== "") {
+    const parts = product.price.split("-").map((p) => p.trim());
+    if (parts.length === 2 && parts[0] !== "" && parts[1] !== "") {
+      return parts[0] === parts[1] ? `$${parts[0]}` : `$${parts[0]} – $${parts[1]}`;
+    }
+    const p = Number(product.price);
+    return isNaN(p) ? "—" : `$${p.toFixed(2)}`;
+  }
+  // Fallback: compute from variants array if present
   if (product.type === "VARIABLE" && Array.isArray(product.variants) && product.variants.length > 0) {
     const prices = product.variants
       .map(v => Number(v.price))
@@ -142,7 +152,9 @@ export default function AdminProductsPage() {
   }, []);
 
   const [sellers, setSellers] = useState<Seller[]>([]);
-  const [selectedSeller, setSelectedSeller] = useState<string>("");
+  const [selectedSeller, setSelectedSeller] = useState<string>(
+    () => (typeof window !== "undefined" ? sessionStorage.getItem("adminProducts_selectedSeller") ?? "" : "")
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingSellers, setLoadingSellers] = useState(true);
@@ -269,7 +281,10 @@ export default function AdminProductsPage() {
   const selectedSellerRef = useRef(selectedSeller);
   const activeViewRef = useRef(activeView);
   const sellersRef = useRef<Seller[]>([]);
-  useEffect(() => { selectedSellerRef.current = selectedSeller; }, [selectedSeller]);
+  useEffect(() => {
+    selectedSellerRef.current = selectedSeller;
+    if (selectedSeller) sessionStorage.setItem("adminProducts_selectedSeller", selectedSeller);
+  }, [selectedSeller]);
   useEffect(() => { activeViewRef.current = activeView; }, [activeView]);
   useEffect(() => { sellersRef.current = sellers; }, [sellers]);
 
@@ -376,7 +391,11 @@ export default function AdminProductsPage() {
         .filter((u: any) => u.role === "SELLER")
         .map((u: any) => ({ ...u, pendingCount: 0 }));
       setSellers(rawSellers);
-      if (rawSellers.length > 0 && !selectedSeller) setSelectedSeller(rawSellers[0].id);
+      const saved = typeof window !== "undefined" ? sessionStorage.getItem("adminProducts_selectedSeller") : null;
+      const validSaved = saved && rawSellers.some((s) => s.id === saved);
+      if (!selectedSellerRef.current && rawSellers.length > 0) {
+        setSelectedSeller(validSaved ? saved! : rawSellers[0].id);
+      }
       await refreshPending(rawSellers);
     } catch (err: any) {
       toast.error(`Failed to load sellers: ${err?.message || "Unknown error"}`);
@@ -638,7 +657,7 @@ export default function AdminProductsPage() {
           toast.success("Product approved and is now Active.", { duration: 5000 });
         }
       } else {
-        toast.success("Product updated — it is now inactive. Use the toggle to activate it when ready.", { duration: 6000 });
+        toast.success(`"${editFormData.title.trim()}" updated successfully!`, { duration: 5000 });
       }
 
       setShowEditModal(false);
