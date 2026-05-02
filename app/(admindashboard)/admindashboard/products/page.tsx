@@ -1772,7 +1772,7 @@ export default function AdminProductsPage() {
                               )}
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              {!isNumberType && sortedValues.map((v: any, vi: number) => {
+                              {sortedValues.map((v: any, vi: number) => {
                                 const rawVal = v?.value;
                                 const strValue: string = rawVal && typeof rawVal === "object"
                                   ? String(rawVal.value ?? rawVal.displayValue ?? "")
@@ -1833,6 +1833,36 @@ export default function AdminProductsPage() {
                                   <X className="h-3 w-3 flex-shrink-0" />
                                 </button>
                               ))}
+                              {/* Quick-pick presets — shown when no attribute values are configured */}
+                              {(attr.name !== "color" && attr.name !== "material") && sortedValues.length === 0 && (
+                                effectiveMode === "text"
+                                  ? ["XS", "S", "M", "L", "XL", "2XL", "3XL"]
+                                  : ["5", "6", "7", "8", "9", "10", "11", "12", "13"]
+                              ).map(preset => {
+                                const isPresetSelected = selected.includes(preset);
+                                return (
+                                  <button
+                                    key={`preset-${preset}`}
+                                    type="button"
+                                    onClick={() => setEditSelectedAttrValues(prev => {
+                                      const cur = prev[attr.name] ?? [];
+                                      const next = isPresetSelected ? cur.filter(x => x !== preset) : [...cur, preset];
+                                      if (next.length === 0) { const n = { ...prev }; delete n[attr.name]; return n; }
+                                      return { ...prev, [attr.name]: next };
+                                    })}
+                                    className={cn(
+                                      "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border transition-all select-none",
+                                      effectiveMode === "number" ? "rounded font-mono" : "rounded-full",
+                                      isPresetSelected
+                                        ? "bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/20"
+                                        : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
+                                    )}
+                                  >
+                                    {preset}
+                                    {isPresetSelected && <Check className="h-3 w-3 flex-shrink-0" />}
+                                  </button>
+                                );
+                              })}
                             </div>
                             {attr.name !== "color" && attr.name !== "material" && (
                             <div className="space-y-2 mt-2 pt-2 border-t border-dashed">

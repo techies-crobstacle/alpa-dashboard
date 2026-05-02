@@ -63,9 +63,10 @@ const adminSidebarItems = [
 const sellerSidebarItems = [
 	{ title: "Dashboard",  href: "/sellerdashboard",            icon: LayoutDashboard, badge: null },
 	{ title: "Analytics",  href: "/sellerdashboard/analytics",  icon: BarChart3,       badge: "New" },
+	{ title: "Orders",     href: "/sellerdashboard/orders",     icon: ShoppingCart,    badge: null },
 	{ title: "Products",   href: "/sellerdashboard/products",   icon: Package,         badge: null },
 	{ title: "Categories", href: "/sellerdashboard/categories", icon: Tag,             badge: null },
-	{ title: "Orders",     href: "/sellerdashboard/orders",     icon: ShoppingCart,    badge: null },
+	{ title: "Coupons",     href: "/sellerdashboard/coupons",       icon: Ticket,          badge: null },
 	{ title: "Refunds",    href: "/sellerdashboard/refund",     icon: RotateCcw,       badge: null },
 	{ title: "Earnings",   href: "/sellerdashboard/earnings",   icon: Wallet,          badge: null },
 	{ title: "Profile",       href: "/sellerdashboard/profile",        icon: User,    badge: null },
