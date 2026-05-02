@@ -95,11 +95,14 @@ export function validateStatusUpdate(
 /** Human-readable label for a status value. */
 export function getStatusLabel(status: string | null | undefined): string {
   const labels: Record<string, string> = {
+    PENDING: "Pending",
     CONFIRMED: "Confirmed",
     PROCESSING: "Processing",
     SHIPPED: "Shipped",
     DELIVERED: "Delivered",
     CANCELLED: "Cancelled",
+    RETURNED: "Returned",
+    REFUNDED: "Refunded",
     REFUND: "Refund",
     PARTIAL_REFUND: "Partial Refund",
   };

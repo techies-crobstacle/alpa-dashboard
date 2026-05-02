@@ -1265,7 +1265,7 @@ export default function OrdersPage() {
                 <SelectTrigger className="h-9 text-sm w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Statuses</SelectItem>
-                  {["PENDING","PROCESSING","CONFIRMED","SHIPPED","DELIVERED","COMPLETED","CANCELLED","RETURNED","REFUNDED"].map((s) => (
+                  {["CONFIRMED","PROCESSING","SHIPPED","DELIVERED","CANCELLED","RETURNED","REFUNDED"].map((s) => (
                     <SelectItem key={s} value={s}>{getStatusLabel(s)}</SelectItem>
                   ))}
                 </SelectContent>
