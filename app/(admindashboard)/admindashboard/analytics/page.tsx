@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -270,11 +270,11 @@ const AnalyticsPage = () => {
 				? `${customDateRange.startDate} to ${customDateRange.endDate}`
 				: "Last 30 Days (Default)";
 			csvContent += `Report Period,${reportPeriod}\n`;
-			csvContent += `Generated On,${new Date().toLocaleString()}\n`;
-			csvContent += `Total Revenue,$${parseFloat(analytics.totalRevenue).toFixed(2)}\n`;
+			csvContent += `Generated On,${new Date().toLocaleString('en-GB')}\n`;
+			csvContent += `Total Revenue,$${parseFloat(analytics.totalRevenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
 			csvContent += `Total Orders,${analytics.totalOrders}\n`;
 			csvContent += `Items Sold,${analytics.totalItemsSold}\n`;
-			csvContent += `Average Order Value,$${parseFloat(analytics.averageOrderValue).toFixed(2)}\n`;
+			csvContent += `Average Order Value,$${parseFloat(analytics.averageOrderValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
 			csvContent += "\n";
 
 			// Add daily data section
@@ -301,7 +301,7 @@ const AnalyticsPage = () => {
 				csvContent += "TOP PRODUCTS\n";
 				csvContent += "Rank,Product Name,Quantity Sold,Revenue\n";
 				analytics.topProducts.slice(0, 10).forEach((product: any, index: number) => {
-					csvContent += `${index + 1},"${product.title.replace(/"/g, '""')}",${product.quantity},$${parseFloat(product.revenue).toFixed(2)}\n`;
+					csvContent += `${index + 1},"${product.title.replace(/"/g, '""')}",${product.quantity},$${parseFloat(product.revenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
 				});
 				csvContent += "\n";
 			}
@@ -530,7 +530,7 @@ const AnalyticsPage = () => {
 					{customDateRange.startDate && customDateRange.endDate && (
 						<div className="flex items-center gap-2">
 							<div className="px-4 py-2 bg-primary/10 text-primary text-sm rounded-lg">
-								📅 {new Date(customDateRange.startDate).toLocaleDateString()} - {new Date(customDateRange.endDate).toLocaleDateString()}
+								📅 {new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - {new Date(customDateRange.endDate).toLocaleDateString('en-GB')}
 							</div>
 							<button
 								onClick={clearFilters}
@@ -561,11 +561,11 @@ const AnalyticsPage = () => {
 						</CardHeader>
 						<CardContent>
 							<div className="text-2xl font-bold">
-								${parseFloat(analytics.totalRevenue).toFixed(2)}
+								${parseFloat(analytics.totalRevenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 							</div>
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
-									? `${new Date(customDateRange.startDate).toLocaleDateString()} - ${new Date(customDateRange.endDate).toLocaleDateString()} revenue`
+									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} revenue`
 									: "Last 30 days revenue (default)"}
 							</p>
 						</CardContent>
@@ -578,11 +578,11 @@ const AnalyticsPage = () => {
 						</CardHeader>
 						<CardContent>
 							<div className="text-2xl font-bold">
-								{analytics.totalOrders}
+								{analytics.totalOrders.toLocaleString('en-US')}
 							</div>
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
-									? `${new Date(customDateRange.startDate).toLocaleDateString()} - ${new Date(customDateRange.endDate).toLocaleDateString()} orders`
+									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} orders`
 									: "Last 30 days orders (default)"}
 							</p>
 						</CardContent>
@@ -595,11 +595,11 @@ const AnalyticsPage = () => {
 						</CardHeader>
 						<CardContent>
 							<div className="text-2xl font-bold">
-								{analytics.totalItemsSold}
+								{analytics.totalItemsSold.toLocaleString('en-US')}
 							</div>
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
-									? `${new Date(customDateRange.startDate).toLocaleDateString()} - ${new Date(customDateRange.endDate).toLocaleDateString()} units`
+									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} units`
 									: "Last 30 days units sold (default)"}
 							</p>
 						</CardContent>
@@ -612,11 +612,11 @@ const AnalyticsPage = () => {
 						</CardHeader>
 						<CardContent>
 							<div className="text-2xl font-bold">
-								${parseFloat(analytics.averageOrderValue).toFixed(2)}
+								${parseFloat(analytics.averageOrderValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 							</div>
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
-									? `${new Date(customDateRange.startDate).toLocaleDateString()} - ${new Date(customDateRange.endDate).toLocaleDateString()} average`
+									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} average`
 									: "Last 30 days average (default)"}
 							</p>
 						</CardContent>
@@ -635,7 +635,7 @@ const AnalyticsPage = () => {
 							</CardTitle>
 							<p className="text-muted-foreground text-xs md:text-sm mt-1">
 								{customDateRange.startDate && customDateRange.endDate
-									? `Daily sales data from ${new Date(customDateRange.startDate).toLocaleDateString()} to ${new Date(customDateRange.endDate).toLocaleDateString()}`
+									? `Daily sales data from ${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} to ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')}`
 									: "Daily sales revenue and order count for the last 30 days (default)"
 								}
 							</p>
@@ -683,7 +683,7 @@ const AnalyticsPage = () => {
 								<Tooltip
 									formatter={(value: number | undefined, name?: string) => {
 										if (name === 'Revenue ($)') {
-											return [`$${(value ?? 0).toFixed(2)}`, name];
+											return [`$${(value ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, name];
 										} else {
 											return [value ?? 0, name || 'Unknown'];
 										}
@@ -808,7 +808,7 @@ const AnalyticsPage = () => {
 													<span className="hidden sm:inline">•</span>
 												</div>
 												<span className="text-green-600 font-semibold text-sm md:text-base">
-													${parseFloat(product.revenue).toFixed(2)}
+													${parseFloat(product.revenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 												</span>
 											</div>
 										</div>

@@ -1,4 +1,4 @@
-// "use client";
+﻿// "use client";
 // import { useState ,useEffect } from "react";
 // import Link from "next/link";
 // import { api } from "@/lib/api";
@@ -73,11 +73,11 @@
 //               </div>
 //               <div className="bg-muted/50 rounded-lg p-4 flex flex-col gap-1">
 //                 <span className="text-xs text-muted-foreground">Created At</span>
-//                 <span className="font-medium text-base">{profile.createdAt ? new Date(profile.createdAt).toLocaleString() : '-'}</span>
+//                 <span className="font-medium text-base">{profile.createdAt ? new Date(profile.createdAt).toLocaleString('en-GB') : '-'}</span>
 //               </div>
 //               <div className="bg-muted/50 rounded-lg p-4 flex flex-col gap-1">
 //                 <span className="text-xs text-muted-foreground">Updated At</span>
-//                 <span className="font-medium text-base">{profile.updatedAt ? new Date(profile.updatedAt).toLocaleString() : '-'}</span>
+//                 <span className="font-medium text-base">{profile.updatedAt ? new Date(profile.updatedAt).toLocaleString('en-GB') : '-'}</span>
 //               </div>
 //             </div>
 //           )}
@@ -212,13 +212,13 @@ const ProfilePage = () => {
               <div className="bg-muted/50 rounded-lg p-4 flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">Created At</span>
                 <span className="font-medium text-base">
-                  {profile.createdAt ? new Date(profile.createdAt).toLocaleString() : '-'}
+                  {profile.createdAt ? new Date(profile.createdAt).toLocaleString('en-GB') : '-'}
                 </span>
               </div>
               <div className="bg-muted/50 rounded-lg p-4 flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">Updated At</span>
                 <span className="font-medium text-base">
-                  {profile.updatedAt ? new Date(profile.updatedAt).toLocaleString() : '-'}
+                  {profile.updatedAt ? new Date(profile.updatedAt).toLocaleString('en-GB') : '-'}
                 </span>
               </div>
             </div>

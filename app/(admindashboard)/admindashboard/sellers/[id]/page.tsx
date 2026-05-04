@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React, { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -395,7 +395,7 @@ export default function SingleSellerPage() {
                       {doc.originalName}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
+                      Uploaded: {new Date(doc.uploadedAt).toLocaleDateString('en-GB')}
                     </p>
                     {doc.documentUrl && (
                       <a

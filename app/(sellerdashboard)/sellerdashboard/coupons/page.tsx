@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -1041,7 +1041,7 @@ export default function SellerCouponsPage() {
             </p>
             <div className="space-y-2">
               <Label htmlFor="sc-soft-reason">Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
-              <Textarea id="sc-soft-reason" value={softDeleteReason} onChange={e => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion…" className="resize-none h-20" />
+              <Textarea id="sc-soft-reason" value={softDeleteReason} onChange={e => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion..." className="resize-none h-20" />
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setIsSoftDeleteOpen(false)}>Cancel</Button>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/api";
@@ -403,7 +403,7 @@ export default function SettingsPage() {
 								<FormItem>
 									<FormLabel>Created At</FormLabel>
 									<FormControl>
-										<Input placeholder="Created At" value={field.value ? new Date(field.value).toLocaleString() : "-"} disabled />
+										<Input placeholder="Created At" value={field.value ? new Date(field.value).toLocaleString('en-GB') : "-"} disabled />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -416,7 +416,7 @@ export default function SettingsPage() {
 								<FormItem>
 									<FormLabel>Updated At</FormLabel>
 									<FormControl>
-										<Input placeholder="Updated At" value={field.value ? new Date(field.value).toLocaleString() : "-"} disabled />
+										<Input placeholder="Updated At" value={field.value ? new Date(field.value).toLocaleString('en-GB') : "-"} disabled />
 									</FormControl>
 									<FormMessage />
 								</FormItem>

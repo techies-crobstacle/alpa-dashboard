@@ -1,4 +1,4 @@
-// "use client";
+﻿// "use client";
 
 // import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 // import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -857,7 +857,7 @@
 //     if (!val) return "N/A";
 //     const d = new Date(val);
 //     if (isNaN(d.getTime())) return String(val);
-//     return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+//     return d.toLocaleDateString('en-GB');
 //   };
 
 
@@ -1126,7 +1126,7 @@
 //             <div className="grid gap-4">
 //               {Array.from({ length: 4 }).map((_, i) => (
 //                 <Card key={i} className="overflow-hidden">
-//                   <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+//                   <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
 //                     <div className="flex items-center gap-3">
 //                       <Skeleton className="h-10 w-10 rounded-full" />
 //                       <div className="space-y-1.5">
@@ -1152,7 +1152,7 @@
 //             paginatedAllOrders.map((order) => (
 //               <Card key={order.id} className="overflow-hidden">
 //                 {/* Order header */}
-//                 <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+//                 <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
 //                   <div className="flex items-center gap-3">
 //                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
 //                       <Package className="h-5 w-5" />
@@ -1170,7 +1170,7 @@
 //                       </div>
 //                       <p className="text-xs text-muted-foreground flex items-center gap-1">
 //                         <Calendar className="h-3 w-3" />
-//                         {new Date(order.createdAt).toLocaleDateString()}
+//                         {new Date(order.createdAt).toLocaleDateString('en-GB')}
 //                       </p>
 //                     </div>
 //                   </div>
@@ -1514,7 +1514,7 @@
 //           <div className="grid gap-4">
 //             {Array.from({ length: 4 }).map((_, i) => (
 //               <Card key={i} className="overflow-hidden">
-//                 <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+//                 <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
 //                   <div className="flex items-center gap-3">
 //                     <Skeleton className="h-10 w-10 rounded-full" />
 //                     <div className="space-y-1.5">
@@ -1563,7 +1563,7 @@
 
 //           paginatedOrders.map((order) => (
 //             <Card key={order.id} className="overflow-hidden">
-//               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+//               <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
 //                 <div className="flex items-center gap-3">
 //                   {isBulkSelectMode && !isTerminalStatus(order.status) && (
 //                     <div
@@ -1597,7 +1597,7 @@
 //                     </div>
 //                     <p className="text-xs text-muted-foreground flex items-center gap-1">
 //                       <Calendar className="h-3 w-3" /> 
-//                       {new Date(order.createdAt).toLocaleDateString()}
+//                       {new Date(order.createdAt).toLocaleDateString('en-GB')}
 //                     </p>
 //                     {order.parentOrderId && (
 //                       <p className="text-xs text-primary/70 font-medium">
@@ -1608,14 +1608,14 @@
 //                 </div>
 //                 <div className="flex items-center gap-4">
 //                   <div className="text-right">
-//                     <p className="text-sm font-medium flex items-center gap-1">
+//                     <p className="text-sm font-medium flex items-center justify-end gap-1">
 //                       <ClipboardList className="h-4 w-4" /> Customer
 //                     </p>
 //                     <p className="text-sm text-muted-foreground">{order.customerName}</p>
 //                     <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
 //                   </div>
 //                   <div className="text-right">
-//                     <p className="text-sm font-medium flex items-center gap-1">
+//                     <p className="text-sm font-medium flex items-center justify-end gap-1">
 //                       <DollarSign className="h-4 w-4" /> Total
 //                     </p>
 //                     <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString()}</p>
@@ -1974,6 +1974,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1982,7 +1983,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, Check, AlertTriangle, LayoutList, Store, Search, Table2 } from "lucide-react";
+import { Package, Truck, Loader2, X, Eye, ChevronDown, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, Check, AlertTriangle, LayoutList, Store, Search, Table2, RefreshCw } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -2089,6 +2090,7 @@ type OrdersResponse = {
 // ─── Detailed (All Orders) Types ─────────────────────────────────────────────
 
 type DetailedSubOrder = {
+  displaySubId: string;
   subOrderId: string;
   subDisplayId: string;
   parentOrderId: string;
@@ -2602,9 +2604,17 @@ function BulkStatusUpdateModal({ orderIds, orders, onClose, onSuccess }: BulkSta
 
 export default function AdminOrdersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightOrderId = searchParams.get("highlight");
+  const tabParam = searchParams.get("tab");
+  const highlightRef = useRef<HTMLDivElement | null>(null);
+  const [dismissedHighlight, setDismissedHighlight] = useState<string | null>(null);
+  const activeHighlight = highlightOrderId && highlightOrderId !== dismissedHighlight ? highlightOrderId : null;
   const [activeTab, setActiveTab] = useState<"bySeller" | "all">(
     () => {
       if (typeof window === "undefined") return "all";
+      if (tabParam === "bySeller") return "bySeller";
+      if (tabParam === "all") return "all";
       const saved = sessionStorage.getItem("adminOrders_activeTab");
       return saved === "bySeller" ? "bySeller" : "all";
     }
@@ -2650,6 +2660,36 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     fetchSellers();
   }, []);
+
+  // Auto-scroll and highlight order from notification click
+  useEffect(() => {
+    if (!activeHighlight) return;
+    // Search in allOrders first (most likely for SLA/bell notifications)
+    const allIdx = allOrders.findIndex(o => o.id === activeHighlight);
+    if (allIdx !== -1) {
+      if (activeTab !== "all") {
+        setActiveTab("all");
+        sessionStorage.setItem("adminOrders_activeTab", "all");
+      }
+      setAllOrdersPage(Math.floor(allIdx / allOrdersPerPage) + 1);
+      setTimeout(() => {
+        if (highlightRef.current) highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+      return;
+    }
+    // Fall back to bySeller orders
+    const sellerIdx = orders.findIndex(o => o.id === activeHighlight);
+    if (sellerIdx !== -1) {
+      if (activeTab !== "bySeller") {
+        setActiveTab("bySeller");
+        sessionStorage.setItem("adminOrders_activeTab", "bySeller");
+      }
+      setCurrentPage(Math.floor(sellerIdx / itemsPerPage) + 1);
+      setTimeout(() => {
+        if (highlightRef.current) highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, [activeHighlight, allOrders, orders]);
 
   useEffect(() => {
     if (activeTab === "all") {
@@ -2848,7 +2888,7 @@ export default function AdminOrdersPage() {
     if (!val) return "N/A";
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return d.toLocaleDateString('en-GB');
   };
 
 
@@ -2857,8 +2897,12 @@ export default function AdminOrdersPage() {
   const filteredOrders = q
     ? orders.filter((o) =>
         o.id.toLowerCase().includes(q) ||
+        (o.displayId ?? "").toLowerCase().includes(q) ||
         (o.subOrderId ?? "").toLowerCase().includes(q) ||
+        (o.subDisplayId ?? "").toLowerCase().includes(q) ||
+        (o.displaySubId ?? "").toLowerCase().includes(q) ||
         (o.parentOrderId ?? "").toLowerCase().includes(q) ||
+        (o.parentDisplayId ?? "").toLowerCase().includes(q) ||
         o.customerName.toLowerCase().includes(q) ||
         o.customerEmail.toLowerCase().includes(q)
       )
@@ -2866,11 +2910,15 @@ export default function AdminOrdersPage() {
   const filteredAllOrders = q
     ? allOrders.filter((o) =>
         o.id.toLowerCase().includes(q) ||
+        (o.displayId ?? "").toLowerCase().includes(q) ||
         o.customer.name.toLowerCase().includes(q) ||
         o.customer.email.toLowerCase().includes(q) ||
         o.subOrders.some(
           (s) =>
             s.subOrderId.toLowerCase().includes(q) ||
+            (s.subDisplayId ?? "").toLowerCase().includes(q) ||
+            (s.subDisplayId ?? "").toLowerCase().includes(q) ||
+            (s.displaySubId ?? "").toLowerCase().includes(q) ||
             s.sellerName.toLowerCase().includes(q)
         )
       )
@@ -3070,7 +3118,7 @@ export default function AdminOrdersPage() {
               disabled={loading || !selectedSeller}
               className="gap-2"
             >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Refresh
               </Button></>
           )}
@@ -3083,7 +3131,7 @@ export default function AdminOrdersPage() {
               disabled={loadingAll}
               className="gap-2"
             >
-              {loadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <LayoutList className="h-4 w-4" />}
+              {loadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Refresh
             </Button>
           )}
@@ -3117,7 +3165,7 @@ export default function AdminOrdersPage() {
             <div className="grid gap-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Card key={i} className="overflow-hidden">
-                  <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+                  <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
                     <div className="flex items-center gap-3">
                       <Skeleton className="h-10 w-10 rounded-full" />
                       <div className="space-y-1.5">
@@ -3141,9 +3189,21 @@ export default function AdminOrdersPage() {
             </Card>
           ) : (
             paginatedAllOrders.map((order) => (
-              <Card key={order.id} className="overflow-hidden">
+              <Card key={order.id} ref={order.id === activeHighlight ? highlightRef : undefined} className={`overflow-hidden transition-all ${order.id === activeHighlight ? "ring-2 ring-primary ring-offset-2" : ""}`}>
                 {/* Order header */}
-                <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+                <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
+                  {order.id === activeHighlight && (
+                    <div className="w-full flex items-center justify-between bg-primary/10 border border-primary/20 rounded-md px-3 py-1.5 mb-1 text-xs text-primary font-medium">
+                      <span>Navigated from notification</span>
+                      <button
+                        className="ml-2 hover:opacity-70 transition-opacity"
+                        onClick={() => setDismissedHighlight(order.id)}
+                        aria-label="Dismiss highlight"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                       <Package className="h-5 w-5" />
@@ -3161,7 +3221,7 @@ export default function AdminOrdersPage() {
                       </div>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {new Date(order.createdAt).toLocaleDateString('en-GB')}
                       </p>
                     </div>
                   </div>
@@ -3169,7 +3229,10 @@ export default function AdminOrdersPage() {
                   {/* Customer + totals */}
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className="text-sm font-medium flex items-center gap-1.5 justify-end">
+                      <p className="text-xs font-semibold flex items-center justify-end gap-1 text-muted-foreground uppercase tracking-wider mb-1">
+                        <ClipboardList className="h-3.5 w-3.5" /> Customer
+                      </p>
+                      <p className="text-sm font-medium flex items-center justify-end gap-1.5">
                         {order.customer.name}
                         {order.isGuest === "guest" || order.isGuest === true ? (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Guest</span>
@@ -3181,8 +3244,10 @@ export default function AdminOrdersPage() {
                       )}
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">Total</p>
-                      <p className="font-semibold">${parseFloat(order.totalAmount).toLocaleString()}</p>
+                      <p className="text-xs font-semibold flex items-center justify-end gap-1 text-muted-foreground uppercase tracking-wider mb-1">
+                        <DollarSign className="h-3.5 w-3.5" /> Total
+                      </p>
+                      <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <Badge variant={getStatusBadgeVariant(order.overallStatus)} className="flex items-center gap-1">
                       {getStatusLabel(order.overallStatus)}
@@ -3554,7 +3619,7 @@ export default function AdminOrdersPage() {
           <div className="grid gap-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <Card key={i} className="overflow-hidden">
-                <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+                <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-10 w-10 rounded-full" />
                     <div className="space-y-1.5">
@@ -3649,7 +3714,7 @@ export default function AdminOrdersPage() {
                               Parent: {order.parentDisplayId ?? `#${order.parentOrderId.slice(-6).toUpperCase()}`}
                             </p>
                           )}
-                          <p className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(order.createdAt).toLocaleDateString('en-GB')}</p>
                         </TableCell>
                         <TableCell>
                           <Badge variant={order.type === "DIRECT" ? "default" : "secondary"} className="text-xs">
@@ -3735,8 +3800,20 @@ export default function AdminOrdersPage() {
         ) : (
 
           paginatedOrders.map((order) => (
-            <Card key={order.id} className="overflow-hidden">
-              <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+            <Card key={order.id} ref={order.id === activeHighlight ? highlightRef : undefined} className={`overflow-hidden transition-all ${order.id === activeHighlight ? "ring-2 ring-primary ring-offset-2" : ""}`}>
+              <div className="border-b p-4 flex flex-wrap justify-between items-center gap-4">
+                {order.id === activeHighlight && (
+                  <div className="w-full flex items-center justify-between bg-primary/10 border border-primary/20 rounded-md px-3 py-1.5 mb-1 text-xs text-primary font-medium">
+                    <span>Navigated from notification</span>
+                    <button
+                      className="ml-2 hover:opacity-70 transition-opacity"
+                      onClick={() => setDismissedHighlight(order.id)}
+                      aria-label="Dismiss highlight"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   {isBulkSelectMode && !isTerminalStatus(order.status) && (
                     <div
@@ -3770,7 +3847,7 @@ export default function AdminOrdersPage() {
                     </div>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> 
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {new Date(order.createdAt).toLocaleDateString('en-GB')}
                     </p>
                     {order.parentOrderId && (
                       <p className="text-xs text-primary/70 font-medium">
@@ -3781,10 +3858,10 @@ export default function AdminOrdersPage() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <p className="text-sm font-medium flex items-center gap-1">
-                      <ClipboardList className="h-4 w-4" /> Customer
+                    <p className="text-xs font-semibold flex items-center justify-end gap-1 text-muted-foreground uppercase tracking-wider mb-1">
+                      <ClipboardList className="h-3.5 w-3.5" /> Customer
                     </p>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 justify-end">
+                    <p className="text-sm font-medium flex items-center justify-end gap-1.5">
                       {order.customerName}
                       {order.isGuest === "guest" || order.isGuest === true ? (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400">Guest</span>
@@ -3793,10 +3870,10 @@ export default function AdminOrdersPage() {
                     <p className="text-xs text-muted-foreground">{order.customerEmail}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium flex items-center gap-1">
-                      <DollarSign className="h-4 w-4" /> Total
+                    <p className="text-xs font-semibold flex items-center justify-end gap-1 text-muted-foreground uppercase tracking-wider mb-1">
+                      <DollarSign className="h-3.5 w-3.5" /> Total
                     </p>
-                    <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString()}</p>
+                    <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
                   <Badge variant={getStatusBadgeVariant(order.status)} className="flex items-center gap-1">
                     <Hash className="h-3 w-3" /> {getStatusLabel(order.status)}

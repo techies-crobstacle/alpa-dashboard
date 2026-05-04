@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
+import { useState, useEffect, useCallback, useMemo, Fragment, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle, TrendingUp, ShoppingCart, FileDown, Check, LayoutList, Table2 } from "lucide-react";
+import { Package, Truck, Loader2, RefreshCcw, X, Eye, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, CreditCard, MapPin, Calendar, ClipboardList, DollarSign, Hash, Download, AlertTriangle, TrendingUp, ShoppingCart, FileDown, Check, LayoutList, Table2, Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn, getCityLabel } from "@/lib/utils";
@@ -503,6 +504,12 @@ function BulkStatusUpdateModal({ orders, selectedOrderIds, onClose, onSuccess }:
 
 export default function OrdersPage() {
     // Only declare expandedOrderId once at the top of the component
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightOrderId = searchParams.get("highlight");
+  const highlightRef = useRef<HTMLDivElement | null>(null);
+  const [dismissedHighlight, setDismissedHighlight] = useState<string | null>(null);
+  const activeHighlight = highlightOrderId && highlightOrderId !== dismissedHighlight ? highlightOrderId : null;
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -515,6 +522,7 @@ export default function OrdersPage() {
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [searchQuery, setSearchQuery] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
@@ -533,7 +541,7 @@ export default function OrdersPage() {
     if (!val) return "N/A";
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return d.toLocaleDateString('en-GB');
   };
 
   const filteredOrders = orders.filter((o) => {
@@ -542,6 +550,21 @@ export default function OrdersPage() {
     const orderLocalDate = new Date(o.createdAt).toLocaleDateString("en-CA"); // "YYYY-MM-DD"
     if (filterDateFrom && orderLocalDate < filterDateFrom) return false;
     if (filterDateTo && orderLocalDate > filterDateTo) return false;
+    
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      if (!(
+        o.id.toLowerCase().includes(q) ||
+        (o.displayId ?? "").toLowerCase().includes(q) ||
+        (o.parentOrderId ?? "").toLowerCase().includes(q) ||
+        (o.parentDisplayId ?? "").toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.customerEmail.toLowerCase().includes(q)
+      )) {
+        return false;
+      }
+    }
+    
     return true;
   });
 
@@ -594,6 +617,24 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  // Auto-expand and scroll to highlighted order from notification click
+  useEffect(() => {
+    if (!activeHighlight || orders.length === 0) return;
+    // Find the order in any page
+    const idx = filteredOrders.findIndex(o => o.id === activeHighlight);
+    if (idx === -1) return;
+    // Jump to the page containing this order
+    const targetPage = Math.floor(idx / itemsPerPage) + 1;
+    setCurrentPage(targetPage);
+    setExpandedOrderId(activeHighlight);
+    // Scroll after render
+    setTimeout(() => {
+      if (highlightRef.current) {
+        highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 300);
+  }, [activeHighlight, orders]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -967,7 +1008,7 @@ export default function OrdersPage() {
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Order ID</span><span className="font-medium text-right break-all min-w-0">{order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}</span></div>
             <div className="flex justify-between gap-4 items-center"><span className="text-muted-foreground shrink-0">Status</span><Badge variant="secondary" className="text-right whitespace-nowrap">{order.status.toUpperCase()}</Badge></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Type</span><span className="font-medium text-right min-w-0">{order.type === "DIRECT" ? "Direct Order" : "Sub-order"}</span></div>
-            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Date</span><span className="font-medium text-right min-w-0">{new Date(order.createdAt).toLocaleDateString()}</span></div>
+            <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Date</span><span className="font-medium text-right min-w-0">{new Date(order.createdAt).toLocaleDateString('en-GB')}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Payment</span><span className="font-medium text-right min-w-0">{order.paymentMethod}</span></div>
             <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Payment Status</span><span className="font-medium text-right min-w-0">{order.paymentStatus}</span></div>
             {order.trackingNumber && <div className="flex justify-between gap-4"><span className="text-muted-foreground shrink-0">Tracking</span><span className="font-medium text-right break-words min-w-0">{order.trackingNumber}</span></div>}
@@ -1136,7 +1177,7 @@ export default function OrdersPage() {
     toast.success(`Exported ${sorted.length} products ranked by sales.`);
   };
 
-  const hasActiveFilters = filterDateFrom !== "" || filterDateTo !== "" || filterStatus !== "ALL";
+  const hasActiveFilters = filterDateFrom !== "" || filterDateTo !== "" || filterStatus !== "ALL" || searchQuery !== "";
 
   // --- Overview statistics computed from filtered orders ---
   const totalGrossValue = filteredOrders.reduce((sum, o) => sum + parseFloat(String(o.subtotal) || "0"), 0);
@@ -1250,6 +1291,28 @@ export default function OrdersPage() {
         </CardHeader>
         <CardContent className="pb-4">
           <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[200px] max-w-sm relative">
+              <Label className="text-xs font-medium">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search by order ID..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  className="pl-8 h-9 pr-8"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="h-9 w-px bg-border self-end mb-0.5 hidden sm:block" />
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-medium">From Date</Label>
               <Input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} className="h-9 text-sm w-[160px]" />
@@ -1273,7 +1336,7 @@ export default function OrdersPage() {
             </div>
             <div className="flex items-end gap-2 ml-auto">
               {hasActiveFilters && (
-                <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("ALL"); }}>
+                <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("ALL"); setSearchQuery(""); }}>
                   <X className="h-3.5 w-3.5" /> Clear
                 </Button>
               )}
@@ -1405,9 +1468,9 @@ export default function OrdersPage() {
             <Package className="h-10 w-10 text-muted-foreground" />
             <div className="space-y-1">
               <h3 className="text-base font-semibold">No Orders Match Your Filters</h3>
-              <p className="text-muted-foreground text-sm">Try adjusting the date range or status filter.</p>
+              <p className="text-muted-foreground text-sm">Try adjusting the search query, date range, or status filter.</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("ALL"); }}>
+            <Button variant="outline" size="sm" onClick={() => { setFilterDateFrom(""); setFilterDateTo(""); setFilterStatus("ALL"); setSearchQuery(""); }}>
               <X className="h-3.5 w-3.5 mr-1.5" /> Clear Filters
             </Button>
           </div>
@@ -1500,8 +1563,20 @@ export default function OrdersPage() {
           </Card>
         ) : (
         <div className="grid gap-4">{paginatedOrders.map((order) => (
-            <Card key={order.id} className="overflow-hidden">
+            <Card key={order.id} ref={order.id === activeHighlight ? highlightRef : undefined} className={`overflow-hidden transition-all ${order.id === activeHighlight ? "ring-2 ring-primary ring-offset-2" : ""}`}>
               <div className="border-b bg-muted/30 p-4 flex flex-wrap justify-between items-center gap-4">
+                {order.id === activeHighlight && (
+                  <div className="w-full flex items-center justify-between bg-primary/10 border border-primary/20 rounded-md px-3 py-1.5 mb-1 text-xs text-primary font-medium">
+                    <span>Navigated from notification</span>
+                    <button
+                      className="ml-2 hover:opacity-70 transition-opacity"
+                      onClick={() => setDismissedHighlight(order.id)}
+                      aria-label="Dismiss highlight"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   {isBulkSelectMode && !isTerminalStatus(order.status) && (
                     <input
@@ -1527,7 +1602,7 @@ export default function OrdersPage() {
                     <p className="font-bold">
                       {order.subDisplayId ?? order.displaySubId ?? order.displayId ?? `#${order.id.slice(-6).toUpperCase()}`}
                     </p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(order.createdAt).toLocaleDateString()}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(order.createdAt).toLocaleDateString('en-GB')}</p>
                     {order.parentDisplayId && (
                       <p className="text-xs text-primary/70 font-medium">Parent: {order.parentDisplayId}</p>
                     )}

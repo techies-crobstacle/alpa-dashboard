@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -397,19 +397,19 @@ export default function AdminCategoryDetailPage() {
 							{category.requestedAt && (
 								<div className="flex items-center gap-2 text-sm text-muted-foreground">
 									<Calendar className="h-4 w-4 shrink-0" />
-									<span>Requested {new Date(category.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+									<span>Requested {new Date(category.requestedAt).toLocaleDateString('en-GB')}</span>
 								</div>
 							)}
 							{category.approvedAt && (
 								<div className="flex items-center gap-2 text-sm text-muted-foreground">
 									<CheckCircle2 className="h-4 w-4 shrink-0 text-green-500" />
-									<span>Approved {new Date(category.approvedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+									<span>Approved {new Date(category.approvedAt).toLocaleDateString('en-GB')}</span>
 								</div>
 							)}
 							{category.softDeletedAt && (
 								<div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
 									<Trash2 className="h-4 w-4 shrink-0" />
-									<span>Deleted {new Date(category.softDeletedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+									<span>Deleted {new Date(category.softDeletedAt).toLocaleDateString('en-GB')}</span>
 								</div>
 							)}
 						</div>
@@ -566,7 +566,7 @@ export default function AdminCategoryDetailPage() {
 						</p>
 						<div className="space-y-2">
 							<Label htmlFor="soft-delete-reason">Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
-							<Textarea id="soft-delete-reason" value={softDeleteReason} onChange={(e) => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion…" className="resize-none h-20" />
+							<Textarea id="soft-delete-reason" value={softDeleteReason} onChange={(e) => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion..." className="resize-none h-20" />
 						</div>
 						<div className="flex gap-3">
 							<Button variant="outline" className="flex-1" onClick={() => setSoftDeleteOpen(false)}>Cancel</Button>

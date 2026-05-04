@@ -294,7 +294,7 @@ export default function AdminProductsPage() {
 
   const totalProducts = products.length;
   const totalStock = products.reduce((s, p) => s + (Number(p.stock) || 0), 0);
-  const totalRevenue = products.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0);
+  // const totalRevenue = products.reduce((s, p) => s + Number(p.price) * (Number((p as any).sales) || 0), 0);
 
   // ── click-outside ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -859,13 +859,24 @@ export default function AdminProductsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2 items-end w-full md:w-auto md:justify-end">
-          <input
-            type="text"
-            placeholder="Search products..."
-            className="border rounded px-3 py-2 w-[200px] h-10 bg-background text-sm"
-            value={search}
-            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search products..."
+              className="border rounded px-3 py-2 pr-8 w-[200px] h-10 bg-background text-sm"
+              value={search}
+              onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setCurrentPage(1); }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           <select
             className="border rounded px-3 py-2 w-[180px] h-10 bg-background text-sm"
             value={categoryFilter}
@@ -1148,7 +1159,7 @@ export default function AdminProductsPage() {
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{currentProducts.reduce((s, p) => s + (Number(p.stock) || 0), 0)}</div></CardContent>
         </Card>
-        <Card>
+        {/* <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Estimated Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1159,7 +1170,7 @@ export default function AdminProductsPage() {
               : Number(p.price);
             return s + (isFinite(price) ? price : 0) * (Number((p as any).sales) || 0);
           }, 0).toLocaleString()}</div></CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Product list */}

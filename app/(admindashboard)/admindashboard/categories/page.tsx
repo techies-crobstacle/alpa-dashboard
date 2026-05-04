@@ -23,7 +23,7 @@ import { AuditLogDiffModal, type AuditLogEntry } from "@/components/shared/audit
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://alpa-be.onrender.com";
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ──────────────────────────────────────────────────────────────────────
 interface ApprovedCategory {
 	id: string | null;
 	categoryName: string;
@@ -91,7 +91,7 @@ interface CategoriesResponse {
 	};
 }
 
-// â”€â”€â”€ Audit action badge config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Audit action badge config ───────────────────────────────────────────────────
 const AUDIT_ACTION_CONFIG: Record<string, { label: string; className: string }> = {
 	CATEGORY_CREATED:      { label: "Created",             className: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700" },
 	CATEGORY_REQUESTED:    { label: "Requested",           className: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700" },
@@ -119,43 +119,43 @@ function getCategoryName(entry: AuditLogEntry): string {
 	const name =
 		(entry.newData?.categoryName as string | undefined) ??
 		(entry.previousData?.categoryName as string | undefined);
-	return name ?? "â€”";
+	return name ?? "—";
 }
 
-// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Component ───────────────────────────────────────────────────────────────────
 const AdminCategoriesPage = () => {
-	// â”€â”€ Main data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Main data ────────────────────────────────────────────────────────────────
 	const [data, setData] = useState<CategoriesResponse["data"] | null>(null);
 	const [loading, setLoading] = useState(true);
 
-	// â”€â”€ Pending approve/reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Pending approve/reject ────────────────────────────────────────────────────
 	const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [actionMessage, setActionMessage] = useState("");
 
-	// â”€â”€ Direct creation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Direct creation ───────────────────────────────────────────────────────────
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
 	const [newCategories, setNewCategories] = useState("");
 
-	// â”€â”€ Edit category â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Edit category ─────────────────────────────────────────────────────────────
 	const [editTarget, setEditTarget] = useState<ApprovedCategory | null>(null);
 	const [editName, setEditName] = useState("");
 	const [editDesc, setEditDesc] = useState("");
 	const [isEditOpen, setIsEditOpen] = useState(false);
 
-	// â”€â”€ Soft delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Soft delete ───────────────────────────────────────────────────────────────
 	const [softDeleteTarget, setSoftDeleteTarget] = useState<ApprovedCategory | null>(null);
 	const [softDeleteReason, setSoftDeleteReason] = useState("");
 	const [isSoftDeleteOpen, setIsSoftDeleteOpen] = useState(false);
 
-	// â”€â”€ Recycle Bin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Recycle Bin ───────────────────────────────────────────────────────────────
 	const [deletedCategories, setDeletedCategories] = useState<DeletedCategory[]>([]);
 	const [deletedLoading, setDeletedLoading] = useState(false);
 	const [hardDeleteTarget, setHardDeleteTarget] = useState<DeletedCategory | null>(null);
 	const [hardDeleteConfirm, setHardDeleteConfirm] = useState("");
 	const [isHardDeleteOpen, setIsHardDeleteOpen] = useState(false);
 
-	// â”€â”€ Audit Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Audit Logs ────────────────────────────────────────────────────────────────
 	const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 	const [auditLoading, setAuditLoading] = useState(false);
 	const [auditPage, setAuditPage] = useState(1);
@@ -166,12 +166,12 @@ const AdminCategoriesPage = () => {
 	const [selectedLogEntry, setSelectedLogEntry] = useState<AuditLogEntry | null>(null);
 	const [diffOpen, setDiffOpen] = useState(false);
 
-	// â”€â”€ Active tab tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ── Active tab tracking ───────────────────────────────────────────────────────
 	const [activeTab, setActiveTab] = useState("active");
 
 	const router = useRouter();
 
-	// â”€â”€â”€ Fetch main categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Fetch main categories ─────────────────────────────────────────────────────
 	const fetchCategoriesData = useCallback(async () => {
 		try {
 			setLoading(true);
@@ -188,7 +188,7 @@ const AdminCategoriesPage = () => {
 
 	useEffect(() => { fetchCategoriesData(); }, [fetchCategoriesData]);
 
-	// â”€â”€â”€ Fetch recycle bin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Fetch recycle bin ──────────────────────────────────────────────────────
 	const fetchDeletedCategories = useCallback(async () => {
 		setDeletedLoading(true);
 		try {
@@ -205,7 +205,7 @@ const AdminCategoriesPage = () => {
 		}
 	}, []);
 
-	// â”€â”€â”€ Fetch audit logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Fetch audit logs ───────────────────────────────────────────────────────
 	const fetchAuditLogs = useCallback(async (page: number, action: string) => {
 		setAuditLoading(true);
 		try {
@@ -240,7 +240,7 @@ const AdminCategoriesPage = () => {
 		if (activeTab === "audit-logs") fetchAuditLogs(auditPage, auditActionFilter);
 	}, [auditPage, auditActionFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-	// â”€â”€â”€ Approve â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Approve ────────────────────────────────────────────────────────────────
 	const handleApproveRequest = async (id: string, message?: string) => {
 		try {
 			setIsProcessing(true);
@@ -261,7 +261,7 @@ const AdminCategoriesPage = () => {
 		}
 	};
 
-	// â”€â”€â”€ Reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Reject ─────────────────────────────────────────────────────────────────
 	const handleRejectRequest = async (id: string, message?: string) => {
 		try {
 			setIsProcessing(true);
@@ -282,7 +282,7 @@ const AdminCategoriesPage = () => {
 		}
 	};
 
-	// â”€â”€â”€ Direct Create â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Direct Create ───────────────────────────────────────────────────────────
 	const handleDirectCreate = async () => {
 		if (!newCategories.trim()) { toast.error("Please enter at least one category name"); return; }
 		const categoriesList = newCategories.split(/[,\n]/).map(c => c.trim()).filter(c => c.length > 0);
@@ -309,7 +309,7 @@ const AdminCategoriesPage = () => {
 		}
 	};
 
-	// â”€â”€â”€ Edit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Edit ────────────────────────────────────────────────────────────────────
 	const openEdit = (cat: ApprovedCategory) => {
 		setEditTarget(cat);
 		setEditName(cat.categoryName);
@@ -341,7 +341,7 @@ const AdminCategoriesPage = () => {
 		}
 	};
 
-	// â”€â”€â”€ Soft Delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Soft Delete ─────────────────────────────────────────────────────────────
 	const openSoftDelete = (cat: ApprovedCategory) => {
 		setSoftDeleteTarget(cat);
 		setSoftDeleteReason("");
@@ -369,7 +369,7 @@ const AdminCategoriesPage = () => {
 		}
 	};
 
-	// â”€â”€â”€ Restore â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Restore ─────────────────────────────────────────────────────────────────
 	const handleRestore = async (cat: DeletedCategory) => {
 		try {
 			setIsProcessing(true);
@@ -393,7 +393,7 @@ const AdminCategoriesPage = () => {
 		}
 	};
 
-	// â”€â”€â”€ Hard Delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Hard Delete ─────────────────────────────────────────────────────────────
 	const openHardDelete = (cat: DeletedCategory) => {
 		setHardDeleteTarget(cat);
 		setHardDeleteConfirm("");
@@ -433,7 +433,7 @@ const AdminCategoriesPage = () => {
 		}
 	};
 
-	// â”€â”€â”€ Loading skeleton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+	// ─── Loading skeleton ────────────────────────────────────────────────────────
 	if (loading) {
 		return (
 			<div className="space-y-6 p-6">
@@ -466,7 +466,7 @@ const AdminCategoriesPage = () => {
 
 	return (
 		<div className="space-y-6 p-6">
-			{/* â”€â”€ Header â”€â”€ */}
+			{/* ── Header ── */}
 			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 				<div>
 					<h1 className="text-3xl font-bold tracking-tight">Categories</h1>
@@ -506,7 +506,7 @@ const AdminCategoriesPage = () => {
 				</Dialog>
 			</div>
 
-			{/* â”€â”€ Stats â”€â”€ */}
+			{/* ── Stats ── */}
 			<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 				<Card className="p-5">
 					<p className="text-xs font-medium text-muted-foreground">Total Categories</p>
@@ -535,7 +535,7 @@ const AdminCategoriesPage = () => {
 				</Card>
 			</div>
 
-			{/* â”€â”€ Tab Switcher â”€â”€ */}
+			{/* ── Tab Switcher ── */}
 			<div className="flex gap-1 border-b pb-4 flex-wrap">
 				{([
 					{ key: "active",      label: "Active",      count: data.totalApproved, icon: <CheckCircle2 className="h-4 w-4" /> },
@@ -569,7 +569,7 @@ const AdminCategoriesPage = () => {
 				))}
 			</div>
 
-			{/* â”€â”€ Active Tab â”€â”€ */}
+			{/* ── Active Tab ── */}
 			{activeTab === "active" && (
 				data.approvedCategories.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -581,10 +581,10 @@ const AdminCategoriesPage = () => {
 						<table className="min-w-full divide-y divide-muted">
 							<thead className="bg-muted/50">
 								<tr>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Products</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">#</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Category Name</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Products</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Actions</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-muted">
@@ -625,7 +625,7 @@ const AdminCategoriesPage = () => {
 				)
 			)}
 
-			{/* â”€â”€ Pending Tab â”€â”€ */}
+			{/* ── Pending Tab ── */}
 			{activeTab === "pending" && (
 				data.totalPending === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -637,12 +637,12 @@ const AdminCategoriesPage = () => {
 						<table className="min-w-full divide-y divide-muted">
 							<thead className="bg-yellow-50/50 dark:bg-yellow-950/20">
 								<tr>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Info</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Seller Details</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Sample Product</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Requested On</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">#</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Category Info</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Seller Details</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Sample Product</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Requested On</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Actions</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-muted">
@@ -661,7 +661,7 @@ const AdminCategoriesPage = () => {
 											<span className="text-xs bg-muted px-2 py-0.5 rounded italic">{request.sampleProduct}</span>
 										</td>
 										<td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-											{new Date(request.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+											{new Date(request.requestedAt).toLocaleDateString('en-GB')}
 										</td>
 										<td className="px-4 py-2">
 											<div className="flex gap-1 flex-wrap">
@@ -719,7 +719,7 @@ const AdminCategoriesPage = () => {
 				)
 			)}
 
-			{/* â”€â”€ Rejected Tab â”€â”€ */}
+			{/* ── Rejected Tab ── */}
 			{activeTab === "rejected" && (
 				data.totalRejected === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -731,12 +731,12 @@ const AdminCategoriesPage = () => {
 						<table className="min-w-full divide-y divide-muted">
 							<thead className="bg-red-50/50 dark:bg-red-950/20">
 								<tr>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category Name</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Seller</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Rejection Reason</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Requested On</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">#</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Category Name</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Seller</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Rejection Reason</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Requested On</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Actions</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-muted">
@@ -750,11 +750,11 @@ const AdminCategoriesPage = () => {
 										</td>
 										<td className="px-4 py-2">
 											<p className="text-xs text-muted-foreground italic line-clamp-2 max-w-[240px]">
-												{request.rejectionReason ?? request.rejectionMessage ?? "â€”"}
+												{request.rejectionReason ?? request.rejectionMessage ?? "—"}
 											</p>
 										</td>
 										<td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-											{new Date(request.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+											{new Date(request.requestedAt).toLocaleDateString('en-GB')}
 										</td>
 										<td className="px-4 py-2">
 											<Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/admindashboard/categories/${request.id}`)}>
@@ -769,11 +769,11 @@ const AdminCategoriesPage = () => {
 				)
 			)}
 
-			{/* â”€â”€ Recycle Bin Tab â”€â”€ */}
+			{/* ── Recycle Bin Tab ── */}
 			{activeTab === "recycle-bin" && (
 				deletedLoading ? (
 					<div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-						<Loader2 className="h-4 w-4 animate-spin" /> Loading recycle binâ€¦
+						<Loader2 className="h-4 w-4 animate-spin" /> Loading recycle bin...
 					</div>
 				) : deletedCategories.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -785,12 +785,12 @@ const AdminCategoriesPage = () => {
 						<table className="min-w-full divide-y divide-muted">
 							<thead className="bg-orange-50/50 dark:bg-orange-950/20">
 								<tr>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status Before Delete</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Deleted By</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Deleted On</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">#</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Category</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Status Before Delete</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Deleted By</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Deleted On</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Actions</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-muted">
@@ -805,11 +805,11 @@ const AdminCategoriesPage = () => {
 											<span className="text-xs border rounded px-1.5 py-0.5">{cat.status}</span>
 										</td>
 										<td className="px-4 py-2">
-											<p className="text-sm">{cat.deleted_by_name ?? "â€”"}</p>
+											<p className="text-sm">{cat.deleted_by_name ?? "—"}</p>
 											<p className="text-xs text-muted-foreground">{cat.deleted_by_email ?? ""}</p>
 										</td>
 										<td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-											{new Date(cat.softDeletedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+											{new Date(cat.softDeletedAt).toLocaleDateString('en-GB')}
 										</td>
 										<td className="px-4 py-2">
 											<div className="flex gap-1 flex-wrap">
@@ -825,7 +825,7 @@ const AdminCategoriesPage = () => {
 													className="gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-900/20"
 													onClick={() => openHardDelete(cat)}
 												>
-													<Skull className="h-3 w-3" /> Delete Permanently
+													<Trash2 className="h-3 w-3" /> Delete Permanently
 												</Button>
 												<Button variant="outline" size="sm" className="gap-1" onClick={() => router.push(`/admindashboard/categories/${cat.id}`)}>
 													<Eye className="h-3 w-3" /> View
@@ -840,7 +840,7 @@ const AdminCategoriesPage = () => {
 				)
 			)}
 
-			{/* â”€â”€ Audit Logs Tab â”€â”€ */}
+			{/* ── Audit Logs Tab ── */}
 			{activeTab === "audit-logs" && (<>
 				{/* Filter bar */}
 				<div className="flex flex-wrap items-center gap-3 mb-4">
@@ -864,7 +864,7 @@ const AdminCategoriesPage = () => {
 
 				{auditLoading ? (
 					<div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-						<Loader2 className="h-4 w-4 animate-spin" /> Loading audit logsâ€¦
+						<Loader2 className="h-4 w-4 animate-spin" /> Loading audit logs...
 					</div>
 				) : auditLogs.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -876,13 +876,13 @@ const AdminCategoriesPage = () => {
 						<table className="min-w-full divide-y divide-muted">
 							<thead className="bg-muted/50">
 								<tr>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">#</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Category</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Action</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actor</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Changed Fields</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Timestamp</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Diff</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">#</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Category</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Action</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Actor</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Changed Fields</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Timestamp</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Diff</th>
 								</tr>
 							</thead>
 							<tbody className="divide-y divide-muted">
@@ -922,7 +922,7 @@ const AdminCategoriesPage = () => {
 														? entry.changedFields.map((f) => (
 															<span key={f} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{f}</span>
 														))
-														: <span className="text-[10px] text-muted-foreground">â€”</span>
+														: <span className="text-[10px] text-muted-foreground">—</span>
 													}
 												</div>
 											</td>
@@ -946,7 +946,7 @@ const AdminCategoriesPage = () => {
 				{/* Pagination */}
 				{auditTotalPages > 1 && (
 					<div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-						<span>Page {auditPage} of {auditTotalPages} Â· {auditTotal} total events</span>
+						<span>Page {auditPage} of {auditTotalPages} · {auditTotal} total events</span>
 						<div className="flex gap-1">
 							<Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1" disabled={auditPage <= 1 || auditLoading} onClick={() => setAuditPage((p) => Math.max(1, p - 1))}>
 								<ChevronLeft className="h-3 w-3" />Prev
@@ -959,7 +959,7 @@ const AdminCategoriesPage = () => {
 				)}
 			</>)}
 
-			{/* â”€â”€ Edit Modal â”€â”€ */}
+			{/* ── Edit Modal ── */}
 			<Dialog open={isEditOpen} onOpenChange={(o) => { setIsEditOpen(o); if (!o) setEditTarget(null); }}>
 				<DialogContent className="max-w-md">
 					<DialogHeader><DialogTitle>Edit Category</DialogTitle></DialogHeader>
@@ -980,7 +980,7 @@ const AdminCategoriesPage = () => {
 				</DialogContent>
 			</Dialog>
 
-			{/* â”€â”€ Soft Delete Confirm â”€â”€ */}
+			{/* ── Soft Delete Confirm ── */}
 			<Dialog open={isSoftDeleteOpen} onOpenChange={(o) => { setIsSoftDeleteOpen(o); if (!o) setSoftDeleteTarget(null); }}>
 				<DialogContent className="max-w-sm">
 					<DialogHeader>
@@ -994,7 +994,7 @@ const AdminCategoriesPage = () => {
 						</p>
 						<div className="space-y-2">
 							<Label htmlFor="soft-delete-reason">Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
-							<Textarea id="soft-delete-reason" value={softDeleteReason} onChange={(e) => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletionâ€¦" className="resize-none h-20" />
+							<Textarea id="soft-delete-reason" value={softDeleteReason} onChange={(e) => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion..." className="resize-none h-20" />
 						</div>
 						<div className="flex gap-3">
 							<Button variant="outline" className="flex-1" onClick={() => setIsSoftDeleteOpen(false)}>Cancel</Button>
@@ -1006,7 +1006,7 @@ const AdminCategoriesPage = () => {
 				</DialogContent>
 			</Dialog>
 
-			{/* â”€â”€ Hard Delete Confirm â”€â”€ */}
+			{/* ── Hard Delete Confirm ── */}
 			<Dialog open={isHardDeleteOpen} onOpenChange={(o) => { setIsHardDeleteOpen(o); if (!o) { setHardDeleteTarget(null); setHardDeleteConfirm(""); } }}>
 				<DialogContent className="max-w-sm">
 					<DialogHeader>
@@ -1037,7 +1037,7 @@ const AdminCategoriesPage = () => {
 				</DialogContent>
 			</Dialog>
 
-			{/* â”€â”€ Diff Modal â”€â”€ */}
+			{/* ── Diff Modal ── */}
 			<AuditLogDiffModal
 				entry={selectedLogEntry}
 				open={diffOpen}

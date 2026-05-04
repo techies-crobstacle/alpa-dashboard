@@ -169,11 +169,11 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[450px]">Product</TableHead>
+          <TableHead className="w-[350px]">Product</TableHead>
           <TableHead className="w-[120px]">Category</TableHead>
-          <TableHead className="w-[140px]">Price</TableHead>
-          <TableHead className="w-[100px]">Stock</TableHead>
-          <TableHead className="w-[160px]">Actions</TableHead>
+          <TableHead className="w-[130px]">Price</TableHead>
+          <TableHead className="w-[90px]">Stock</TableHead>
+          <TableHead className="w-[180px]">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -235,11 +235,11 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
                 <div className="text-sm">{product.stock} available</div>
               </TableCell>
               <TableCell>
-                <div className="flex flex-col gap-2 min-w-[140px]">
+                <div className="flex flex-col gap-2 min-w-[160px]">
                   {/* Move to Cart - Primary action */}
                   <Button 
                     size="sm" 
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-1 py-1 text-xs h-7"
                     disabled={product.stock === 0 || isMovingToCart}
                     onClick={() => onMoveToCart(product.id, item.id)}
                   >
@@ -255,7 +255,7 @@ function WishlistTable({ items, onRemove, onAddToCart, onMoveToCart, actionLoadi
                   <Button 
                     size="sm" 
                     variant="outline"
-                    className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                    className="border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/30 px-1 py-1 text-xs h-7"
                     onClick={() => onRemove(item.id)}
                     disabled={isRemoving}
                   >
@@ -307,11 +307,11 @@ const WishlistLoadingSkeleton = () => {
         <Table>
           <TableHeader>
             <TableRow className="border-border/50">
-              <TableHead className="w-[450px]">Product</TableHead>
+              <TableHead className="w-[350px]">Product</TableHead>
               <TableHead className="w-[120px]">Category</TableHead>
-              <TableHead className="w-[140px]">Price</TableHead>
-              <TableHead className="w-[100px]">Stock</TableHead>
-              <TableHead className="w-[160px]">Actions</TableHead>
+              <TableHead className="w-[130px]">Price</TableHead>
+              <TableHead className="w-[90px]">Stock</TableHead>
+              <TableHead className="w-[180px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -340,7 +340,7 @@ const WishlistLoadingSkeleton = () => {
                   <Skeleton className="h-4 w-20" />
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-2 min-w-[140px]">
+                  <div className="flex flex-col gap-2 min-w-[160px]">
                     <Skeleton className="h-8 w-full rounded-md" />
                     <Skeleton className="h-8 w-full rounded-md" />
                   </div>

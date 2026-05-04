@@ -1,4 +1,4 @@
-// "use client";
+﻿// "use client";
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import {
 // 	Activity,
@@ -231,7 +231,7 @@
 // 																	</div>
 // 																</div>
 // 																<div className="flex flex-col items-end ml-2 gap-2">
-// 																	<span className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleDateString()}</span>
+// 																	<span className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleDateString('en-GB')}</span>
 // 																	<button
 // 																		className={`px-3 py-1 rounded text-xs font-medium border ${ack.acknowledged ? 'bg-green-100 text-green-700 border-green-300 cursor-default' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} disabled:opacity-60`}
 // 																		disabled={ack.loading || ack.acknowledged}
@@ -507,7 +507,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics ? `$${analytics.totalRevenue}` : <span className="text-xs text-muted-foreground">-</span>}
+              {analytics ? `$${parseFloat(analytics.totalRevenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-xs text-muted-foreground">-</span>}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               +20.1% from last month
@@ -521,7 +521,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics ? analytics.totalOrders : <span className="text-xs text-muted-foreground">-</span>}
+              {analytics ? Number(analytics.totalOrders).toLocaleString('en-US') : <span className="text-xs text-muted-foreground">-</span>}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
               +19% from last month
@@ -535,7 +535,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics ? analytics.totalItemsSold : <span className="text-xs text-muted-foreground">-</span>}
+              {analytics ? Number(analytics.totalItemsSold).toLocaleString('en-US') : <span className="text-xs text-muted-foreground">-</span>}
             </div>
           </CardContent>
         </Card>
@@ -546,7 +546,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics ? `$${analytics.averageOrderValue}` : <span className="text-xs text-muted-foreground">-</span>}
+              {analytics ? `$${parseFloat(analytics.averageOrderValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-xs text-muted-foreground">-</span>}
             </div>
           </CardContent>
         </Card>
@@ -704,7 +704,7 @@ export default function DashboardPage() {
 																	</div>
 																</div>
 																<div className="flex flex-col items-end ml-2 gap-2">
-																	<span className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleDateString()}</span>
+																	<span className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleDateString('en-GB')}</span>
 																	<button
 																		className={`px-3 py-1 rounded text-xs font-medium border ${ack.acknowledged ? 'bg-green-100 text-green-700 border-green-300 cursor-default' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} disabled:opacity-60`}
 																		disabled={ack.loading || ack.acknowledged}
@@ -767,7 +767,12 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={notification.id}
-                        className={`flex items-start gap-4 p-3 rounded-lg border ${bgColor}`}
+                        className={`flex items-start gap-4 p-3 rounded-lg border ${bgColor} cursor-pointer hover:opacity-80 transition-opacity`}
+                        onClick={(e) => {
+                          // Don't navigate when clicking the acknowledge button
+                          if ((e.target as HTMLElement).closest("button")) return;
+                          if (notification.order?.id) router.push(`/sellerdashboard/orders?highlight=${notification.order.id}`);
+                        }}
                       >
                         <div
                           className={`w-2 h-2 rounded-full mt-2 ${badgeColor}`}
@@ -807,7 +812,7 @@ export default function DashboardPage() {
                               <span className="text-xs text-muted-foreground">
                                 {new Date(
                                   notification.createdAt,
-                                ).toLocaleDateString()}
+                                ).toLocaleDateString('en-GB')}
                               </span>
                               <button
                                 className={`px-3 py-1 rounded text-xs font-medium border ${ack.acknowledged ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800 cursor-default" : "bg-background text-foreground border-border hover:bg-muted"} disabled:opacity-60`}

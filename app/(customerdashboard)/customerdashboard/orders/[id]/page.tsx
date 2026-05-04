@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -115,7 +115,7 @@ export default function CustomerOrderDetailPage() {
     if (!val) return "N/A";
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return d.toLocaleDateString('en-GB');
   };
 
   if (loading) {
@@ -205,7 +205,7 @@ export default function CustomerOrderDetailPage() {
             </h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
-              {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}
+              {order.createdAt ? new Date(order.createdAt).toLocaleString('en-GB') : "N/A"}
             </p>
           </div>
         </div>
@@ -265,7 +265,7 @@ export default function CustomerOrderDetailPage() {
             )}
             <div className="flex justify-between px-4 py-2.5">
               <span className="text-muted-foreground">Date</span>
-              <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "N/A"}</span>
+              <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB') : "N/A"}</span>
             </div>
             <div className="flex justify-between px-4 py-2.5">
               <span className="text-muted-foreground">Total</span>

@@ -1,4 +1,4 @@
-
+﻿
 "use client"
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -287,7 +287,7 @@ const OrderProgressTracker = ({ order }: { order: Order }) => {
                       Tracking: {subOrder.trackingNumber}
                       {subOrder.estimatedDelivery && (
                         <span className="text-muted-foreground">
-                          • Est: {new Date(subOrder.estimatedDelivery).toLocaleDateString()}
+                          • Est: {new Date(subOrder.estimatedDelivery).toLocaleDateString('en-GB')}
                         </span>
                       )}
                     </div>
@@ -860,7 +860,7 @@ const CustomerOrdersPage = () => {
     if (!val) return "N/A";
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return d.toLocaleDateString('en-GB');
   };
 
   // Cancel is now handled by CancelOrderModal (mandatory reason required)
@@ -941,7 +941,7 @@ const CustomerOrdersPage = () => {
                 <React.Fragment key={order.id}>
                   <tr className="border-b hover:bg-muted/50">
                     <td className="px-4 py-3">#{order.displayId}</td>
-                    <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
                     <td className="px-4 py-3">
                       <Badge variant={order.status === "DELIVERED" ? "default" : order.status === "CANCELLED" ? "destructive" : "secondary"}>
                         {order.status.toUpperCase()}
@@ -1035,7 +1035,7 @@ const CustomerOrdersPage = () => {
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Created At</span>
-                                  <p className="font-medium">{new Date(order.createdAt).toLocaleString()}</p>
+                                  <p className="font-medium">{new Date(order.createdAt).toLocaleString('en-GB')}</p>
                                 </div>
                                 <div>
                                   <span className="text-sm text-muted-foreground">Total Amount</span>
@@ -1215,7 +1215,7 @@ const CustomerOrdersPage = () => {
                                           </div>
                                           {subOrder.estimatedDelivery && (
                                             <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                                              Estimated delivery: {new Date(subOrder.estimatedDelivery).toLocaleDateString()}
+                                              Estimated delivery: {new Date(subOrder.estimatedDelivery).toLocaleDateString('en-GB')}
                                             </p>
                                           )}
                                         </div>

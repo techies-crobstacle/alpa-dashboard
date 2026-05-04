@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	Activity,
@@ -259,22 +259,22 @@ export default function DashboardPage() {
 				const updatedStats = [
 					{
 						...defaultStats[0],
-						value: `$${parseFloat(analyticsData.totalRevenue).toFixed(2)}`,
+						value: `$${parseFloat(analyticsData.totalRevenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,  
 						description: "Total revenue from all orders",
 					},
 					{
 						...defaultStats[1],
-						value: analyticsData.totalOrders.toString(),
+						value: analyticsData.totalOrders.toLocaleString('en-US'),
 						description: "Total number of orders",
 					},
 					{
 						...defaultStats[2],
-						value: analyticsData.totalItemsSold.toString(),
+						value: analyticsData.totalItemsSold.toLocaleString('en-US'),
 						description: "Total items sold",
 					},
 					{
 						...defaultStats[3],
-						value: `$${parseFloat(analyticsData.averageOrderValue).toFixed(2)}`,
+						value: `$${parseFloat(analyticsData.averageOrderValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,  
 						description: "Average order value",
 					},
 				];
@@ -731,7 +731,11 @@ export default function DashboardPage() {
 												: "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30";
 												
 												return (
-													<div key={notification.id} className={`flex items-start gap-3 p-3 rounded-lg border ${bgColor}`}>
+													<div 
+														key={notification.id} 
+														className={`flex items-start gap-3 p-3 rounded-lg border ${bgColor} cursor-pointer hover:opacity-80 transition-opacity`}
+														onClick={() => notification.order?.id && router.push(`/admindashboard/orders?highlight=${notification.order.id}&tab=all`)}
+													>
 														<div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${badgeColor}`} />
 														<div className="flex-1 min-w-0">
 															<div className="flex items-start justify-between gap-2">
@@ -767,7 +771,7 @@ export default function DashboardPage() {
 																	</div>
 																</div>
 																<div className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
-																	{new Date(notification.createdAt).toLocaleDateString()}
+																	{new Date(notification.createdAt).toLocaleDateString('en-GB')}
 																</div>
 															</div>
 														</div>

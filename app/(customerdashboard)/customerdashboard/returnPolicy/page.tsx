@@ -290,7 +290,7 @@ export default function RefundRequestsPage() {
                       </div>
                       <p className="text-sm text-muted-foreground">
                         Order: {req.orderDisplayId ?? `#${typeof req.orderId === "string" ? req.orderId.slice(-6).toUpperCase() : req.orderId}`}
-                        {" Â· "}{req.createdAt ? new Date(req.createdAt).toLocaleDateString() : "N/A"}
+                        {" Â· "}{req.createdAt ? new Date(req.createdAt).toLocaleDateString('en-GB') : "N/A"}
                       </p>
                       {items.length > 0 && (
                         <p className="text-xs text-muted-foreground truncate">
@@ -398,12 +398,12 @@ export default function RefundRequestsPage() {
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground uppercase tracking-wide">Submitted On</p>
-                          <p className="font-medium mt-1">{merged.createdAt ? new Date(merged.createdAt).toLocaleString() : "N/A"}</p>
+                          <p className="font-medium mt-1">{merged.createdAt ? new Date(merged.createdAt).toLocaleString('en-GB') : "N/A"}</p>
                         </div>
                         {merged.updatedAt && (
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Last Updated</p>
-                            <p className="font-medium mt-1">{new Date(merged.updatedAt).toLocaleString()}</p>
+                            <p className="font-medium mt-1">{new Date(merged.updatedAt).toLocaleString('en-GB')}</p>
                           </div>
                         )}
                       </div>

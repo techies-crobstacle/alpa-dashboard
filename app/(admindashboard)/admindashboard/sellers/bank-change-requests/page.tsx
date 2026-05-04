@@ -487,7 +487,7 @@ export default function BankChangeRequestsPage() {
                         </div>
                       )}
                       {req.status === "REJECTED" && req.reviewNote && (
-                        <p className="text-xs text-muted-foreground text-right max-w-[160px] ml-auto line-clamp-2">
+                        <p className="text-xs text-muted-foreground text-right break-words mt-1">
                           Note: {req.reviewNote}
                         </p>
                       )}

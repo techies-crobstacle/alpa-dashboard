@@ -26,7 +26,7 @@ import {
 	DialogFooter,
 	DialogDescription,
 } from "@/components/ui/dialog";
-import { Search, ChevronLeft, ChevronRight, Users, ShieldCheck, Mail, Eye, Trash2, Trash, RotateCcw } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Users, ShieldCheck, Mail, Eye, Trash2, Trash, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
 
@@ -440,15 +440,17 @@ export default function CustomersPage() {
 									<Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
 									<Input
 										placeholder="Search by name or email..."
-										className="pl-8"
+										className="pl-8 pr-10"
 										value={search}
 										onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+										
 									/>
 								</div>
 								<select
 									className="border rounded-md px-3 py-2 text-sm bg-background"
 									value={verifiedFilter}
 									onChange={(e) => { setVerifiedFilter(e.target.value as typeof verifiedFilter); setCurrentPage(1); }}
+										
 								>
 									<option value="ALL">All - Verified Status</option>
 									<option value="VERIFIED">Verified</option>
@@ -458,6 +460,7 @@ export default function CustomersPage() {
 									className="border rounded-md px-3 py-2 text-sm bg-background"
 									value={emailFilter}
 									onChange={(e) => { setEmailFilter(e.target.value as typeof emailFilter); setCurrentPage(1); }}
+										
 								>
 									<option value="ALL">All - Email Status</option>
 									<option value="CONFIRMED">Email Confirmed</option>
@@ -467,6 +470,7 @@ export default function CustomersPage() {
 									className="border rounded-md px-3 py-2 text-sm bg-background"
 									value={sortBy}
 									onChange={(e) => { setSortBy(e.target.value as keyof Customer); setCurrentPage(1); }}
+										
 								>
 									<option value="createdAt">Sort: Joined</option>
 									<option value="name">Sort: Name</option>
@@ -476,6 +480,7 @@ export default function CustomersPage() {
 									className="border rounded-md px-3 py-2 text-sm bg-background"
 									value={sortOrder}
 									onChange={(e) => { setSortOrder(e.target.value as "asc" | "desc"); setCurrentPage(1); }}
+										
 								>
 									<option value="desc">Descending</option>
 									<option value="asc">Ascending</option>
@@ -594,6 +599,7 @@ export default function CustomersPage() {
 										className="border rounded px-2 py-1 text-sm bg-background"
 										value={itemsPerPage}
 										onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+										
 									>
 										{[5, 10, 20, 50].map((n) => (
 											<option key={n} value={n}>{n}</option>
@@ -749,3 +755,7 @@ export default function CustomersPage() {
 		</div>
 	);
 }
+
+
+
+

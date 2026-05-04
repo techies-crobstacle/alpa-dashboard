@@ -1,4 +1,4 @@
-// "use client";
+﻿// "use client";
 
 // import React, { useState, useEffect, useCallback } from "react";
 // import { Button } from "@/components/ui/button";
@@ -68,7 +68,7 @@
 // }
 
 // function formatOptional(value: number | null | undefined, prefix = "") {
-//   if (value === null || value === undefined) return "—";
+//   if (value === null || value === undefined) return "?";
 //   return `${prefix}${value}`;
 // }
 
@@ -454,7 +454,7 @@
 //                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inactive</span>
 //                       )}
 //                     </td>
-//                     <td className="px-4 py-2 text-sm">{coupon.usageCount ?? 0}{coupon.usageLimit !== null ? ` / ${coupon.usageLimit}` : " / ∞"}</td>
+//                     <td className="px-4 py-2 text-sm">{coupon.usageCount ?? 0}{coupon.usageLimit !== null ? ` / ${coupon.usageLimit}` : " / 8"}</td>
 //                     <td className="px-4 py-2 text-sm text-muted-foreground">{formatOptional(coupon.usagePerUser)}</td>
 //                     <td className="px-4 py-2 text-sm text-muted-foreground">{formatOptional(coupon.minCartValue, "$")}</td>
 //                     <td className="px-4 py-2 text-sm text-muted-foreground">{formatOptional(coupon.maxDiscount, "$")}</td>
@@ -484,7 +484,7 @@
 //       {activeTab === "recycle-bin" && (
 //         recycleBinLoading ? (
 //           <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-//             <Loader2 className="h-4 w-4 animate-spin" /> Loading recycle bin…
+//             <Loader2 className="h-4 w-4 animate-spin" /> Loading recycle bin?
 //           </div>
 //         ) : recycleBin.length === 0 ? (
 //           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -523,8 +523,8 @@
 //                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">No</span>
 //                       )}
 //                     </td>
-//                     <td className="px-4 py-2 text-sm">{coupon.softDeletedBy ?? "—"}</td>
-//                     <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{coupon.softDeletedAt ? formatDateShort(coupon.softDeletedAt) : "—"}</td>
+//                     <td className="px-4 py-2 text-sm">{coupon.softDeletedBy ?? "?"}</td>
+//                     <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{coupon.softDeletedAt ? formatDateShort(coupon.softDeletedAt) : "?"}</td>
 //                     <td className="px-4 py-2">
 //                       <div className="flex gap-1 flex-wrap">
 //                         <Button variant="outline" size="sm" className="gap-1" onClick={() => openView(coupon)}>
@@ -567,7 +567,7 @@
 
 //         {auditLoading ? (
 //           <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-//             <Loader2 className="h-4 w-4 animate-spin" /> Loading audit logs…
+//             <Loader2 className="h-4 w-4 animate-spin" /> Loading audit logs?
 //           </div>
 //         ) : auditLogs.length === 0 ? (
 //           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -612,7 +612,7 @@
 //                         <div className="flex flex-wrap gap-1">
 //                           {entry.changedFields?.length > 0
 //                             ? entry.changedFields.map(f => <span key={f} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{f}</span>)
-//                             : <span className="text-[10px] text-muted-foreground">—</span>}
+//                             : <span className="text-[10px] text-muted-foreground">?</span>}
 //                         </div>
 //                       </td>
 //                       <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(entry.createdAt)}</td>
@@ -631,7 +631,7 @@
 
 //         {auditTotalPages > 1 && (
 //           <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-//             <span>Page {auditPage} of {auditTotalPages} · {auditTotal} total events</span>
+//             <span>Page {auditPage} of {auditTotalPages} ? {auditTotal} total events</span>
 //             <div className="flex gap-1">
 //               <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1" disabled={auditPage <= 1 || auditLoading} onClick={() => setAuditPage(p => Math.max(1, p - 1))}>
 //                 <ChevronLeft className="h-3 w-3" />Prev
@@ -650,7 +650,7 @@
 //           <DialogHeader>
 //             <DialogTitle className="flex items-center gap-2">
 //               <Tag className="h-4 w-4" />
-//               Coupon Details — <span className="font-mono">{viewCoupon?.code}</span>
+//               Coupon Details ? <span className="font-mono">{viewCoupon?.code}</span>
 //             </DialogTitle>
 //           </DialogHeader>
 //           {viewCoupon && (
@@ -681,10 +681,10 @@
 //                   </p>
 //                 </div>
 //                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Expires</p><p className="mt-0.5">{formatDateShort(viewCoupon.expiresAt)}</p></div>
-//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Usage</p><p className="mt-0.5">{viewCoupon.usageCount ?? 0}{viewCoupon.usageLimit !== null ? ` / ${viewCoupon.usageLimit}` : " / ∞"}</p></div>
-//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Per-User Limit</p><p className="mt-0.5">{viewCoupon.usagePerUser ?? "—"}</p></div>
-//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Min Cart Value</p><p className="mt-0.5">{viewCoupon.minCartValue !== null ? `$${viewCoupon.minCartValue}` : "—"}</p></div>
-//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Max Discount Cap</p><p className="mt-0.5">{viewCoupon.maxDiscount !== null ? `$${viewCoupon.maxDiscount}` : "—"}</p></div>
+//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Usage</p><p className="mt-0.5">{viewCoupon.usageCount ?? 0}{viewCoupon.usageLimit !== null ? ` / ${viewCoupon.usageLimit}` : " / 8"}</p></div>
+//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Per-User Limit</p><p className="mt-0.5">{viewCoupon.usagePerUser ?? "?"}</p></div>
+//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Min Cart Value</p><p className="mt-0.5">{viewCoupon.minCartValue !== null ? `$${viewCoupon.minCartValue}` : "?"}</p></div>
+//                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Max Discount Cap</p><p className="mt-0.5">{viewCoupon.maxDiscount !== null ? `$${viewCoupon.maxDiscount}` : "?"}</p></div>
 //                 <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Created</p><p className="mt-0.5">{formatDate(viewCoupon.createdAt)}</p></div>
 //                 {viewCoupon.restoredAt && (
 //                   <div><p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Last Restored</p><p className="mt-0.5">{formatDate(viewCoupon.restoredAt)}</p></div>
@@ -696,11 +696,11 @@
 //                   <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
 //                   <h4 className="font-semibold text-sm tracking-wide">Audit History</h4>
 //                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted/60 border text-[10px] text-muted-foreground">
-//                     <Lock className="h-2.5 w-2.5 shrink-0" /> Immutable · Read-only
+//                     <Lock className="h-2.5 w-2.5 shrink-0" /> Immutable ? Read-only
 //                   </span>
 //                 </div>
 //                 {viewAuditLoading ? (
-//                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 className="h-4 w-4 animate-spin" /> Loading history…</div>
+//                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-4"><Loader2 className="h-4 w-4 animate-spin" /> Loading history?</div>
 //                 ) : viewAuditLogs.length === 0 ? (
 //                   <div className="text-center py-6 text-sm text-muted-foreground">
 //                     <Clock className="h-6 w-6 opacity-20 mx-auto mb-1" />
@@ -730,7 +730,7 @@
 //                 )}
 //                 {viewAuditTotalPages > 1 && (
 //                   <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
-//                     <span>Page {viewAuditPage} of {viewAuditTotalPages} · {viewAuditTotal} events</span>
+//                     <span>Page {viewAuditPage} of {viewAuditTotalPages} ? {viewAuditTotal} events</span>
 //                     <div className="flex gap-1">
 //                       <Button variant="outline" size="sm" className="h-7 px-2 text-xs gap-1" disabled={viewAuditPage <= 1 || viewAuditLoading} onClick={() => setViewAuditPage(p => Math.max(1, p - 1))}>
 //                         <ChevronLeft className="h-3 w-3" />Prev
@@ -834,7 +834,7 @@
 //               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/20">
 //                 <Button type="button" variant="outline" onClick={() => { setShowModal(false); setEditingCoupon(null); resetForm(); }} className="min-w-[90px]">Cancel</Button>
 //                 <Button type="submit" disabled={submitting} className="min-w-[120px]">
-//                   {submitting ? (editingCoupon ? "Saving…" : "Creating…") : (editingCoupon ? "Save Changes" : "Create Coupon")}
+//                   {submitting ? (editingCoupon ? "Saving?" : "Creating?") : (editingCoupon ? "Save Changes" : "Create Coupon")}
 //                 </Button>
 //               </div>
 //             </form>
@@ -852,7 +852,7 @@
 //             <p className="text-sm text-muted-foreground"><strong className="text-foreground">&ldquo;{softDeleteTarget?.code}&rdquo;</strong> will be moved to the recycle bin and disabled. It can be restored later.</p>
 //             <div className="space-y-2">
 //               <Label htmlFor="soft-delete-reason">Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
-//               <Textarea id="soft-delete-reason" value={softDeleteReason} onChange={(e) => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion…" className="resize-none h-20" />
+//               <Textarea id="soft-delete-reason" value={softDeleteReason} onChange={(e) => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion..." className="resize-none h-20" />
 //             </div>
 //             <div className="flex gap-3">
 //               <Button variant="outline" className="flex-1" onClick={() => setIsSoftDeleteOpen(false)}>Cancel</Button>
@@ -897,7 +897,7 @@
 //             <Input value={hardDeleteConfirm} onChange={(e) => setHardDeleteConfirm(e.target.value)} placeholder="Type coupon code to confirm" />
 //             <div className="space-y-2">
 //               <Label htmlFor="hard-delete-reason">Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
-//               <Textarea id="hard-delete-reason" value={hardDeleteReason} onChange={(e) => setHardDeleteReason(e.target.value)} placeholder="Reason for permanent deletion…" className="resize-none h-16" />
+//               <Textarea id="hard-delete-reason" value={hardDeleteReason} onChange={(e) => setHardDeleteReason(e.target.value)} placeholder="Reason for permanent deletion?" className="resize-none h-16" />
 //             </div>
 //             <div className="flex gap-3">
 //               <Button variant="outline" className="flex-1" onClick={() => setIsHardDeleteOpen(false)}>Cancel</Button>
@@ -935,7 +935,7 @@ import {
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-/* ─── Types ─────────────────────────────────────────────── */
+/* --- Types ----------------------------------------------- */
 
 interface Seller {
   id: string;
@@ -976,7 +976,7 @@ interface SellerProduct {
   title: string;
 }
 
-/* ─── Helpers ────────────────────────────────────────────── */
+/* --- Helpers ---------------------------------------------- */
 
 function isExpired(expiresAt: string) {
   return new Date(expiresAt) < new Date();
@@ -997,7 +997,7 @@ function formatDateShort(iso: string) {
 
 function formatCouponValue(coupon: SellerCoupon) {
   if (coupon.couponType === "bundle") {
-    return `${coupon.bundleQty ?? "?"}× for $${(coupon.bundlePrice ?? 0).toFixed(2)}`;
+    return `${coupon.bundleQty ?? "?"}? for $${(coupon.bundlePrice ?? 0).toFixed(2)}`;
   }
   if (coupon.discountType === "percentage") {
     return `${coupon.discountValue ?? 0}% off`;
@@ -1005,7 +1005,7 @@ function formatCouponValue(coupon: SellerCoupon) {
   return `$${(coupon.discountValue ?? 0).toFixed(2)} off`;
 }
 
-/* ─── Page ───────────────────────────────────────────────── */
+/* --- Page ------------------------------------------------- */
 
 export default function AdminSellerCouponPage() {
   /* Sellers */
@@ -1070,7 +1070,7 @@ export default function AdminSellerCouponPage() {
   const [hardDeleteReason, setHardDeleteReason] = useState("");
   const [isHardDeleteOpen, setIsHardDeleteOpen] = useState(false);
 
-  /* ─── Close dropdowns on outside click ─── */
+  /* --- Close dropdowns on outside click --- */
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (sellerDropdownRef.current && !sellerDropdownRef.current.contains(e.target as Node)) {
@@ -1084,7 +1084,7 @@ export default function AdminSellerCouponPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  /* ─── Fetch sellers ─── */
+  /* --- Fetch sellers --- */
   const fetchSellers = useCallback(async () => {
     setSellersLoading(true);
     try {
@@ -1108,7 +1108,7 @@ export default function AdminSellerCouponPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ─── Fetch coupons for selected seller ─── */
+  /* --- Fetch coupons for selected seller --- */
   const fetchCoupons = useCallback(async (sellerId: string) => {
     if (!sellerId) return;
     setLoading(true);
@@ -1146,7 +1146,7 @@ export default function AdminSellerCouponPage() {
     }
   }, []);
 
-  /* ─── Fetch seller's products for coupon product multi-select ─── */
+  /* --- Fetch seller's products for coupon product multi-select --- */
   const fetchProducts = useCallback(async (sellerId: string) => {
     if (!sellerId) return;
     setProductsLoading(true);
@@ -1165,12 +1165,12 @@ export default function AdminSellerCouponPage() {
     }
   }, []);
 
-  /* ─── Initial load ─── */
+  /* --- Initial load --- */
   useEffect(() => {
     fetchSellers();
   }, [fetchSellers]);
 
-  /* ─── When seller changes, reload coupons + products ─── */
+  /* --- When seller changes, reload coupons + products --- */
   useEffect(() => {
     if (!selectedSellerId) return;
     setCoupons([]);
@@ -1180,7 +1180,7 @@ export default function AdminSellerCouponPage() {
     fetchProducts(selectedSellerId);
   }, [selectedSellerId, fetchCoupons, fetchProducts]);
 
-  /* ─── Recycle bin tab load ─── */
+  /* --- Recycle bin tab load --- */
   useEffect(() => {
     if (activeTab === "recycle-bin" && selectedSellerId) {
       fetchRecycleBin(selectedSellerId);
@@ -1188,7 +1188,7 @@ export default function AdminSellerCouponPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  /* ─── Form helpers ─── */
+  /* --- Form helpers --- */
   const resetForm = () => {
     setCouponType("discount");
     setCode("");
@@ -1228,7 +1228,7 @@ export default function AdminSellerCouponPage() {
     setIsViewOpen(true);
   };
 
-  /* ─── CRUD ─── */
+  /* --- CRUD --- */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSellerId) { toast.error("Please select a seller first."); return; }
@@ -1356,7 +1356,7 @@ export default function AdminSellerCouponPage() {
     s.email?.toLowerCase().includes(sellerSearch.toLowerCase())
   );
 
-  /* ─── Loading state ─── */
+  /* --- Loading state --- */
   if (sellersLoading) {
     return (
       <div className="space-y-6 p-6">
@@ -1372,7 +1372,7 @@ export default function AdminSellerCouponPage() {
   return (
     <div className="space-y-6 p-6">
 
-      {/* ── Header ─────────────────────────────── */}
+      {/* -- Header ------------------------------- */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Seller Coupons</h1>
@@ -1381,7 +1381,14 @@ export default function AdminSellerCouponPage() {
         <div className="flex gap-2">
           <Button
             variant="outline" size="sm"
-            onClick={() => selectedSellerId && fetchCoupons(selectedSellerId)}
+            onClick={() => {
+              fetchSellers();
+              if (selectedSellerId) {
+                fetchCoupons(selectedSellerId);
+                fetchRecycleBin(selectedSellerId);
+                fetchProducts(selectedSellerId);
+              }
+            }}
             disabled={loading || !selectedSellerId}
             className="gap-2"
           >
@@ -1398,7 +1405,7 @@ export default function AdminSellerCouponPage() {
         </div>
       </div>
 
-      {/* ── Seller Selector ────────────────────── */}
+      {/* -- Seller Selector ---------------------- */}
       <div className="rounded-xl border bg-card p-4">
         <div className="flex items-center gap-2 mb-3">
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -1422,7 +1429,7 @@ export default function AdminSellerCouponPage() {
                   <span className="text-muted-foreground text-xs truncate">{selectedSeller.email}</span>
                 </span>
               ) : (
-                <span className="text-muted-foreground">Select a seller…</span>
+                <span className="text-muted-foreground">Select a seller?</span>
               )}
               <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0 ml-2", sellerDropdownOpen && "rotate-180")} />
             </button>
@@ -1430,7 +1437,7 @@ export default function AdminSellerCouponPage() {
               <div className="absolute z-20 mt-1 w-full bg-background border border-border rounded-lg shadow-lg">
                 <div className="p-2 border-b border-border">
                   <Input
-                    placeholder="Search sellers…"
+                    placeholder="Search sellers?"
                     value={sellerSearch}
                     onChange={e => setSellerSearch(e.target.value)}
                     className="h-8 text-sm"
@@ -1471,7 +1478,7 @@ export default function AdminSellerCouponPage() {
         )}
       </div>
 
-      {/* ── Stats ──────────────────────────────── */}
+      {/* -- Stats -------------------------------- */}
       {selectedSellerId && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="rounded-lg border bg-card p-5">
@@ -1502,7 +1509,7 @@ export default function AdminSellerCouponPage() {
         </div>
       )}
 
-      {/* ── No seller selected placeholder ─────── */}
+      {/* -- No seller selected placeholder ------- */}
       {!selectedSellerId && (
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
           <Store className="h-12 w-12 opacity-20" />
@@ -1510,7 +1517,7 @@ export default function AdminSellerCouponPage() {
         </div>
       )}
 
-      {/* ── Tabs ───────────────────────────────── */}
+      {/* -- Tabs --------------------------------- */}
       {selectedSellerId && (
         <>
           <div className="flex gap-1 border-b pb-4 flex-wrap">
@@ -1539,7 +1546,7 @@ export default function AdminSellerCouponPage() {
             ))}
           </div>
 
-          {/* ── Active Coupons ─── */}
+          {/* -- Active Coupons --- */}
           {activeTab === "active" && (
             loading ? (
               <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
@@ -1593,7 +1600,7 @@ export default function AdminSellerCouponPage() {
                             : `${coupon.productIds.length} product${coupon.productIds.length !== 1 ? "s" : ""}`}
                         </td>
                         <td className="px-4 py-2 text-sm text-muted-foreground">{coupon.minQty}</td>
-                        <td className="px-4 py-2 text-sm">{coupon.usageCount ?? 0}{coupon.usageLimit !== null ? ` / ${coupon.usageLimit}` : " / ∞"}</td>
+                        <td className="px-4 py-2 text-sm">{coupon.usageCount ?? 0}{coupon.usageLimit !== null ? ` / ${coupon.usageLimit}` : " / 8"}</td>
                         <td className="px-4 py-2 text-sm text-muted-foreground">{coupon.usagePerUser}</td>
                         <td className="px-4 py-2">
                           {isExpired(coupon.expiresAt) ? (
@@ -1607,18 +1614,18 @@ export default function AdminSellerCouponPage() {
                         <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDateShort(coupon.expiresAt)}</td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 flex-wrap">
-                            <Button variant="outline" size="sm" className="gap-1" onClick={() => openView(coupon)}>
-                              <Eye className="h-3 w-3" /> View
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openView(coupon)}>
+                              <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm" className="gap-1" onClick={() => openEdit(coupon)}>
-                              <Pencil className="h-3 w-3" /> Edit
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openEdit(coupon)}>
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
-                              variant="outline" size="sm"
-                              className="gap-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20"
+                              variant="outline" size="icon"
+                              className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20"
                               onClick={() => { setSoftDeleteTarget(coupon); setSoftDeleteReason(""); setIsSoftDeleteOpen(true); }}
                             >
-                              <Trash2 className="h-3 w-3" /> Delete
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </td>
@@ -1630,11 +1637,11 @@ export default function AdminSellerCouponPage() {
             )
           )}
 
-          {/* ── Recycle Bin ─── */}
+          {/* -- Recycle Bin --- */}
           {activeTab === "recycle-bin" && (
             recycleBinLoading ? (
               <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground text-sm">
-                <Loader2 className="h-4 w-4 animate-spin" /> Loading recycle bin…
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading recycle bin?
               </div>
             ) : recycleBin.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
@@ -1673,27 +1680,27 @@ export default function AdminSellerCouponPage() {
                         </td>
                         <td className="px-4 py-2 text-sm font-medium">{formatCouponValue(coupon)}</td>
                         <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                          {coupon.softDeletedAt ? formatDateShort(coupon.softDeletedAt) : "—"}
+                          {coupon.softDeletedAt ? formatDateShort(coupon.softDeletedAt) : "?"}
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 flex-wrap">
-                            <Button variant="outline" size="sm" className="gap-1" onClick={() => openView(coupon)}>
-                              <Eye className="h-3 w-3" /> View
-                            </Button>
-                            <Button
-                              variant="outline" size="sm"
-                              className="gap-1 text-teal-600 hover:text-teal-700 hover:bg-teal-50 border-teal-200 dark:text-teal-400 dark:border-teal-800 dark:hover:bg-teal-900/20"
-                              onClick={() => { setRestoreTarget(coupon); setIsRestoreOpen(true); }}
-                            >
-                              <RotateCcw className="h-3 w-3" /> Restore
-                            </Button>
-                            <Button
-                              variant="outline" size="sm"
-                              className="gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-900/20"
-                              onClick={() => { setHardDeleteTarget(coupon); setHardDeleteConfirm(""); setHardDeleteReason(""); setIsHardDeleteOpen(true); }}
-                            >
-                              <Skull className="h-3 w-3" /> Delete Permanently
-                            </Button>
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openView(coupon)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline" size="icon"
+                                  className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50 border-teal-200 dark:text-teal-400 dark:border-teal-800 dark:hover:bg-teal-900/20"
+                                  onClick={() => { setRestoreTarget(coupon); setIsRestoreOpen(true); }}
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline" size="icon"
+                                  className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-900/20"
+                                  onClick={() => { setHardDeleteTarget(coupon); setHardDeleteConfirm(""); setHardDeleteReason(""); setIsHardDeleteOpen(true); }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                           </div>
                         </td>
                       </tr>
@@ -1706,13 +1713,13 @@ export default function AdminSellerCouponPage() {
         </>
       )}
 
-      {/* ── View Coupon Dialog ─────────────────── */}
+      {/* -- View Coupon Dialog ------------------- */}
       <Dialog open={isViewOpen} onOpenChange={(o) => { setIsViewOpen(o); if (!o) setViewCoupon(null); }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Tag className="h-4 w-4" />
-              Coupon — <span className="font-mono">{viewCoupon?.code}</span>
+              Coupon ? <span className="font-mono">{viewCoupon?.code}</span>
             </DialogTitle>
           </DialogHeader>
           {viewCoupon && (
@@ -1746,7 +1753,7 @@ export default function AdminSellerCouponPage() {
                   <>
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Discount Type</p>
-                      <p className="mt-0.5 capitalize">{viewCoupon.discountType ?? "—"}</p>
+                      <p className="mt-0.5 capitalize">{viewCoupon.discountType ?? "?"}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Value</p>
@@ -1754,18 +1761,18 @@ export default function AdminSellerCouponPage() {
                     </div>
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Max Discount Cap</p>
-                      <p className="mt-0.5">{viewCoupon.maxDiscount !== null ? `$${viewCoupon.maxDiscount.toFixed(2)}` : "—"}</p>
+                      <p className="mt-0.5">{viewCoupon.maxDiscount !== null ? `$${viewCoupon.maxDiscount.toFixed(2)}` : "?"}</p>
                     </div>
                   </>
                 ) : (
                   <>
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Bundle Qty</p>
-                      <p className="mt-0.5 font-semibold">{viewCoupon.bundleQty ?? "—"}</p>
+                      <p className="mt-0.5 font-semibold">{viewCoupon.bundleQty ?? "?"}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Bundle Price</p>
-                      <p className="mt-0.5 font-semibold">{viewCoupon.bundlePrice !== null ? `$${viewCoupon.bundlePrice.toFixed(2)}` : "—"}</p>
+                      <p className="mt-0.5 font-semibold">{viewCoupon.bundlePrice !== null ? `$${viewCoupon.bundlePrice.toFixed(2)}` : "?"}</p>
                     </div>
                   </>
                 )}
@@ -1791,7 +1798,7 @@ export default function AdminSellerCouponPage() {
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Usage</p>
-                  <p className="mt-0.5">{viewCoupon.usageCount ?? 0}{viewCoupon.usageLimit !== null ? ` / ${viewCoupon.usageLimit}` : " / ∞"}</p>
+                  <p className="mt-0.5">{viewCoupon.usageCount ?? 0}{viewCoupon.usageLimit !== null ? ` / ${viewCoupon.usageLimit}` : " / 8"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Per-User Limit</p>
@@ -1825,7 +1832,7 @@ export default function AdminSellerCouponPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Create / Edit Modal ────────────────── */}
+      {/* -- Create / Edit Modal ------------------ */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-xl bg-background rounded-2xl shadow-2xl border border-border overflow-hidden">
@@ -1834,7 +1841,7 @@ export default function AdminSellerCouponPage() {
                 <h2 className="text-base font-semibold tracking-tight">{editingCoupon ? "Edit Coupon" : "Create New Coupon"}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {editingCoupon
-                    ? `Editing ${editingCoupon.code} · ${selectedSeller?.name}`
+                    ? `Editing ${editingCoupon.code} ? ${selectedSeller?.name}`
                     : `Creating for ${selectedSeller?.name ?? "selected seller"}`}
                 </p>
               </div>
@@ -1900,7 +1907,7 @@ export default function AdminSellerCouponPage() {
                       <div className="space-y-1.5">
                         <Label htmlFor="asc-discountValue" className="text-sm font-medium">
                           {discountType === "percentage" ? "Percentage" : "Flat Amount"} <span className="text-red-500">*</span>
-                          {discountType === "percentage" && <span className="text-muted-foreground font-normal ml-1">(1–100)</span>}
+                          {discountType === "percentage" && <span className="text-muted-foreground font-normal ml-1">(1?100)</span>}
                         </Label>
                         <div className="relative">
                           <Input
@@ -2003,7 +2010,7 @@ export default function AdminSellerCouponPage() {
                     >
                       <span className={cn("truncate", selectedProductIds.length === 0 ? "text-muted-foreground" : "text-foreground")}>
                         {selectedProductIds.length === 0
-                          ? productsLoading ? "Loading products…" : "All products (none selected)"
+                          ? productsLoading ? "Loading products?" : "All products (none selected)"
                           : `${selectedProductIds.length} product${selectedProductIds.length !== 1 ? "s" : ""} selected`}
                       </span>
                       <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0 ml-2", productDropdownOpen && "rotate-180")} />
@@ -2011,7 +2018,7 @@ export default function AdminSellerCouponPage() {
                     {productDropdownOpen && (
                       <div className="absolute z-10 mt-1 w-full bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                         {productsLoading ? (
-                          <div className="p-3 text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Loading…</div>
+                          <div className="p-3 text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin" /> Loading?</div>
                         ) : products.length === 0 ? (
                           <div className="p-3 text-sm text-muted-foreground flex items-center gap-2"><Package className="h-3 w-3" /> No products found for this seller</div>
                         ) : (
@@ -2076,7 +2083,7 @@ export default function AdminSellerCouponPage() {
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-muted/20">
                 <Button type="button" variant="outline" onClick={() => { setShowModal(false); setEditingCoupon(null); resetForm(); }} className="min-w-[90px]">Cancel</Button>
                 <Button type="submit" disabled={submitting} className="min-w-[120px]">
-                  {submitting ? (editingCoupon ? "Saving…" : "Creating…") : (editingCoupon ? "Save Changes" : "Create Coupon")}
+                  {submitting ? (editingCoupon ? "Saving?" : "Creating?") : (editingCoupon ? "Save Changes" : "Create Coupon")}
                 </Button>
               </div>
             </form>
@@ -2084,7 +2091,7 @@ export default function AdminSellerCouponPage() {
         </div>
       )}
 
-      {/* ── Soft Delete Confirm ────────────────── */}
+      {/* -- Soft Delete Confirm ------------------ */}
       <Dialog open={isSoftDeleteOpen} onOpenChange={(o) => { setIsSoftDeleteOpen(o); if (!o) setSoftDeleteTarget(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -2096,7 +2103,7 @@ export default function AdminSellerCouponPage() {
             </p>
             <div className="space-y-2">
               <Label htmlFor="asc-soft-reason">Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
-              <Textarea id="asc-soft-reason" value={softDeleteReason} onChange={e => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion…" className="resize-none h-20" />
+              <Textarea id="asc-soft-reason" value={softDeleteReason} onChange={e => setSoftDeleteReason(e.target.value)} placeholder="Reason for deletion..." className="resize-none h-20" />
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setIsSoftDeleteOpen(false)}>Cancel</Button>
@@ -2108,7 +2115,7 @@ export default function AdminSellerCouponPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Restore Confirm ───────────────────── */}
+      {/* -- Restore Confirm --------------------- */}
       <Dialog open={isRestoreOpen} onOpenChange={(o) => { setIsRestoreOpen(o); if (!o) setRestoreTarget(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -2128,7 +2135,7 @@ export default function AdminSellerCouponPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Hard Delete Confirm ───────────────── */}
+      {/* -- Hard Delete Confirm ----------------- */}
       <Dialog open={isHardDeleteOpen} onOpenChange={(o) => { setIsHardDeleteOpen(o); if (!o) { setHardDeleteTarget(null); setHardDeleteConfirm(""); setHardDeleteReason(""); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -2147,7 +2154,7 @@ export default function AdminSellerCouponPage() {
             <div className="space-y-2">
               <Label htmlFor="asc-hard-reason">Reason <span className="text-muted-foreground text-xs">(optional)</span></Label>
               <Textarea id="asc-hard-reason" value={hardDeleteReason} onChange={e => setHardDeleteReason(e.target.value)}
-                placeholder="Reason for permanent deletion…" className="resize-none h-16" />
+                placeholder="Reason for permanent deletion?" className="resize-none h-16" />
             </div>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setIsHardDeleteOpen(false)}>Cancel</Button>
@@ -2164,3 +2171,9 @@ export default function AdminSellerCouponPage() {
     </div>
   );
 }
+
+
+
+
+
+

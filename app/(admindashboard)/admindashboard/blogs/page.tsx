@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -155,6 +155,8 @@ const BlogManagementPage = () => {
   // Form state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewBlog, setViewBlog] = useState<Blog | null>(null);
   const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [formData, setFormData] = useState({
     title: '',
@@ -536,7 +538,7 @@ const BlogManagementPage = () => {
                         {blog.status === 'PUBLISHED' ? "Published" : "Draft"}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
-                        ID: {blog.id.slice(0, 8)}...
+                          ID: {blog.id}
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -563,7 +565,7 @@ const BlogManagementPage = () => {
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                           <div className="flex items-center space-x-1">
                             <Calendar className="h-4 w-4" />
-                            <span>{new Date(blog.createdAt).toLocaleDateString()}</span>
+                            <span>{new Date(blog.createdAt).toLocaleDateString('en-GB')}</span>
                           </div>
                           <div className="flex items-center space-x-1">
                             <Tag className="h-4 w-4" />
@@ -623,11 +625,24 @@ const BlogManagementPage = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(`https://apla-fe.vercel.app/blog/${blog.slug}`, '_blank')}
+                          onClick={() => {
+                            setViewBlog(blog);
+                            setIsViewDialogOpen(true);
+                          }}
                         >
                           <Eye className="h-4 w-4 mr-2" />
-                          Preview
+                          View
                         </Button>
+                        {blog.status === 'PUBLISHED' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`https://apla-fe.vercel.app/blog/${blog.slug}`, '_blank')}
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Preview
+                          </Button>
+                        )}
                         <Button
                           variant="destructive"
                           size="sm"
@@ -710,6 +725,55 @@ const BlogManagementPage = () => {
         </TabsContent>
       </Tabs>
 
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{viewBlog?.title}</DialogTitle>
+          </DialogHeader>
+          {viewBlog && (
+            <div className="space-y-4">
+              {viewBlog.coverImage && (
+                <img src={viewBlog.coverImage} alt="Cover" className="w-full max-h-64 object-cover rounded-md" />
+              )}
+              <div className="flex gap-2 text-sm text-muted-foreground">
+                <Badge variant={viewBlog.status === 'PUBLISHED' ? "default" : "secondary"}>
+                  {viewBlog.status === 'PUBLISHED' ? "Published" : "Draft"}
+                </Badge>
+                <span>{new Date(viewBlog.createdAt).toLocaleDateString()}</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg border-b pb-2 mb-2">Short Description</h3>
+                <p className="text-muted-foreground">{viewBlog.shortDescription}</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg border-b pb-2 mb-2">Content</h3>
+                <div className="whitespace-pre-wrap">{viewBlog.content}</div>
+              </div>
+              {viewBlog.tags && viewBlog.tags.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">Tags</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {viewBlog.tags.map((tag, index) => (
+                      <Badge key={index} variant="outline">{tag}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {viewBlog.ctaText && (
+                <div>
+                  <h3 className="font-semibold text-lg border-b pb-2 mb-2">CTA Text</h3>
+                  <p className="text-muted-foreground">{viewBlog.ctaText}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Create/Edit Dialog */}
       <Dialog open={isCreateDialogOpen || isEditDialogOpen} onOpenChange={(open) => {
         if (!open) {
@@ -728,7 +792,7 @@ const BlogManagementPage = () => {
           <div className="space-y-6">
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="title">Title <span className="text-destructive">*</span></Label>
                 <Input
                   id="title"
@@ -745,7 +809,7 @@ const BlogManagementPage = () => {
                 />
               </div>
               
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="slug">Slug</Label>
                 <Input
                   id="slug"
@@ -756,7 +820,7 @@ const BlogManagementPage = () => {
               </div>
             </div>
             
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="shortDescription">Short Description <span className="text-destructive">*</span></Label>
               <Textarea
                 id="shortDescription"
@@ -768,7 +832,7 @@ const BlogManagementPage = () => {
               />
             </div>
             
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="content">Content <span className="text-destructive">*</span></Label>
               <Textarea
                 id="content"
@@ -781,7 +845,7 @@ const BlogManagementPage = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="tags">Tags</Label>
                 <Input
                   id="tags"
@@ -794,7 +858,7 @@ const BlogManagementPage = () => {
                 </p>
               </div>
               
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="ctaText">Call to Action Text</Label>
                 <Input
                   id="ctaText"
@@ -806,7 +870,7 @@ const BlogManagementPage = () => {
             </div>
             
             {/* Cover Image Upload */}
-            <div>
+            <div className="space-y-1.5">
               <Label>Cover Image</Label>
               <div className="mt-2">
                 {imagePreview ? (
@@ -837,7 +901,7 @@ const BlogManagementPage = () => {
                       className="hidden"
                       id="image-upload"
                     />
-                    <Label htmlFor="image-upload" className="cursor-pointer">
+                      <Label htmlFor="image-upload" className="cursor-pointer flex justify-center">
                       <Button type="button" variant="outline" asChild>
                         <span>
                           <Upload className="h-4 w-4 mr-2" />
@@ -895,7 +959,7 @@ const BlogManagementPage = () => {
               <div className="bg-muted/30 p-3 rounded-lg border border-destructive/20">
                 <h4 className="font-medium text-sm">{blogToDelete.title}</h4>
                 <p className="text-xs text-muted-foreground mt-1">
-                  ID: {blogToDelete.id.slice(0, 8)}... • Status: {blogToDelete.status}
+                  ID: {blogToDelete.id.slice(0, 8)}... � Status: {blogToDelete.status}
                 </p>
               </div>
             )}
@@ -939,3 +1003,4 @@ const BlogManagementPage = () => {
 };
 
 export default BlogManagementPage;
+

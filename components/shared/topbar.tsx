@@ -107,16 +107,16 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 				case "PRODUCT_LOW_STOCK_DEACTIVATED":
 					return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
 				case "NEW_ORDER":
-				if (isAdmin) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-				return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
-			case "ORDER_STATUS_CHANGED":
-				if (isAdmin) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-				if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-				return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
-			case "ORDER_CANCELLED":
-				if (isAdmin) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+			if (isAdmin) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
+			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
+		case "ORDER_STATUS_CHANGED":
+			if (isAdmin) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
+			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
+			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
+		case "ORDER_CANCELLED":
+			if (isAdmin) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
 					if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-					return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
+					return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
 				case "SELLER_APPROVED":
 					return "/sellerdashboard";
 				case "SELLER_REJECTED":
@@ -377,9 +377,9 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 							)}
 							
 							<DropdownMenuSeparator />
-							<DropdownMenuItem className="p-3 cursor-pointer text-primary hover:bg-muted rounded-md transition-colors">
-								<Link href={notificationsHref}><span className="flex items-center gap-2">View all notifications</span></Link>
-							</DropdownMenuItem>
+							<DropdownMenuItem asChild className="cursor-pointer text-primary hover:bg-muted rounded-md transition-colors p-0">
+                                                                <Link href={notificationsHref} className="flex items-center w-full p-3 gap-2 justify-center font-medium">View all notifications</Link>
+                                                        </DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
 
@@ -445,3 +445,6 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 // ...existing code ends here
 
 // (Removed duplicate Topbar function declaration)
+
+
+

@@ -137,20 +137,20 @@ const getDeepLink = (n: Notification, role: string | null): string | null => {
 			return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
 		case "NEW_ORDER": {
 			const isAdm = role === "ADMIN" || role === "SUPER_ADMIN";
-			if (isAdm) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
-			return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
+			if (isAdm) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
+			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
 		}
 		case "ORDER_STATUS_CHANGED": {
 			const isAdm = role === "ADMIN" || role === "SUPER_ADMIN";
-			if (isAdm) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+			if (isAdm) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
 			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-			return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
+			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
 		}
 		case "ORDER_CANCELLED": {
 			const isAdm = role === "ADMIN" || role === "SUPER_ADMIN";
-			if (isAdm) return id ? `/admindashboard/orders/${id}` : "/admindashboard/orders";
+			if (isAdm) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
 			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-			return id ? `/sellerdashboard/orders/${id}` : "/sellerdashboard/orders";
+			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
 		}
 		case "SELLER_APPROVED":
 			return "/sellerdashboard";

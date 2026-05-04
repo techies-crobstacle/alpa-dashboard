@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
@@ -88,6 +88,13 @@ type Order = {
   displaySubId?: string | null;
   subDisplayId?: string | null;
   parentDisplayId?: string | null;
+  // order summary fields (populated from either orderSummary or top-level detailed API fields)
+  subtotal?: string | null;
+  discountAmount?: string | null;
+  couponCode?: string | null;
+  originalTotal?: string | null;
+  paymentStatus?: string | null;
+  orderSummary?: any;
 };
 
 // ── Status Update Modal ────────────────────────────────────────────────────────
@@ -368,7 +375,13 @@ function mapDetailedToOrder(d: any): Order {
     estimatedDelivery:
       d.estimatedDelivery ?? d.subOrders?.[0]?.estimatedDelivery ?? null,
     paymentMethod: d.paymentMethod,
+    paymentStatus: d.paymentStatus ?? null,
     statusReason: d.statusReason ?? d.subOrders?.[0]?.statusReason ?? null,
+    subtotal: d.subtotal ?? (d.subOrders?.length === 1 ? d.subOrders[0].subtotal : null) ?? null,
+    discountAmount: d.discountAmount ?? null,
+    couponCode: d.couponCode ?? null,
+    originalTotal: d.originalTotal ?? null,
+    orderSummary: d.orderSummary ?? null,
     // seller for direct orders
     sellerName: d.sellerName ?? d.seller?.name ?? null,
     seller: d.seller ?? null,
@@ -380,8 +393,10 @@ function mapDetailedToOrder(d: any): Order {
           zipCode: d.shippingAddress.zipCode,
           country: d.shippingAddress.country,
           phone: d.shippingAddress.phone,
+          // Preserve orderSummary so the detail page can render subtotal/shipping/GST
+          ...((d.shippingAddress.orderSummary || d.orderSummary) ? { orderSummary: d.shippingAddress.orderSummary || d.orderSummary } : {}),
         }
-      : null,
+      : (d.orderSummary ? { orderSummary: d.orderSummary } : null),
   };
 }
 
@@ -468,7 +483,7 @@ function OrderDetailContent() {
     if (!val) return "N/A";
     const d = new Date(val);
     if (isNaN(d.getTime())) return String(val);
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return d.toLocaleDateString('en-GB');
   };
 
   const backUrl = sellerId
@@ -532,8 +547,40 @@ function OrderDetailContent() {
   if (raw && typeof raw === "object") addr = raw;
   else if (typeof raw === "string") { try { addr = JSON.parse(raw); } catch { addr = { address: raw }; } }
 
-  const summary = addr.orderSummary ?? {};
+  const summary = order.orderSummary ?? addr.orderSummary ?? {};
   const sm = summary.shippingMethod ?? {};
+
+  // Compute subtotal from items when the API doesn't provide it
+  const computedSubtotal: string | null = (() => {
+    if (summary.subtotal != null || order.subtotal != null) return null; // already have it
+    let total = 0;
+    if (order.items?.length) {
+      total = order.items.reduce(
+        (acc: number, item: any) => acc + parseFloat(String(item.price ?? 0)) * (item.quantity ?? 0),
+        0
+      );
+    } else if (order.subOrders?.length) {
+      for (const sub of order.subOrders) {
+        if (sub.subtotal != null) {
+          total += parseFloat(String(sub.subtotal));
+        } else {
+          for (const item of sub.items ?? []) {
+            total += parseFloat(String(item.price ?? 0)) * (item.quantity ?? 0);
+          }
+        }
+      }
+    }
+    return total > 0 ? total.toFixed(2) : null;
+  })();
+
+  // Resolved values — prefer orderSummary fields, then top-level API fields, then computed
+  const resolvedSubtotal = summary.subtotal ?? order.subtotal ?? computedSubtotal;
+  const resolvedDiscount = summary.discountAmount ?? order.discountAmount;
+  const resolvedCoupon = summary.couponCode ?? order.couponCode;
+  const resolvedShipping = summary.shippingCost ?? null;
+  const resolvedGst = summary.gstAmount ?? null;
+  const resolvedGstPct = summary.gstPercentage ?? null;
+  const resolvedOriginal = order.originalTotal ?? null;
 
   const cityLabel = getCityLabel(addr.country);
   const addrFields: [string, string][] = [
@@ -574,7 +621,7 @@ function OrderDetailContent() {
             </h1>
             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
-              {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}
+              {order.createdAt ? new Date(order.createdAt).toLocaleString('en-GB') : "N/A"}
               {order.customerName && (
                 <> · Customer: <span className="font-medium text-foreground">{order.customerName}</span></>
               )}
@@ -644,12 +691,18 @@ function OrderDetailContent() {
             )}
             <div className="flex justify-between px-4 py-2.5">
               <span className="text-muted-foreground">Date</span>
-              <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "N/A"}</span>
+              <span className="font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB') : "N/A"}</span>
             </div>
             <div className="flex justify-between px-4 py-2.5">
               <span className="text-muted-foreground">Payment</span>
               <span className="font-medium capitalize">{renderValue(order.paymentMethod)}</span>
             </div>
+            {order.paymentStatus && (
+              <div className="flex justify-between px-4 py-2.5 items-center">
+                <span className="text-muted-foreground">Payment Status</span>
+                <Badge variant={order.paymentStatus === "PAID" ? "default" : "secondary"} className="text-xs h-5">{order.paymentStatus}</Badge>
+              </div>
+            )}
             {order.trackingNumber && (
               <div className="flex justify-between px-4 py-2.5">
                 <span className="text-muted-foreground">Tracking</span>
@@ -689,44 +742,56 @@ function OrderDetailContent() {
         <Card>
           <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b rounded-t-lg">
             <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Totals</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order Summary</span>
           </div>
           <div className="px-4 py-3 space-y-2 text-sm">
-            {summary.subtotal != null && (
+            {/* Subtotal — from orderSummary, top-level API, or computed from items */}
+            {resolvedSubtotal != null && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span>${summary.subtotal}</span>
+                <span className="text-muted-foreground">Subtotal{computedSubtotal != null ? " (items)" : ""}</span>
+                <span>${parseFloat(resolvedSubtotal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
-            {summary.shippingCost != null && (
+            {/* Shipping — from orderSummary only */}
+            {resolvedShipping != null && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">
                   Shipping{sm.name ? ` · ${sm.name}` : ""}
                   {sm.estimatedDays && <span className="text-xs block text-muted-foreground/70">{sm.estimatedDays}</span>}
                 </span>
-                <span>${summary.shippingCost}</span>
+                <span>${parseFloat(resolvedShipping).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
-            {summary.discountAmount != null && Number(summary.discountAmount) > 0 && (
+            {/* Discount */}
+            {resolvedDiscount != null && Number(resolvedDiscount) !== 0 && (
               <div className="flex justify-between text-green-600">
-                <span>Discount{summary.couponCode ? ` (${summary.couponCode})` : ""}</span>
-                <span>− ${summary.discountAmount}</span>
+                <span>Discount{resolvedCoupon ? ` (${resolvedCoupon})` : ""}</span>
+                <span>− ${parseFloat(resolvedDiscount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
-            {summary.gstAmount != null && Number(summary.gstAmount) > 0 && (
+            {/* GST — from orderSummary only */}
+            {resolvedGst != null && Number(resolvedGst) > 0 && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">GST{summary.gstPercentage ? ` (${summary.gstPercentage}%)` : ""}</span>
-                <span>${summary.gstAmount}</span>
+                <span className="text-muted-foreground">GST{resolvedGstPct ? ` (${resolvedGstPct}%)` : ""}</span>
+                <span>${parseFloat(resolvedGst).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            )}
+            {/* Original total (before discount) */}
+            {resolvedOriginal != null && Number(resolvedOriginal) > 0 && Number(resolvedOriginal) !== Number(order.totalAmount) && (
+              <div className="flex justify-between text-muted-foreground line-through text-xs">
+                <span>Original Total</span>
+                <span>${parseFloat(resolvedOriginal).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
             <div className="border-t pt-2 mt-1 flex justify-between font-bold text-base">
               <span>Grand Total</span>
-              <span>${order.totalAmount}</span>
+              <span>${parseFloat(order.totalAmount ?? "0").toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            {summary.couponCode && Number(summary.discountAmount) === 0 && (
+            {/* Coupon applied with no numeric discount */}
+            {resolvedCoupon && (resolvedDiscount == null || Number(resolvedDiscount) === 0) && (
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Coupon applied</span>
-                <span className="font-mono">{summary.couponCode}</span>
+                <span className="font-mono">{resolvedCoupon}</span>
               </div>
             )}
           </div>

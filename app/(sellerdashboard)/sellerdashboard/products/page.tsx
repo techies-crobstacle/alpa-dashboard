@@ -1147,10 +1147,10 @@ function ProjectsPage() {
     () => products.reduce((sum, p) => sum + (Number(p.stock) || 0), 0),
     [products]
   );
-  const totalRevenue = useMemo(
-    () => products.reduce((sum, p) => sum + (Number(p.price) * (Number(p.sales) || 0)), 0),
-    [products]
-  );
+  // const totalRevenue = useMemo(
+  //   () => products.reduce((sum, p) => sum + (Number(p.price) * (Number(p.sales) || 0)), 0),
+  //   [products]
+  // );
 
   // Get unique categories from products
   const categories = useMemo(
@@ -1307,13 +1307,24 @@ function ProjectsPage() {
           <p className="text-muted-foreground">Manage your product inventory and listings.</p>
         </div>
         <div className="flex gap-2 mt-2 md:mt-0 items-center">
-          <input
-            type="text"
-            placeholder="Search products..."
-            className="border rounded px-3 py-2 w-[200px]"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search products..."
+              className="border rounded px-3 py-2 pr-8 w-[200px]"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           {/* Category Filter Dropdown */}
           <select
             className="border rounded px-3 py-2 w-[180px]"
@@ -1369,13 +1380,13 @@ function ProjectsPage() {
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{totalStock}</div></CardContent>
         </Card>
-        <Card>
+        {/* <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Estimated Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div></CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Tab Switcher */}

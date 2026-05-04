@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -390,7 +390,7 @@ export default function SponsoredSectionsPage() {
                 <p className="text-sm text-muted-foreground">Last Updated</p>
                 <p className="text-sm font-medium">
                   {sections.length > 0 ? 
-                    new Date(Math.max(...sections.map(s => new Date(s.updatedAt).getTime()))).toLocaleDateString()
+                    new Date(Math.max(...sections.map(s => new Date(s.updatedAt).getTime()))).toLocaleDateString('en-GB')
                     : 'N/A'
                   }
                 </p>
@@ -513,7 +513,7 @@ export default function SponsoredSectionsPage() {
                             <ExternalLink className="h-3 w-3 mr-1" />
                             {section.ctaText}
                           </span>
-                          <span>Updated {new Date(section.updatedAt).toLocaleDateString()}</span>
+                          <span>Updated {new Date(section.updatedAt).toLocaleDateString('en-GB')}</span>
                         </div>
                       </div>
                     </div>
@@ -827,8 +827,8 @@ export default function SponsoredSectionsPage() {
                     <div className="space-y-2 text-sm">
                       <p><span className="font-medium">Order:</span> {previewSection.order}</p>
                       <p><span className="font-medium">Status:</span> {previewSection.isActive ? "Active" : "Inactive"}</p>
-                      <p><span className="font-medium">Created:</span> {new Date(previewSection.createdAt).toLocaleDateString()}</p>
-                      <p><span className="font-medium">Updated:</span> {new Date(previewSection.updatedAt).toLocaleDateString()}</p>
+                      <p><span className="font-medium">Created:</span> {new Date(previewSection.createdAt).toLocaleDateString('en-GB')}</p>
+                      <p><span className="font-medium">Updated:</span> {new Date(previewSection.updatedAt).toLocaleDateString('en-GB')}</p>
                     </div>
                   </div>
                 </div>

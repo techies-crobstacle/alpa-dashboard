@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -519,7 +519,7 @@ const CategoriesPage = () => {
                           <p className="line-clamp-2">{request.description}</p>
                         </td>
                         <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(request.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          {new Date(request.requestedAt).toLocaleDateString('en-GB')}
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 flex-wrap">
@@ -566,7 +566,7 @@ const CategoriesPage = () => {
                           </p>
                         </td>
                         <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                          {new Date(request.rejectedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          {new Date(request.rejectedAt).toLocaleDateString('en-GB')}
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex gap-1 flex-wrap">

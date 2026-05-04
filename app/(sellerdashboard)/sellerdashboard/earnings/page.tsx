@@ -53,6 +53,7 @@ import {
 interface EarningRecord {
   id: string;
   orderId: string;
+  displayOrderId?: string;
   customerName: string;
   orderValue: string;
   commissionRate: string;
@@ -196,7 +197,7 @@ export default function SellerEarningsPage() {
   const handlePageChange = (newPage: number) => { setPage(newPage); fetchEarnings(newPage); };
 
   const openPayoutModal = () => {
-    setPayoutAmount(wallet ? wallet.redeemableAmount.toFixed(2) : "");
+    setPayoutAmount(wallet ? wallet.redeemableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "");
     setPayoutNote("");
     setShowPayoutModal(true);
   };
@@ -208,7 +209,7 @@ export default function SellerEarningsPage() {
       return;
     }
     if (wallet && amount > wallet.redeemableAmount) {
-      toast.error(`Amount exceeds redeemable balance of $${wallet.redeemableAmount.toFixed(2)}`);
+      toast.error(`Amount exceeds redeemable balance of $${wallet.redeemableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
       return;
     }
     setSubmittingPayout(true);
@@ -318,7 +319,7 @@ export default function SellerEarningsPage() {
             <div className="flex items-center gap-2 flex-wrap">
               {pendingPayoutRequest && (
                 <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-0">
-                  Pending request: ${parseFloat(pendingPayoutRequest.requestedAmount).toFixed(2)}
+                  Pending request: ${parseFloat(pendingPayoutRequest.requestedAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </Badge>
               )}
               <Button
@@ -343,7 +344,7 @@ export default function SellerEarningsPage() {
             <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">Total Pending</p>
               <p className="text-xl font-bold">
-                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.totalPending.toFixed(2)}` : "---"}
+                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.totalPending.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
               </p>
             </div>
             <div className="space-y-0.5">
@@ -351,7 +352,7 @@ export default function SellerEarningsPage() {
                 <Unlock className="h-3 w-3 text-green-500" /> Redeemable Now
               </p>
               <p className="text-xl font-bold text-green-600 dark:text-green-400">
-                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.redeemableAmount.toFixed(2)}` : "---"}
+                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.redeemableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
               </p>
               {wallet && !walletLoading && (
                 <p className="text-xs text-muted-foreground">
@@ -364,14 +365,14 @@ export default function SellerEarningsPage() {
                 <Lock className="h-3 w-3 text-orange-500" /> Locked
               </p>
               <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.lockedAmount.toFixed(2)}` : "---"}
+                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.lockedAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
               </p>
 
             </div>
             <div className="space-y-0.5">
               <p className="text-xs text-muted-foreground">Total Paid Out</p>
               <p className="text-xl font-bold">
-                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.totalPaid.toFixed(2)}` : "---"}
+                {walletLoading ? <Skeleton className="h-7 w-20 inline-block" /> : wallet ? `$${wallet.totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
               </p>
             </div>
           </div>
@@ -405,7 +406,7 @@ export default function SellerEarningsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalOrderValue.toFixed(2)}` : "---"}
+                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Total order value (all-time)</p>
               </CardContent>
@@ -417,7 +418,7 @@ export default function SellerEarningsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalCommissionDeducted.toFixed(2)}` : "---"}
+                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalCommissionDeducted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Platform fee across all orders</p>
               </CardContent>
@@ -429,7 +430,7 @@ export default function SellerEarningsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalNetPayable.toFixed(2)}` : "---"}
+                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalNetPayable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">gross - commission (all-time)</p>
               </CardContent>
@@ -441,7 +442,7 @@ export default function SellerEarningsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalPending.toFixed(2)}` : "---"}
+                  {loading && !totals ? <Skeleton className="h-8 w-24" /> : totals ? `$${totals.totalPending.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "---"}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">awaiting disbursement</p>
               </CardContent>
@@ -450,10 +451,10 @@ export default function SellerEarningsPage() {
 
           {totals && (
             <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
-              <span>Gross Sales: <strong className="text-foreground">${totals.totalOrderValue.toFixed(2)}</strong></span>
-              <span>Commission: <strong className="text-orange-600 dark:text-orange-400">${totals.totalCommissionDeducted.toFixed(2)}</strong></span>
-              <span>= Net Payable: <strong className="text-green-600 dark:text-green-400">${totals.totalNetPayable.toFixed(2)}</strong></span>
-              <span className="ml-auto">Paid out: <strong className="text-foreground">${totals.totalPaid.toFixed(2)}</strong></span>
+              <span>Gross Sales: <strong className="text-foreground">${totals.totalOrderValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+              <span>Commission: <strong className="text-orange-600 dark:text-orange-400">${totals.totalCommissionDeducted.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+              <span>= Net Payable: <strong className="text-green-600 dark:text-green-400">${totals.totalNetPayable.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+              <span className="ml-auto">Paid out: <strong className="text-foreground">${totals.totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
             </div>
           )}
 
@@ -539,13 +540,13 @@ export default function SellerEarningsPage() {
                     records.map((r) => (
                       <TableRow key={r.id} className="hover:bg-muted/20">
                         <TableCell>
-                          <span className="font-mono text-xs text-primary">{r.orderId}</span>
+                          <span className="font-mono text-xs text-primary">{r.displayOrderId || r.orderId}</span>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm">{r.customerName || "---"}</span>
                         </TableCell>
                         <TableCell className="font-medium">
-                          ${parseFloat(r.orderValue).toFixed(2)}
+                          ${parseFloat(r.orderValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="border-orange-300 text-orange-600 dark:text-orange-400">
@@ -553,11 +554,11 @@ export default function SellerEarningsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          -${parseFloat(r.commissionAmount).toFixed(2)}
+                          -${parseFloat(r.commissionAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell>
                           <span className="font-bold text-green-700 dark:text-green-400">
-                            ${r.netPayable ? parseFloat(r.netPayable).toFixed(2) : (parseFloat(r.orderValue) - parseFloat(r.commissionAmount)).toFixed(2)}
+                            ${r.netPayable ? parseFloat(r.netPayable).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (parseFloat(r.orderValue) - parseFloat(r.commissionAmount)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </TableCell>
                         <TableCell>
@@ -649,10 +650,10 @@ export default function SellerEarningsPage() {
                           {new Date(r.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
                         </TableCell>
                         <TableCell className="font-bold text-green-700 dark:text-green-400">
-                          ${parseFloat(r.requestedAmount).toFixed(2)}
+                          ${parseFloat(r.requestedAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          ${parseFloat(r.redeemableAtRequest).toFixed(2)}
+                          ${parseFloat(r.redeemableAtRequest).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell>
                           <Badge className={payoutBadgeStyle(r.status)}>{r.status}</Badge>
@@ -730,7 +731,7 @@ export default function SellerEarningsPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Redeemable Balance</span>
                     <span className="font-semibold text-green-600 dark:text-green-400">
-                      ${wallet.redeemableAmount.toFixed(2)}
+                      ${wallet.redeemableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -760,7 +761,7 @@ export default function SellerEarningsPage() {
                   />
                 </div>
                 {wallet && payoutAmount && parseFloat(payoutAmount) > wallet.redeemableAmount && (
-                  <p className="text-xs text-red-500">Exceeds redeemable balance of ${wallet.redeemableAmount.toFixed(2)}</p>
+                  <p className="text-xs text-red-500">Exceeds redeemable balance of ${wallet.redeemableAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 )}
               </div>
 

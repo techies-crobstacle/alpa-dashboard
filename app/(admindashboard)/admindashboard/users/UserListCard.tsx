@@ -124,6 +124,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -208,7 +209,29 @@ const getNotificationTypeColor = (type: string) => {
   }
 };
 
+const getDeepLink = (n: Notification): string | null => {
+  const id = n.relatedId;
+  switch (n.type) {
+    case "NEW_PRODUCT_SUBMITTED":
+    case "PRODUCT_LOW_STOCK_DEACTIVATED":
+      return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
+    case "NEW_ORDER":
+    case "ORDER_STATUS_CHANGED":
+    case "ORDER_UPDATE":
+    case "ORDER_CANCELLED":
+      return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
+    case "SELLER_APPROVED":
+    case "SELLER_REJECTED":
+      return "/admindashboard/sellers";
+    case "BANK_CHANGE_REQUESTED":
+      return `/admindashboard/sellers/bank-change-requests${id ? `?highlight=${id}` : ""}`;
+    default:
+      return null;
+  }
+};
+
 export default function UserListCard() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -290,14 +313,21 @@ export default function UserListCard() {
           </div>
         ) : (
           <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
-            {notifications.map((notification) => (
+            {notifications.map((notification) => {
+              const link = getDeepLink(notification);
+              return (
               <div
                 key={notification.id}
                 className={`rounded-lg border p-4 transition-all ${
                   !notification.isRead
                     ? "border-primary/20 bg-primary/5"
                     : "border-border bg-background"
-                }`}
+                }${link ? " cursor-pointer hover:opacity-80" : ""}`}
+                onClick={() => {
+                  if (!link) return;
+                  if (!notification.isRead) markAsRead(notification.id);
+                  router.push(link);
+                }}
               >
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 mt-1">
@@ -372,7 +402,7 @@ export default function UserListCard() {
                             variant="ghost"
                             size="sm"
                             disabled={markingAsRead === notification.id}
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
                             className="text-xs"
                           >
                             {markingAsRead === notification.id ? (
@@ -387,7 +417,8 @@ export default function UserListCard() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
 
             {pagination.total > pagination.limit && (
               <div className="text-center text-sm text-muted-foreground pt-2">

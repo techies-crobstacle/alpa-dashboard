@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -155,10 +155,20 @@ export default function SellersPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
                 placeholder="Search sellers by name or email..."
-                className="pl-8"
+                className="pl-8 pr-10"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              {search && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-9 w-9 text-muted-foreground hover:text-foreground"
+                  onClick={() => setSearch("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </CardContent>
@@ -271,7 +281,7 @@ export default function SellersPage() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            {new Date(seller.createdAt).toLocaleDateString()}
+                            {new Date(seller.createdAt).toLocaleDateString('en-GB')}
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1 justify-end">

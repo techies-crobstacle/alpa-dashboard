@@ -1,4 +1,4 @@
-// "use client";
+﻿// "use client";
 // import { useState, useEffect } from "react";
 // import Link from "next/link";
 // import { api } from "@/lib/api";
@@ -113,13 +113,13 @@
 //               <div className="bg-muted/50 rounded-lg p-4 flex flex-col gap-1">
 //                 <span className="text-xs text-muted-foreground">Created At</span>
 //                 <span className="font-medium text-base">
-//                   {profile.createdAt ? new Date(profile.createdAt).toLocaleString() : '-'}
+//                   {profile.createdAt ? new Date(profile.createdAt).toLocaleString('en-GB') : '-'}
 //                 </span>
 //               </div>
 //               <div className="bg-muted/50 rounded-lg p-4 flex flex-col gap-1">
 //                 <span className="text-xs text-muted-foreground">Updated At</span>
 //                 <span className="font-medium text-base">
-//                   {profile.updatedAt ? new Date(profile.updatedAt).toLocaleString() : '-'}
+//                   {profile.updatedAt ? new Date(profile.updatedAt).toLocaleString('en-GB') : '-'}
 //                 </span>
 //               </div>
 //             </div>
@@ -476,7 +476,7 @@ const ProfilePage = () => {
                   }
                 </span>
                 <span className="flex items-center gap-1"><Package className="h-3.5 w-3.5" />{profile.productCount ?? 0} Products</span>
-                {profile.user?.createdAt && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Member since {new Date(profile.user.createdAt).toLocaleDateString()}</span>}
+                {profile.user?.createdAt && <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Member since {new Date(profile.user.createdAt).toLocaleDateString('en-GB')}</span>}
               </div>
             </div>
           </div>
@@ -593,7 +593,7 @@ const ProfilePage = () => {
                   <div key={doc.publicId} className="bg-muted/50 rounded-lg p-3 flex items-center justify-between gap-3">
                     <div className="flex flex-col min-w-0">
                       <span className="font-medium text-sm truncate">{doc.originalName}</span>
-                      <span className="text-xs text-muted-foreground capitalize">{doc.documentType} &middot; {new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                      <span className="text-xs text-muted-foreground capitalize">{doc.documentType} &middot; {new Date(doc.uploadedAt).toLocaleDateString('en-GB')}</span>
                     </div>
                     <a
                       href={doc.documentUrl}
@@ -616,9 +616,9 @@ const ProfilePage = () => {
             <SectionTitle icon={Calendar} title="Account Information" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <InfoRow label="Role" value={profile.user?.role} />
-              <InfoRow label="Approved At" value={profile.approvedAt ? new Date(profile.approvedAt).toLocaleString() : undefined} />
-              <InfoRow label="Member Since" value={new Date(profile.createdAt).toLocaleString()} />
-              <InfoRow label="Last Updated" value={new Date(profile.updatedAt).toLocaleString()} />
+              <InfoRow label="Approved At" value={profile.approvedAt ? new Date(profile.approvedAt).toLocaleString('en-GB') : undefined} />
+              <InfoRow label="Member Since" value={new Date(profile.createdAt).toLocaleString('en-GB')} />
+              <InfoRow label="Last Updated" value={new Date(profile.updatedAt).toLocaleString('en-GB')} />
             </div>
           </CardContent>
         </Card>

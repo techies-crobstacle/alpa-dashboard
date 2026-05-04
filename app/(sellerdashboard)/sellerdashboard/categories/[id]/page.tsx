@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -191,25 +191,25 @@ export default function SellerCategoryDetailPage() {
 							{category.requestedAt && (
 								<div className="flex items-center gap-2 text-sm text-muted-foreground">
 									<Calendar className="h-4 w-4 shrink-0" />
-									<span>Requested {new Date(category.requestedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+									<span>Requested {new Date(category.requestedAt).toLocaleDateString('en-GB')}</span>
 								</div>
 							)}
 							{category.approvedAt && (
 								<div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
 									<CheckCircle2 className="h-4 w-4 shrink-0" />
-									<span>Approved {new Date(category.approvedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+									<span>Approved {new Date(category.approvedAt).toLocaleDateString('en-GB')}</span>
 								</div>
 							)}
 							{category.rejectedAt && (
 								<div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
 									<XCircle className="h-4 w-4 shrink-0" />
-									<span>Rejected {new Date(category.rejectedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+									<span>Rejected {new Date(category.rejectedAt).toLocaleDateString('en-GB')}</span>
 								</div>
 							)}
 							{category.softDeletedAt && (
 								<div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
 									<Trash2 className="h-4 w-4 shrink-0" />
-									<span>Moved to bin {new Date(category.softDeletedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
+									<span>Moved to bin {new Date(category.softDeletedAt).toLocaleDateString('en-GB')}</span>
 								</div>
 							)}
 
