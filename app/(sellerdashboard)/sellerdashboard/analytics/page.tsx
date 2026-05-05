@@ -108,18 +108,31 @@ export default function AnalyticsPage() {
   const [appliedTo, setAppliedTo] = useState("");
 
   const fetchAnalytics = useCallback(async (opts: { refresh?: boolean; from?: string; to?: string } = {}) => {
-    if (opts.refresh) setRefreshing(true);
-    else setLoading(true);
+    console.log('[DEBUG] fetchAnalytics called with options:', opts);
+    
+    // Always show loading state (skeleton) for both initial load and refresh
+    setLoading(true);
+    setRefreshing(opts.refresh || false);
+    
     try {
       const params = new URLSearchParams();
       if (opts.from) params.set("startDate", opts.from);
       if (opts.to) params.set("endDate", opts.to);
       const query = params.toString();
-      const res = await api.get(`/api/seller/orders/analytics${query ? `?${query}` : ""}`);
+      const apiUrl = `/api/seller/orders/analytics${query ? `?${query}` : ""}`;
+      
+      console.log('[DEBUG] Making API call to:', apiUrl);
+      const res = await api.get(apiUrl);
+      console.log('[DEBUG] API response received:', res);
+      
       setAnalytics(res?.analytics ?? res ?? null);
+      
     } catch (err: any) {
-      toast.error(err?.message || "Failed to load analytics");
+      console.error('[DEBUG] fetchAnalytics error:', err);
+      const errorMessage = err?.message || "Failed to load analytics";
+      toast.error(errorMessage);
     } finally {
+      console.log('[DEBUG] fetchAnalytics cleanup, setting loading states to false');
       setLoading(false);
       setRefreshing(false);
     }
@@ -130,12 +143,14 @@ export default function AnalyticsPage() {
   }, [fetchAnalytics]);
 
   const handleApply = () => {
+    console.log('[DEBUG] Applying date filter:', { fromDate, toDate });
     setAppliedFrom(fromDate);
     setAppliedTo(toDate);
     fetchAnalytics({ from: fromDate, to: toDate });
   };
 
   const handleReset = () => {
+    console.log('[DEBUG] Resetting date filters');
     setFromDate("");
     setToDate("");
     setAppliedFrom("");
@@ -274,11 +289,15 @@ export default function AnalyticsPage() {
             variant="outline"
             size="sm"
             className="gap-2"
-            onClick={() => fetchAnalytics({ refresh: true, from: appliedFrom, to: appliedTo })}
+            onClick={() => {
+              console.log('[DEBUG] Refresh button clicked');
+              console.log('[DEBUG] Current appliedFrom:', appliedFrom, 'appliedTo:', appliedTo);
+              fetchAnalytics({ refresh: true, from: appliedFrom, to: appliedTo });
+            }}
             disabled={loading || refreshing}
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
+            {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

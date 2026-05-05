@@ -18,7 +18,7 @@ import Image from "next/image";
 import {
   Search, RefreshCw, Eye, RotateCcw, AlertCircle, CheckCircle2,
   Clock, XCircle, DollarSign, User, Mail, Package, Calendar, Paperclip, ShoppingBag,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, X,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -350,10 +350,21 @@ export default function SellerRefundRequestsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by subject, order ID or customer…"
-            className="pl-9"
+            className={`pl-9 ${search ? 'pr-9' : ''}`}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearch('')}
+              title="Clear search"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
         </div>
         <Select value={statusFilter} onValueChange={setStatus}>
           <SelectTrigger className="w-full sm:w-[170px]">
