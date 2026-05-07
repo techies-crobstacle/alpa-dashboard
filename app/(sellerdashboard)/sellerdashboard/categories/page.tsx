@@ -272,7 +272,7 @@ const CategoriesPage = () => {
             Browse available categories and manage your category requests
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) form.reset(); }}>
           <DialogTrigger asChild>
             <Button 
               className={cn("gap-2", sellerProfile !== null && sellerProfile?.status !== "APPROVED" && sellerProfile?.status !== "ACTIVE" && "opacity-50 cursor-not-allowed")}

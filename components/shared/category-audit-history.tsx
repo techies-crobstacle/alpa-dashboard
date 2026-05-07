@@ -31,11 +31,12 @@ const ACTION_CONFIG: Record<string, { label: string; className: string; initial:
   CATEGORY_HARD_DELETED: { label: "Permanently Deleted",  initial: "!", className: "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700" },
 };
 
-const ROLE_BADGE: Record<string, string> = {
-  ADMIN:    "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
-  SELLER:   "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-  CUSTOMER: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800",
-  SYSTEM:   "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700",
+const ROLE_BADGE: Record<string, { className: string; label: string }> = {
+  ADMIN:       { label: "Admin",       className: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800" },
+  SUPER_ADMIN: { label: "Super Admin", className: "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800" },
+  SELLER:      { label: "Seller",      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800" },
+  CUSTOMER:    { label: "Customer",    className: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800" },
+  SYSTEM:      { label: "System",      className: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700" },
 };
 
 function getActionConfig(action: string) {
@@ -197,20 +198,24 @@ export function CategoryAuditHistory({ categoryId, categoryName }: CategoryAudit
                           {config.label}
                         </span>
                       </td>
-                      <td className="px-4 py-2">
-                        <p className="text-xs font-medium">{entry.actorEmail ?? entry.actorId ?? "—"}</p>
-                        {entry.actorRole && (
-                          <span className={cn(
-                            "inline-flex items-center rounded-full px-1.5 py-0 text-[9px] font-semibold mt-0.5",
-                            entry.actorRole === "ADMIN"
-                              ? "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
-                              : entry.actorRole === "SELLER"
-                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-                              : "bg-muted text-muted-foreground border border-border"
-                          )}>
-                            {entry.actorRole === "ADMIN" ? "Admin" : entry.actorRole === "SELLER" ? "Seller" : entry.actorRole}
-                          </span>
-                        )}
+                      <td className="px-4 py-2 min-w-[140px] max-w-[200px]">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-xs font-medium break-all leading-tight">{entry.actorEmail ?? entry.actorId ?? "—"}</p>
+                          {entry.actorIp && (
+                            <span className="font-mono text-[10px] text-muted-foreground break-all">{entry.actorIp}</span>
+                          )}
+                          {entry.actorRole && (() => {
+                            const roleCfg = ROLE_BADGE[entry.actorRole];
+                            return (
+                              <span className={cn(
+                                "inline-flex items-center self-start rounded-full px-1.5 py-0 text-[9px] font-semibold whitespace-nowrap",
+                                roleCfg?.className ?? "bg-muted text-muted-foreground border border-border"
+                              )}>
+                                {roleCfg?.label ?? entry.actorRole}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex flex-wrap gap-1">

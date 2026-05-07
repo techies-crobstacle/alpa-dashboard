@@ -322,6 +322,7 @@ export default function AnalyticsPage() {
               type="date"
               className="h-9 w-[160px]"
               value={fromDate}
+              max={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setFromDate(e.target.value)}
             />
           </div>
@@ -331,15 +332,18 @@ export default function AnalyticsPage() {
               type="date"
               className="h-9 w-[160px]"
               value={toDate}
+              max={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setToDate(e.target.value)}
             />
           </div>
           <Button className="h-9 gap-2" onClick={handleApply} disabled={loading}>
             <Filter className="h-4 w-4" /> Apply
           </Button>
-          <Button variant="outline" className="h-9 gap-2" onClick={handleReset} disabled={loading}>
-            <X className="h-4 w-4" /> Reset
-          </Button>
+          {(appliedFrom || appliedTo) && (
+            <Button variant="outline" className="h-9 gap-2" onClick={handleReset} disabled={loading}>
+              <X className="h-4 w-4" /> Reset
+            </Button>
+          )}
         </div>
       </Card>
 

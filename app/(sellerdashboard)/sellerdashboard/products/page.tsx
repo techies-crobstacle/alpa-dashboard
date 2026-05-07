@@ -1326,16 +1326,17 @@ function ProjectsPage() {
             )}
           </div>
           {/* Category Filter Dropdown */}
-          <select
-            className="border rounded px-3 py-2 w-[180px]"
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
-          >
-            <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+          <Select value={categoryFilter || "all"} onValueChange={(v) => setCategoryFilter(v === "all" ? "" : v)}>
+            <SelectTrigger className="h-9 w-[180px] text-sm">
+              <SelectValue placeholder="All Categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.filter((cat): cat is string => Boolean(cat)).map((cat) => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {/* Add Product — disabled only when profile has loaded and is explicitly NOT approved */}
           {(() => {
             const isNotApproved =
