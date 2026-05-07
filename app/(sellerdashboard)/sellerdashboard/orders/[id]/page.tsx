@@ -61,6 +61,13 @@ function StatusUpdateModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const getFriendlyTrackingErrorMessage = (message: string) => {
+    if (/tracking number/i.test(message) && /(already used|already assigned|sub-order)/i.test(message)) {
+      return "Track number is already assigned to another order";
+    }
+    return message;
+  };
+
   const [selectedStatus, setSelectedStatus] = useState("");
   const [trackingNumber, setTrackingNumber] = useState("");
   const [estimatedDelivery, setEstimatedDelivery] = useState("");
@@ -95,7 +102,7 @@ function StatusUpdateModal({
       onSuccess();
       onClose();
     } catch (err: any) {
-      const msg = err?.message || "Failed to update status";
+      const msg = getFriendlyTrackingErrorMessage(err?.message || "Failed to update status");
       setApiError(msg);
       toast.error(msg);
     } finally {

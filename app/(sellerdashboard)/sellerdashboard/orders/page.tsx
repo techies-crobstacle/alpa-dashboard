@@ -27,6 +27,13 @@ import {
 
 const BASE_URL = "https://alpa-be.onrender.com";
 
+const getFriendlyTrackingErrorMessage = (message: string) => {
+  if (/tracking number/i.test(message) && /(already used|already assigned|sub-order)/i.test(message)) {
+    return "Track number is already assigned to another order";
+  }
+  return message;
+};
+
 // --- API HELPERS ---
 const getAuthHeaders = (): HeadersInit => {
   const token = typeof window !== "undefined" ? localStorage.getItem("alpa_token") : null;
@@ -189,7 +196,7 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
       onSuccess();
       onClose();
     } catch (err: any) {
-      const msg = err?.message || "Failed to update status";
+      const msg = getFriendlyTrackingErrorMessage(err?.message || "Failed to update status");
       setApiError(msg);
       toast.error(msg);
     } finally {
@@ -360,7 +367,7 @@ function BulkStatusUpdateModal({ orders, selectedOrderIds, onClose, onSuccess }:
       onSuccess();
       onClose();
     } catch (err: any) {
-      const msg = err?.message || "Failed to update orders";
+      const msg = getFriendlyTrackingErrorMessage(err?.message || "Failed to update orders");
       setApiError(msg);
       toast.error(msg);
     } finally {

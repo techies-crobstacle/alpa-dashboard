@@ -2000,6 +2000,13 @@ import {
   isTerminalStatus,
 } from "@/lib/orderStatusRules";
 
+const getFriendlyTrackingErrorMessage = (message: string) => {
+  if (/tracking number/i.test(message) && /(already used|already assigned|sub-order)/i.test(message)) {
+    return "Track number is already assigned to another order";
+  }
+  return message;
+};
+
 type Seller = {
   id: string;
   name: string;
@@ -2245,7 +2252,7 @@ function StatusUpdateModal({ order, onClose, onSuccess }: StatusModalProps) {
       onSuccess();
       onClose();
     } catch (err: any) {
-      const msg = err?.message || "Failed to update status";
+      const msg = getFriendlyTrackingErrorMessage(err?.message || "Failed to update status");
       setApiError(msg);
       toast.error(msg);
     } finally {
@@ -2439,7 +2446,7 @@ function BulkStatusUpdateModal({ orderIds, orders, onClose, onSuccess }: BulkSta
       onSuccess();
       onClose();
     } catch (err: any) {
-      const msg = err?.message || "Failed to bulk update status";
+      const msg = getFriendlyTrackingErrorMessage(err?.message || "Failed to bulk update status");
       setApiError(msg);
       toast.error(msg);
     } finally {
@@ -2808,7 +2815,9 @@ export default function AdminOrdersPage() {
         throw new Error(response?.message || "Failed to update tracking information");
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to update tracking";
+      const errorMessage = getFriendlyTrackingErrorMessage(
+        error instanceof Error ? error.message : "Failed to update tracking"
+      );
       toast.error(errorMessage);
     }
   };

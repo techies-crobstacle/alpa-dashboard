@@ -72,6 +72,7 @@ interface EarningTotals {
   redeemableAmount?: number;
   lockedAmount?: number;
   eligibleOrderCount?: number;
+  cancelledAmount?: number; // NEW: Cancelled order amounts
 }
 
 interface RedeemableSummary {
@@ -80,6 +81,7 @@ interface RedeemableSummary {
   lockedAmount: number;
   totalPaid: number;
   eligibleOrderCount: number;
+  cancelledAmount?: number; // NEW: Cancelled order amounts
 }
 
 interface OpenPayoutRequest {
@@ -183,6 +185,18 @@ export default function SellerEarningsPage() {
     fetchEarnings(1);
     fetchWallet();
   }, []);
+
+  // Math validation (as per API documentation)
+  useEffect(() => {
+    if (totals && process.env.NODE_ENV === 'development') {
+      const sum = totals.totalPaid + totals.totalPending;
+      const diff = Math.abs(totals.totalNetPayable - sum);
+      if (diff > 0.01) {
+        console.warn(`💰 Commission math error: totalNetPayable ${totals.totalNetPayable} ≠ totalPaid ${totals.totalPaid} + totalPending ${totals.totalPending} = ${sum}`);
+        console.warn('This indicates a backend calculation issue or data inconsistency');
+      }
+    }
+  }, [totals]);
 
   const handleApplyFilters = () => { setPage(1); fetchEarnings(1); };
 
@@ -448,6 +462,23 @@ export default function SellerEarningsPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* ✅ NEW: Show cancelled amounts for transparency (as per API docs) */}
+          {(totals?.cancelledAmount && totals.cancelledAmount > 0) && (
+            <div className="mt-4">
+              <div className="flex items-center gap-2 p-3 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg border border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>
+                    <strong>${totals.cancelledAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> from cancelled orders
+                    <span className="text-xs opacity-75 ml-1">(not included in payout calculations)</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {totals && (
             <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-3 text-sm text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
