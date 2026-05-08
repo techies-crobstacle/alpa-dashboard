@@ -4,6 +4,7 @@ import { Bell, ShoppingCart, Package, UserCheck, AlertCircle, User, Settings, Lo
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { decodeJWT } from "@/lib/jwt";
+import { getNotificationDeepLink } from "@/lib/notification-deeplink";
 import { api } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -80,63 +81,22 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 		const [role, setRole] = useState<string | null>(null);
 		const router = useRouter();
 		const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+		const normalizedRole = typeof role === "string" ? role.trim().toUpperCase() : null;
 
 		// Derive role-aware dashboard paths
-		const isAdmin = role === "ADMIN" || role === "SUPER_ADMIN";
+		const isAdmin = normalizedRole === "ADMIN" || normalizedRole === "SUPER_ADMIN";
 		const settingsHref =
 			isAdmin ? "/admindashboard/settings" :
-			role === "CUSTOMER" ? "/customerdashboard/settings" :
+			normalizedRole === "CUSTOMER" ? "/customerdashboard/settings" :
 			"/sellerdashboard/settings";
 		const profileHref =
 			isAdmin ? "/admindashboard/profile" :
-			role === "CUSTOMER" ? "/customerdashboard/profile" :
+			normalizedRole === "CUSTOMER" ? "/customerdashboard/profile" :
 			"/sellerdashboard/profile";
 		const notificationsHref =
 			isAdmin ? "/admindashboard/notifications" :
-			role === "CUSTOMER" ? "/customerdashboard/notifications" :
+			normalizedRole === "CUSTOMER" ? "/customerdashboard/notifications" :
 			"/sellerdashboard/notifications";
-
-		const getDeepLink = (n: Notification): string | null => {
-			const id = n.relatedId;
-			switch (n.type) {
-				case "PRODUCT_STATUS_CHANGED":
-				case "LOW_STOCK_ALERT":
-					return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
-				case "NEW_PRODUCT_SUBMITTED":
-					return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
-				case "PRODUCT_LOW_STOCK_DEACTIVATED":
-					return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
-				case "NEW_ORDER":
-			if (isAdmin) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
-			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
-		case "ORDER_STATUS_CHANGED":
-			if (isAdmin) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
-			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
-		case "ORDER_CANCELLED":
-			if (isAdmin) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
-					if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-					return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
-				case "SELLER_APPROVED":
-					return "/sellerdashboard";
-				case "SELLER_REJECTED":
-					return "/sellerdashboard/auth";
-				case "CULTURAL_APPROVAL":
-					return "/sellerdashboard/profile";
-				case "PRODUCT_RECOMMENDATION":
-					return "/sellerdashboard/products";
-				case "BANK_CHANGE_REQUESTED":
-					return `/admindashboard/sellers/bank-change-requests${id ? `?highlight=${id}` : ""}`;
-				case "BANK_CHANGE_APPROVED":
-				case "BANK_CHANGE_REJECTED":
-					return "/sellerdashboard/settings/bank-details";
-				case "GENERAL":
-					if (n.relatedType === "product") return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
-					return null;
-				default:
-					return null;
-			}
-		};
 
 		const handleNotificationClick = async (notification: Notification) => {
 			try {
@@ -148,7 +108,7 @@ const getNotificationIcon = (n: Pick<Notification, "type" | "metadata" | "relate
 			} catch {
 				// non-critical, proceed with navigation
 			}
-			const link = getDeepLink(notification);
+			const link = getNotificationDeepLink(notification, role);
 			if (link) router.push(link);
 		};
 

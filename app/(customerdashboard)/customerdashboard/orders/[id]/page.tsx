@@ -47,6 +47,7 @@ export default function CustomerOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -189,7 +190,6 @@ export default function CustomerOrderDetailPage() {
 
   const showInvoice = ["CONFIRMED", "PROCESSING", "PACKED", "SHIPPED", "DELIVERED"].includes(order.status);
   const showRefund = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED"].includes(order.status);
-  const [refundDialogOpen, setRefundDialogOpen] = useState(false);
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">

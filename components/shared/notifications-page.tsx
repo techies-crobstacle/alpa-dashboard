@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, apiClient } from "@/lib/api";
 import { decodeJWT } from "@/lib/jwt";
+import { getNotificationDeepLink } from "@/lib/notification-deeplink";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -125,54 +126,6 @@ const getTypeColor = (n: Pick<Notification, "type" | "metadata" | "relatedType">
 	}
 };
 
-const getDeepLink = (n: Notification, role: string | null): string | null => {
-	const id = n.relatedId;
-	switch (n.type) {
-		case "PRODUCT_STATUS_CHANGED":
-		case "LOW_STOCK_ALERT":
-			return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
-		case "NEW_PRODUCT_SUBMITTED":
-			return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
-		case "PRODUCT_LOW_STOCK_DEACTIVATED":
-			return id ? `/admindashboard/products/${id}` : "/admindashboard/products";
-		case "NEW_ORDER": {
-			const isAdm = role === "ADMIN" || role === "SUPER_ADMIN";
-			if (isAdm) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
-			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
-		}
-		case "ORDER_STATUS_CHANGED": {
-			const isAdm = role === "ADMIN" || role === "SUPER_ADMIN";
-			if (isAdm) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
-			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
-		}
-		case "ORDER_CANCELLED": {
-			const isAdm = role === "ADMIN" || role === "SUPER_ADMIN";
-			if (isAdm) return id ? `/admindashboard/orders?highlight=${id}&tab=all` : "/admindashboard/orders";
-			if (role === "CUSTOMER") return id ? `/customerdashboard/orders/${id}` : "/customerdashboard/orders";
-			return id ? `/sellerdashboard/orders?highlight=${id}` : "/sellerdashboard/orders";
-		}
-		case "SELLER_APPROVED":
-			return "/sellerdashboard";
-		case "SELLER_REJECTED":
-			return "/sellerdashboard/auth";
-		case "CULTURAL_APPROVAL":
-			return "/sellerdashboard/profile";
-		case "PRODUCT_RECOMMENDATION":
-			return "/sellerdashboard/products";
-		case "BANK_CHANGE_REQUESTED":
-			return `/admindashboard/sellers/bank-change-requests${id ? `?highlight=${id}` : ""}`;
-		case "BANK_CHANGE_APPROVED":
-		case "BANK_CHANGE_REJECTED":
-			return "/sellerdashboard/settings/bank-details";
-		case "GENERAL":
-			if (n.relatedType === "product") return id ? `/sellerdashboard/products/${id}` : "/sellerdashboard/products";
-			return null;
-		default:
-			return null;
-	}
-};
-
 export function NotificationsPage() {
 	const router = useRouter();
 	const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -249,7 +202,7 @@ export function NotificationsPage() {
 
 	const handleNotificationClick = async (n: Notification) => {
 		if (!n.isRead) await markAsRead(n.id);
-		const link = getDeepLink(n, role);
+		const link = getNotificationDeepLink(n, role);
 		if (link) router.push(link);
 	};
 

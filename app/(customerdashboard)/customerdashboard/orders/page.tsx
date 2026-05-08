@@ -1,6 +1,7 @@
 ﻿
 "use client"
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import { getCityLabel } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { isTerminalStatus, getStatusBadgeVariant } from "@/lib/orderStatusRules";
-import { useRef } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 
 const BASE_URL = "https://alpa-be.onrender.com";
@@ -758,6 +758,12 @@ const OrdersLoadingSkeleton = () => {
 };
 
 const CustomerOrdersPage = () => {
+  const searchParams = useSearchParams();
+  const highlightOrderId = searchParams.get("highlight");
+  const highlightRef = useRef<HTMLTableRowElement | null>(null);
+  const [dismissedHighlight, setDismissedHighlight] = useState<string | null>(null);
+  const activeHighlight = highlightOrderId && highlightOrderId !== dismissedHighlight ? highlightOrderId : null;
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -771,6 +777,18 @@ const CustomerOrdersPage = () => {
     fetchOrders();
     fetchExistingRefunds();
   }, []);
+
+  // Auto-scroll to highlighted order from notification click
+  useEffect(() => {
+    if (!activeHighlight || loading) return;
+    const idx = orders.findIndex(o => o.id === activeHighlight);
+    if (idx !== -1) {
+      setExpandedOrderId(activeHighlight);
+      setTimeout(() => {
+        if (highlightRef.current) highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  }, [activeHighlight, orders, loading]);
 
   const fetchExistingRefunds = async () => {
     try {
@@ -939,8 +957,25 @@ const CustomerOrdersPage = () => {
             <tbody>
               {orders.map((order) => (
                 <React.Fragment key={order.id}>
-                  <tr className="border-b hover:bg-muted/50">
-                    <td className="px-4 py-3">#{order.displayId}</td>
+                  <tr
+                    ref={order.id === activeHighlight ? highlightRef : undefined}
+                    className={`border-b hover:bg-muted/50 transition-all ${order.id === activeHighlight ? "ring-2 ring-primary ring-inset bg-primary/5" : ""}`}
+                  >
+                    <td className="px-4 py-3" colSpan={order.id === activeHighlight ? undefined : undefined}>
+                      {order.id === activeHighlight && (
+                        <div className="mb-1 flex items-center justify-between bg-primary/10 border border-primary/20 rounded-md px-3 py-1.5 text-xs text-primary font-medium">
+                          <span>Navigated from notification</span>
+                          <button
+                            className="ml-2 hover:opacity-70 transition-opacity"
+                            onClick={() => setDismissedHighlight(order.id)}
+                            aria-label="Dismiss highlight"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                      #{order.displayId}
+                    </td>
                     <td className="px-4 py-3">{new Date(order.createdAt).toLocaleDateString('en-GB')}</td>
                     <td className="px-4 py-3">
                       <Badge variant={order.status === "DELIVERED" ? "default" : order.status === "CANCELLED" ? "destructive" : "secondary"}>
