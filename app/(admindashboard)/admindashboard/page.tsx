@@ -718,7 +718,7 @@ export default function DashboardPage() {
 								{/* Notifications List */}
 								<div className="space-y-2">
 									<p className="font-medium text-foreground">Recent Notifications</p>
-									<div className="max-h-64 overflow-y-auto space-y-2">
+									<div className="max-h-64 overflow-y-auto space-y-2 pr-2 pb-1" style={{ scrollbarGutter: "stable" }}>
 										{slaData?.notifications?.length > 0 ? (
 											slaData.notifications.map((notification: any) => {
 												const isHighPriority = notification.priority === "HIGH";
