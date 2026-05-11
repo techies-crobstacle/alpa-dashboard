@@ -305,32 +305,36 @@ export default function SellerRefundRequestsPage() {
             label: "Total",
             value: stats.total,
             icon: <DollarSign className="h-4 w-4" />,
+            color: "text-foreground",
           },
           {
             label: "Open",
             value: stats.open,
             icon: <Clock className="h-4 w-4" />,
+            color: "text-blue-600 dark:text-blue-400",
           },
           {
             label: "Completed",
             value: stats.completed,
             icon: <CheckCircle2 className="h-4 w-4" />,
+            color: "text-green-600 dark:text-green-400",
           },
           {
             label: "Rejected",
             value: stats.rejected,
             icon: <XCircle className="h-4 w-4" />,
+            color: "text-red-600 dark:text-red-400",
           },
         ].map(s => (
           <Card key={s.label} className="overflow-hidden">
             <CardContent className="flex items-center justify-between pt-5 pb-5">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">{s.label}</p>
-                <div className="text-2xl font-bold mt-1 text-muted-foreground">
+                <div className={`text-2xl font-bold mt-1 ${s.color}`}>
                   {loading ? <Skeleton className="h-7 w-8" /> : s.value}
                 </div>
               </div>
-              <div className="text-muted-foreground opacity-70">{s.icon}</div>
+              <div className={`${s.color} opacity-70`}>{s.icon}</div>
             </CardContent>
           </Card>
         ))}
