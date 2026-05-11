@@ -551,8 +551,15 @@ export default function OrdersPage() {
     return d.toLocaleDateString('en-GB');
   };
 
+  const normalizeOrderStatus = (status: string) => {
+    const normalized = String(status || "").trim().toUpperCase().replace(/\s+/g, "_");
+    // Treat backend refund variants as one refundable bucket for filtering/reporting.
+    if (normalized === "REFUND" || normalized === "PARTIAL_REFUND") return "REFUNDED";
+    return normalized;
+  };
+
   const filteredOrders = orders.filter((o) => {
-    if (filterStatus !== "ALL" && o.status.toUpperCase() !== filterStatus) return false;
+    if (filterStatus !== "ALL" && normalizeOrderStatus(o.status) !== filterStatus) return false;
     // Use local date string (YYYY-MM-DD) to avoid UTC/timezone drift
     const orderLocalDate = new Date(o.createdAt).toLocaleDateString("en-CA"); // "YYYY-MM-DD"
     if (filterDateFrom && orderLocalDate < filterDateFrom) return false;
@@ -1191,7 +1198,7 @@ export default function OrdersPage() {
   const avgOrderValue = filteredOrders.length > 0 ? totalGrossValue / filteredOrders.length : 0;
   const totalItemsSold = filteredOrders.reduce((sum, o) => sum + o.items.reduce((s, item) => s + item.quantity, 0), 0);
   const statusCounts = filteredOrders.reduce<Record<string, number>>((acc, o) => {
-    const s = o.status.toUpperCase();
+    const s = normalizeOrderStatus(o.status);
     acc[s] = (acc[s] || 0) + 1;
     return acc;
   }, {});
@@ -1203,6 +1210,46 @@ export default function OrdersPage() {
       const bi = statusDisplayOrder.indexOf(b);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return <ClipboardList className="h-4 w-4 text-amber-600" />;
+      case "PROCESSING":
+        return <RefreshCcw className="h-4 w-4 text-blue-600" />;
+      case "DELIVERED":
+      case "COMPLETED":
+        return <Check className="h-4 w-4 text-green-600" />;
+      case "CANCELLED":
+        return <X className="h-4 w-4 text-red-600" />;
+      case "RETURNED":
+        return <RefreshCcw className="h-4 w-4 text-orange-600" />;
+      case "REFUNDED":
+        return <DollarSign className="h-4 w-4 text-violet-600" />;
+      default:
+        return <Package className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getStatusIconBg = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-amber-100";
+      case "PROCESSING":
+        return "bg-blue-100";
+      case "DELIVERED":
+      case "COMPLETED":
+        return "bg-green-100";
+      case "CANCELLED":
+        return "bg-red-100";
+      case "RETURNED":
+        return "bg-orange-100";
+      case "REFUNDED":
+        return "bg-violet-100";
+      default:
+        return "bg-muted";
+    }
+  };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -1275,12 +1322,17 @@ export default function OrdersPage() {
 
           {/* Status Breakdown */}
           {sortedStatusEntries.length > 0 && (
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+            <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
               {sortedStatusEntries.map(([status, count]) => (
                 <Card key={status}>
-                  <CardContent className="pt-4 pb-4 text-center">
-                    <p className="text-2xl font-bold">{count}</p>
-                    <Badge variant={getStatusBadgeVariant(status.toLowerCase())} className="mt-1.5 text-xs">
+                  <CardContent className="py-3 px-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-2xl font-bold leading-none">{count}</p>
+                      <div className={cn("h-7 w-7 rounded-full flex items-center justify-center", getStatusIconBg(status))}>
+                        {getStatusIcon(status)}
+                      </div>
+                    </div>
+                    <Badge variant={getStatusBadgeVariant(status.toLowerCase())} className="mt-2 text-xs">
                       {getStatusLabel(status)}
                     </Badge>
                   </CardContent>

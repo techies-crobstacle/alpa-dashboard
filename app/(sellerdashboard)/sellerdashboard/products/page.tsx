@@ -144,6 +144,43 @@ type RecycleBinProduct = {
   deletedByRole: string | null;
 };
 
+const getInitialVariantForm = () => ({ price: "", stock: "", sku: "", attributes: {} as Record<string, string> });
+
+const getInitialAddFormData = () => ({
+  title: "",
+  description: "",
+  price: "",
+  stock: "",
+  category: "",
+  images: [] as File[],
+  featuredImage: null as File | null,
+  galleryImages: [] as File[],
+  featured: false,
+  tags: "",
+  artistName: "",
+  weight: "1",
+  type: "SIMPLE" as "SIMPLE" | "VARIABLE",
+});
+
+const getInitialEditFormData = () => ({
+  title: "",
+  description: "",
+  price: "",
+  stock: "",
+  category: "",
+  images: [] as File[],
+  oldImages: [] as string[],
+  featuredImage: null as File | null,
+  oldFeaturedImage: null as string | null,
+  galleryImages: [] as File[],
+  oldGalleryImages: [] as string[],
+  featured: false,
+  tags: "",
+  artistName: "",
+  weight: "",
+  type: "SIMPLE" as "SIMPLE" | "VARIABLE",
+});
+
 const addProduct = async (productData: {
   tags: string;
   featured: boolean;
@@ -284,7 +321,7 @@ function ProjectsPage() {
   const [availableCategories, setAvailableCategories] = useState<any[]>([]);
   const [availableAttributes, setAvailableAttributes] = useState<any[]>([]);
   const [addVariants, setAddVariants] = useState<Array<{price: string; stock: string; sku: string; attributes: Record<string, string>}>>([]);
-  const [newVariantForm, setNewVariantForm] = useState<{price: string; stock: string; sku: string; attributes: Record<string, string>}>({ price: '', stock: '', sku: '', attributes: {} });
+  const [newVariantForm, setNewVariantForm] = useState<{price: string; stock: string; sku: string; attributes: Record<string, string>}>(getInitialVariantForm());
 
   // ── New attribute-first variant builder state ──────────────────────────────
   // selectedAttrValues: { [attrName]: Set of selected values }
@@ -344,43 +381,12 @@ function ProjectsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    price: "",
-    stock: "",
-    category: "",
-    images: [] as File[],
-    featuredImage: null as File | null,
-    galleryImages: [] as File[],
-    featured: false,
-    tags: "",
-    artistName: "",
-    weight: "1",
-    type: "SIMPLE" as "SIMPLE" | "VARIABLE",
-  });
+  const [formData, setFormData] = useState(getInitialAddFormData());
   const [showEditModal, setShowEditModal] = useState(false);
   const [isRestoringMode, setIsRestoringMode] = useState(false);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editProductId, setEditProductId] = useState<string | null>(null);
-  const [editFormData, setEditFormData] = useState({
-    title: "",
-    description: "",
-    price: "",
-    stock: "",
-    category: "",
-    images: [] as File[],
-    oldImages: [] as string[],
-    featuredImage: null as File | null,
-    oldFeaturedImage: null as string | null,
-    galleryImages: [] as File[],
-    oldGalleryImages: [] as string[],
-    featured: false,
-    tags: "",
-    artistName: "",
-    weight: "",
-    type: "SIMPLE" as "SIMPLE" | "VARIABLE",
-  });
+  const [editFormData, setEditFormData] = useState(getInitialEditFormData());
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -405,6 +411,49 @@ function ProjectsPage() {
   const [submitReviewProductId, setSubmitReviewProductId] = useState<string | null>(null);
   const [submitReviewNote, setSubmitReviewNote] = useState("");
   const [submitReviewSubmitting, setSubmitReviewSubmitting] = useState(false);
+
+  const resetAddFormState = () => {
+    setFormData(getInitialAddFormData());
+    setAddVariants([]);
+    setNewVariantForm(getInitialVariantForm());
+    setSelectedAttrValues({});
+    setCustomNumericAdd({});
+    setCustomSizeModeAdd({});
+    setBulkPrice("");
+    setBulkStock("");
+    setCatSearch("");
+    setIsCatOpen(false);
+    addGalleryAccumRef.current = [];
+    if (addFeaturedImageRef.current) addFeaturedImageRef.current.value = "";
+    if (addGalleryImagesRef.current) addGalleryImagesRef.current.value = "";
+  };
+
+  const resetEditFormState = () => {
+    setEditFormData(getInitialEditFormData());
+    setEditProductId(null);
+    setIsRestoringMode(false);
+    setEditVariants([]);
+    setEditSelectedAttrValues({});
+    setCustomNumericEdit({});
+    setCustomSizeModeEdit({});
+    setEditBulkPrice("");
+    setEditBulkStock("");
+    setEditCatSearch("");
+    setIsEditCatOpen(false);
+    editGalleryAccumRef.current = [];
+    if (editFeaturedImageRef.current) editFeaturedImageRef.current.value = "";
+    if (editGalleryImagesRef.current) editGalleryImagesRef.current.value = "";
+  };
+
+  const closeAddModal = () => {
+    resetAddFormState();
+    setShowAddModal(false);
+  };
+
+  const closeEditModal = () => {
+    resetEditFormState();
+    setShowEditModal(false);
+  };
 
   const loadCategories = async () => {
     try {
@@ -607,11 +656,7 @@ function ProjectsPage() {
         }
       }
       toast.success("Product added successfully!");
-      setShowAddModal(false);
-      setFormData({ title: "", description: "", price: "", stock: "", category: "", images: [], featuredImage: null, galleryImages: [], featured: false, tags: "", artistName: "", weight: "1", type: "SIMPLE" });
-      addGalleryAccumRef.current = []; // clear accumulator
-      setAddVariants([]);
-      setNewVariantForm({ price: '', stock: '', sku: '', attributes: {} });
+      closeAddModal();
       loadProducts();
     } catch {
       toast.error("Failed to add product");
@@ -964,12 +1009,7 @@ function ProjectsPage() {
         }
 
         setRecycleBinProducts(prev => prev.filter(p => p.id !== editProductId));
-        setShowEditModal(false);
-        setEditProductId(null);
-        setIsRestoringMode(false);
-        editGalleryAccumRef.current = [];
-        setEditVariants([]);
-        setEditSelectedAttrValues({});
+        closeEditModal();
         loadProducts();
         return;
       }
@@ -1020,12 +1060,7 @@ function ProjectsPage() {
 
       toast.success("Product submitted for admin review — it will be live once approved.", { duration: 5000 });
 
-      setShowEditModal(false);
-      setEditProductId(null);
-      setIsRestoringMode(false);
-      editGalleryAccumRef.current = []; // clear accumulator
-      setEditVariants([]);
-      setEditSelectedAttrValues({});
+      closeEditModal();
       loadProducts();
     } catch (err: unknown) {
       const error = err as Error;
@@ -1855,7 +1890,7 @@ function ProjectsPage() {
               const isInactive = editingProduct?.status === 'INACTIVE';
               const isActive = editingProduct?.status === 'ACTIVE';
               return (
-              <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) { editGalleryAccumRef.current = []; setEditVariants([]); setEditSelectedAttrValues({}); setShowEditModal(false); setIsRestoringMode(false); } }}>
+              <Sheet open={showEditModal} onOpenChange={(open) => { if (!open) closeEditModal(); }}>
                 <SheetContent side="right" className={cn("w-full flex flex-col p-0 gap-0 overflow-hidden transition-all duration-300", editFormData.type === "VARIABLE" ? "sm:max-w-5xl" : "sm:max-w-xl")} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
                   <SheetHeader className="px-6 py-4 border-b shrink-0">
                     <SheetTitle className="text-xl font-bold">
@@ -2620,7 +2655,7 @@ function ProjectsPage() {
                     </div>
                   </div>
                   <div className="px-6 py-4 border-t bg-muted/10 shrink-0 flex justify-end gap-3">
-                    <Button variant="outline" className="h-10 px-4" onClick={() => { editGalleryAccumRef.current = []; setEditVariants([]); setEditSelectedAttrValues({}); setShowEditModal(false); setIsRestoringMode(false); }} disabled={editSubmitting}>Cancel</Button>
+                    <Button variant="outline" className="h-10 px-4" onClick={closeEditModal} disabled={editSubmitting}>Cancel</Button>
                     <Button className="h-10 px-6 font-semibold shadow-md" onClick={handleEditProduct} disabled={editSubmitting}>
                       {editSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : isRestoringMode ? "Save & Restore" : "Save Changes"}
                     </Button>
@@ -2630,7 +2665,7 @@ function ProjectsPage() {
             );
             })()}
       {/* Add Product Modal */}
-      <Sheet open={showAddModal} onOpenChange={(open) => { if (!open) { addGalleryAccumRef.current = []; setShowAddModal(false); setAddVariants([]); setNewVariantForm({ price: '', stock: '', sku: '', attributes: {} }); setSelectedAttrValues({}); setBulkPrice(""); setBulkStock(""); } }}>
+      <Sheet open={showAddModal} onOpenChange={(open) => { if (!open) closeAddModal(); }}>
         <SheetContent side="right" className={cn("w-full flex flex-col p-0 gap-0 overflow-hidden transition-all duration-300", formData.type === "VARIABLE" ? "sm:max-w-5xl" : "sm:max-w-xl")} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
           <SheetHeader className="px-6 py-4 border-b shrink-0">
             <SheetTitle className="text-xl font-bold">Add New Product</SheetTitle>
@@ -3348,7 +3383,7 @@ function ProjectsPage() {
               </div>
           </div>
           <div className="px-6 py-4 border-t bg-muted/10 shrink-0 flex justify-end gap-3">
-            <Button variant="outline" className="h-10 px-4" onClick={() => { addGalleryAccumRef.current = []; setShowAddModal(false); }} disabled={submitting}>Cancel</Button>
+            <Button variant="outline" className="h-10 px-4" onClick={closeAddModal} disabled={submitting}>Cancel</Button>
             <Button className="h-10 px-6 font-semibold shadow-md" onClick={handleAddProduct} disabled={submitting}>
               {submitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Publishing...</> : <><Plus className="w-4 h-4 mr-2" />Publish Product</>}
             </Button>

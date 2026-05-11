@@ -47,9 +47,25 @@ const AnalyticsPage = () => {
 		startDate: "",
 		endDate: ""
 	});
+	const [defaultDateRange, setDefaultDateRange] = useState({
+		startDate: "",
+		endDate: ""
+	});
 	const [chartLoading, setChartLoading] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const [exporting, setExporting] = useState(false);
+
+	// Function to calculate default date range (last 30 days)
+	const getDefaultDateRange = useCallback(() => {
+		const endDate = new Date();
+		const startDate = new Date();
+		startDate.setDate(endDate.getDate() - 30);
+		
+		return {
+			startDate: startDate.toISOString().split('T')[0],
+			endDate: endDate.toISOString().split('T')[0]
+		};
+	}, []);
 
 	// Function to fetch analytics data with date range
 	const fetchAnalytics = async (startDate?: string, endDate?: string) => {
@@ -347,6 +363,10 @@ const AnalyticsPage = () => {
 				return;
 			}
 
+			// Set default date range on component mount
+			const defaultRange = getDefaultDateRange();
+			setDefaultDateRange(defaultRange);
+
 			const token = localStorage.getItem("alpa_token") || localStorage.getItem("auth_token");
 
 			if (!token) {
@@ -392,7 +412,7 @@ const AnalyticsPage = () => {
 		};
 
 		checkAuth();
-	}, [router]);
+	}, [router, getDefaultDateRange]);
 
 	// CSV generation function remains the same...
 
@@ -505,8 +525,8 @@ const AnalyticsPage = () => {
 				</div>
 
 				{/* Date Range Picker */}
-				<div className="flex flex-col sm:flex-row gap-4 p-4 bg-gray-50 rounded-lg border">
-					<div className="flex flex-col gap-2">
+				<div className="flex flex-col sm:flex-row gap-4 p-4 bg-gray-50 rounded-lg border items-end">
+					<div className="flex flex-col gap-2 min-w-fit">
 						<label className="text-sm font-medium text-gray-700">From Date</label>
 						<input
 							type="date"
@@ -516,7 +536,7 @@ const AnalyticsPage = () => {
 							max={customDateRange.endDate || new Date().toISOString().split('T')[0]}
 						/>
 					</div>
-					<div className="flex flex-col gap-2">
+					<div className="flex flex-col gap-2 min-w-fit">
 						<label className="text-sm font-medium text-gray-700">To Date</label>
 						<input
 							type="date"
@@ -528,14 +548,14 @@ const AnalyticsPage = () => {
 						/>
 					</div>
 					{customDateRange.startDate && customDateRange.endDate && (
-						<div className="flex items-center gap-2">
-							<div className="px-4 py-2 bg-primary/10 text-primary text-sm rounded-lg">
+						<div className="flex items-center gap-2 flex-1">
+							<div className="px-4 py-2 bg-primary/10 text-primary text-sm rounded-lg whitespace-nowrap">
 								📅 {new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - {new Date(customDateRange.endDate).toLocaleDateString('en-GB')}
 							</div>
 							<button
 								onClick={clearFilters}
 								disabled={refreshing || chartLoading}
-								className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+								className="px-3 py-2 bg-red-500 text-white text-xs rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap"
 							>
 								Clear
 							</button>
@@ -544,7 +564,9 @@ const AnalyticsPage = () => {
 					{!customDateRange.startDate && !customDateRange.endDate && (
 						<div className="flex items-end">
 							<div className="px-4 py-2 bg-blue-50 text-blue-700 text-sm rounded-lg">
-								📅 Currently showing: Last 30 days (default)
+								📅 Default: {defaultDateRange.startDate && defaultDateRange.endDate 
+									? `${new Date(defaultDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(defaultDateRange.endDate).toLocaleDateString('en-GB')}`
+									: "Last 30 days"}
 							</div>
 						</div>
 					)}
@@ -566,7 +588,9 @@ const AnalyticsPage = () => {
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
 									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} revenue`
-									: "Last 30 days revenue (default)"}
+									: `${defaultDateRange.startDate && defaultDateRange.endDate 
+										? `${new Date(defaultDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(defaultDateRange.endDate).toLocaleDateString('en-GB')} revenue`
+										: "Last 30 days revenue"}`}
 							</p>
 						</CardContent>
 					</Card>
@@ -583,7 +607,9 @@ const AnalyticsPage = () => {
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
 									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} orders`
-									: "Last 30 days orders (default)"}
+									: `${defaultDateRange.startDate && defaultDateRange.endDate 
+										? `${new Date(defaultDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(defaultDateRange.endDate).toLocaleDateString('en-GB')} orders`
+										: "Last 30 days orders"}`}
 							</p>
 						</CardContent>
 					</Card>
@@ -600,7 +626,9 @@ const AnalyticsPage = () => {
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
 									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} units`
-									: "Last 30 days units sold (default)"}
+									: `${defaultDateRange.startDate && defaultDateRange.endDate 
+										? `${new Date(defaultDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(defaultDateRange.endDate).toLocaleDateString('en-GB')} units`
+										: "Last 30 days units sold"}`}
 							</p>
 						</CardContent>
 					</Card>
@@ -617,7 +645,9 @@ const AnalyticsPage = () => {
 							<p className="text-xs text-muted-foreground mt-1">
 								{customDateRange.startDate && customDateRange.endDate 
 									? `${new Date(customDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(customDateRange.endDate).toLocaleDateString('en-GB')} average`
-									: "Last 30 days average (default)"}
+									: `${defaultDateRange.startDate && defaultDateRange.endDate 
+										? `${new Date(defaultDateRange.startDate).toLocaleDateString('en-GB')} - ${new Date(defaultDateRange.endDate).toLocaleDateString('en-GB')} average`
+										: "Last 30 days average"}`}
 							</p>
 						</CardContent>
 					</Card>
@@ -650,14 +680,14 @@ const AnalyticsPage = () => {
 					) : dayData.length > 0 ? (
 						<div className="w-full overflow-x-auto">
 							<div className="min-w-[400px]">
-								<ResponsiveContainer width="100%" height={400}>
+								<ResponsiveContainer width="100%" height={450}>
 									<LineChart
 										data={dayData}
 										margin={{ 
 											top: 5, 
 											right: 30, 
 											left: 20, 
-											bottom: 60 
+											bottom: 100
 										}}
 									>
 								<CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -665,9 +695,10 @@ const AnalyticsPage = () => {
 									dataKey="date"
 									angle={-45}
 									textAnchor="end"
-									height={80}
-									tick={{ fontSize: 10 }}
-									interval="preserveStartEnd"
+									height={100}
+									tick={{ fontSize: 9 }}
+									interval={dayData.length > 10 ? Math.ceil(dayData.length / 5) - 1 : 0}
+									label={{ value: "Date", position: "insideBottomRight", offset: -10 }}
 								/>
 								<YAxis
 									yAxisId="left"

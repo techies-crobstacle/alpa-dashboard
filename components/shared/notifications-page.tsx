@@ -137,7 +137,7 @@ export function NotificationsPage() {
 	const [role, setRole] = useState<string | null>(null);
 
 	useEffect(() => {
-		fetchNotifications();
+		fetchNotifications(pagination.page);
 		if (typeof window !== "undefined") {
 			const token = localStorage.getItem("alpa_token");
 			if (token) {
@@ -147,17 +147,32 @@ export function NotificationsPage() {
 		}
 	}, []);
 
-	const fetchNotifications = async () => {
+	const fetchNotifications = async (page: number = 1) => {
 		setLoading(true);
 		try {
-			const res: NotificationsResponse = await api.get("/api/notifications");
+			const res: NotificationsResponse = await api.get(`/api/notifications?page=${page}&limit=20`);
 			setNotifications(res.notifications ?? []);
 			setUnreadCount(res.unreadCount ?? 0);
-			setPagination(res.pagination ?? { page: 1, limit: 20, total: 0 });
+			setPagination(res.pagination ?? { page, limit: 20, total: 0 });
 		} catch {
 			toast.error("Failed to load notifications");
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const handleNextPage = () => {
+		const nextPage = pagination.page + 1;
+		const totalPages = Math.ceil(pagination.total / pagination.limit);
+		if (nextPage <= totalPages) {
+			fetchNotifications(nextPage);
+		}
+	};
+
+	const handlePrevPage = () => {
+		const prevPage = pagination.page - 1;
+		if (prevPage > 0) {
+			fetchNotifications(prevPage);
 		}
 	};
 
@@ -345,10 +360,35 @@ export function NotificationsPage() {
 							</CardContent>
 						</Card>
 					))}
+
+					{/* Pagination Controls */}
 					{pagination.total > pagination.limit && (
-						<p className="text-center text-xs text-muted-foreground pt-2">
-							Showing {notifications.length} of {pagination.total} notifications
-						</p>
+						<div className="flex items-center justify-between pt-4 border-t">
+							<p className="text-sm text-muted-foreground">
+								Showing {(pagination.page - 1) * pagination.limit + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} notifications
+							</p>
+							<div className="flex items-center gap-2">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handlePrevPage}
+									disabled={pagination.page === 1 || loading}
+								>
+									Previous
+								</Button>
+								<div className="flex items-center gap-1 px-3 py-1 bg-muted rounded text-sm">
+									<span>Page {pagination.page} of {Math.ceil(pagination.total / pagination.limit)}</span>
+								</div>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handleNextPage}
+									disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit) || loading}
+								>
+									Next
+								</Button>
+							</div>
+						</div>
 					)}
 				</div>
 			)}

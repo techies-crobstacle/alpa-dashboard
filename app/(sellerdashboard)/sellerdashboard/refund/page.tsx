@@ -305,40 +305,32 @@ export default function SellerRefundRequestsPage() {
             label: "Total",
             value: stats.total,
             icon: <DollarSign className="h-4 w-4" />,
-            color: "text-foreground",
-            bg: "bg-muted/40",
           },
           {
             label: "Open",
             value: stats.open,
             icon: <Clock className="h-4 w-4" />,
-            color: "text-blue-600 dark:text-blue-400",
-            bg: "bg-blue-50 dark:bg-blue-950/30",
           },
           {
             label: "Completed",
             value: stats.completed,
             icon: <CheckCircle2 className="h-4 w-4" />,
-            color: "text-green-600 dark:text-green-400",
-            bg: "bg-green-50 dark:bg-green-950/30",
           },
           {
             label: "Rejected",
             value: stats.rejected,
             icon: <XCircle className="h-4 w-4" />,
-            color: "text-red-600 dark:text-red-400",
-            bg: "bg-red-50 dark:bg-red-950/30",
           },
         ].map(s => (
           <Card key={s.label} className="overflow-hidden">
-            <CardContent className={`flex items-center justify-between pt-5 pb-5 ${s.bg}`}>
+            <CardContent className="flex items-center justify-between pt-5 pb-5">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">{s.label}</p>
-                <div className={`text-2xl font-bold mt-1 ${s.color}`}>
+                <div className="text-2xl font-bold mt-1 text-muted-foreground">
                   {loading ? <Skeleton className="h-7 w-8" /> : s.value}
                 </div>
               </div>
-              <div className={`${s.color} opacity-70`}>{s.icon}</div>
+              <div className="text-muted-foreground opacity-70">{s.icon}</div>
             </CardContent>
           </Card>
         ))}

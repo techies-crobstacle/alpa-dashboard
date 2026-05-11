@@ -198,11 +198,9 @@ export default function CustomerDashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Orders */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base font-semibold">
-              Recent Orders
-            </CardTitle>
+        <Card className="lg:col-span-2 gap-0 py-0">
+          <div className="flex items-center justify-between px-6 py-4 border-b">
+            <p className="text-base font-semibold">Recent Orders</p>
             <Button variant="ghost" size="sm" asChild>
               <Link
                 href="/customerdashboard/orders"
@@ -211,9 +209,8 @@ export default function CustomerDashboardPage() {
                 View all <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </Button>
-          </CardHeader>
-          <Separator />
-          <CardContent className="pt-3 space-y-2">
+          </div>
+          <CardContent className="px-6 py-4 space-y-2">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div
@@ -280,14 +277,11 @@ export default function CustomerDashboardPage() {
         </Card>
 
         {/* Quick Links */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <Separator />
-          <CardContent className="pt-3 space-y-1.5">
+        <Card className="gap-0 py-0">
+          <div className="px-6 py-4 border-b">
+            <p className="text-base font-semibold">Quick Actions</p>
+          </div>
+          <CardContent className="px-6 py-3 space-y-1.5">
             {[
               {
                 href: "/customerdashboard/orders",
