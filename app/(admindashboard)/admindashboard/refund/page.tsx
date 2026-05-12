@@ -333,7 +333,7 @@ export default function AdminRefundRequestsPage() {
                   <TableHead>Subject</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -366,7 +366,7 @@ export default function AdminRefundRequestsPage() {
                     </TableCell>
                     <TableCell>{statusBadge(r.status)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{fmt(r.createdAt)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Button size="sm" variant="outline" onClick={() => openDetail(r)}>
                         <Eye className="h-3.5 w-3.5 mr-1" /> View
                       </Button>

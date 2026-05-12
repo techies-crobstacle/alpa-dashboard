@@ -404,7 +404,7 @@ export default function SellerRefundRequestsPage() {
                   <TableHead>Subject</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Submitted</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -441,7 +441,7 @@ export default function SellerRefundRequestsPage() {
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {fmt(r.createdAt)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Button
                         size="sm"
                         variant="outline"
