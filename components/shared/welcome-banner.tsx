@@ -45,14 +45,12 @@ export function WelcomeBanner() {
 			}
 		};
 
-		// Fetch active product count — use a local variable to avoid stale closure
-		const resolveActiveProductCount = async (): Promise<number | null> => {
+		// Fetch product count — count all products regardless of status
+		const resolveProductCount = async (): Promise<number | null> => {
 			try {
 				const data = await api.get("/api/products/my-products", { headers: { Authorization: "" } });
 				const products = Array.isArray(data) ? data : (data?.products || []);
-				// Count only ACTIVE products
-				const activeCount = products.filter((product: any) => product.status === "ACTIVE").length;
-				return activeCount;
+				return products.length;
 			} catch {
 				return null;
 			}
@@ -68,11 +66,11 @@ export function WelcomeBanner() {
 			}
 		};
 
-		Promise.all([resolveName(), resolveActiveProductCount(), resolveSellerStatus()]).then(([, activeCount, status]) => {
-			setProductCount(activeCount);
+		Promise.all([resolveName(), resolveProductCount(), resolveSellerStatus()]).then(([, count, status]) => {
+			setProductCount(count);
 			setSellerStatus(status);
-			// Only show when seller is approved to add products and has no active products
-			if (status === "APPROVED" && activeCount === 0) {
+			// Only show when seller is approved to add products and has no products
+			if (status === "APPROVED" && count === 0) {
 				setVisible(true);
 			}
 		});

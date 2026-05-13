@@ -715,8 +715,11 @@ export default function AdminProductsPage() {
     }
   };
 
+  const [approveSubmittingId, setApproveSubmittingId] = useState<string | null>(null);
+
   const handleApproveProduct = async (productId: string) => {
     try {
+      setApproveSubmittingId(productId);
       await api.post(`/api/admin/products/approve/${productId}`);
       toast.success("Product approved successfully!");
       await refreshPending(sellersRef.current);
@@ -724,6 +727,8 @@ export default function AdminProductsPage() {
       fetchTabProducts(selectedSellerRef.current, activeViewRef.current);
     } catch (err: any) {
       toast.error(err.message || "Failed to approve product");
+    } finally {
+      setApproveSubmittingId(null);
     }
   };
 
@@ -1294,7 +1299,10 @@ export default function AdminProductsPage() {
                           </>
                         ) : product.status === "PENDING" ? (
                           <>
-                            <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)}><CheckCircle className="h-3 w-3" />Approve</Button>
+                            <Button variant="outline" size="sm" className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleApproveProduct(product.id)} disabled={approveSubmittingId === product.id}>
+                              {approveSubmittingId === product.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                              Approve
+                            </Button>
                             <Button variant="outline" size="sm" className="gap-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openRejectModal(product.id)}><XCircle className="h-3 w-3" />Reject</Button>
                             <Button variant="outline" size="sm" className="gap-1"
                               onClick={() => router.push(`/admindashboard/products/${product.id}`)}
