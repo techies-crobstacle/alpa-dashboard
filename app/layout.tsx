@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Alpa Dashboard",
+    title: "Made in Arnhem Land Dashboard",
     description:
         "A beautiful, responsive dashboard template built with Next.js 14, shadcn/ui, and Tailwind CSS. Ready-to-use admin panel with modern UI components.",
     keywords: [

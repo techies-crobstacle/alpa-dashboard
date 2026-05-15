@@ -2699,7 +2699,7 @@ export default function AdminOrdersPage() {
   }, [activeHighlight, allOrders, orders]);
 
   useEffect(() => {
-    if (activeTab === "all") {
+    if (activeTab === "all" && allOrders.length === 0) {
       fetchAllOrders();
     }
   }, [activeTab]);
@@ -3236,8 +3236,9 @@ export default function AdminOrdersPage() {
                   </div>
 
                   {/* Customer + totals */}
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-6 justify-end flex-1 ml-auto">
+                    <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                      <div className="text-right">
                       <p className="text-xs font-semibold flex items-center justify-end gap-1 text-muted-foreground uppercase tracking-wider mb-1">
                         <ClipboardList className="h-3.5 w-3.5" /> Customer
                       </p>
@@ -3274,6 +3275,7 @@ export default function AdminOrdersPage() {
                     >
                       <Eye className="h-4 w-4" /> View
                     </Button>
+                  </div>
                   </div>
                 </div>
 
@@ -3345,16 +3347,16 @@ export default function AdminOrdersPage() {
                                       className="rounded object-cover w-9 h-9 border flex-shrink-0"
                                     />
                                   )}
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 flex flex-col gap-0.5">
                                     <p className="text-sm font-medium truncate">{item.product.title}</p>
                                     {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                      <div className="flex flex-wrap gap-1 mt-0.5 mb-0.5">
                                         {Object.entries(item.variantAttributes).map(([k, v]) => (
                                           <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
                                         ))}
                                       </div>
                                     )}
-                                    <p className="text-xs text-muted-foreground">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
                                   </div>
                                 </div>
                               ))}
@@ -3416,16 +3418,16 @@ export default function AdminOrdersPage() {
                                       className="rounded object-cover w-9 h-9 border flex-shrink-0"
                                     />
                                   )}
-                                  <div className="min-w-0">
+                                  <div className="min-w-0 flex flex-col gap-0.5">
                                     <p className="text-sm font-medium truncate">{item.product.title}</p>
                                     {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
-                                      <div className="flex flex-wrap gap-1 mt-0.5">
+                                      <div className="flex flex-wrap gap-1 mt-0.5 mb-0.5">
                                         {Object.entries(item.variantAttributes).map(([k, v]) => (
                                           <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
                                         ))}
                                       </div>
                                     )}
-                                    <p className="text-xs text-muted-foreground">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">${parseFloat(item.price).toLocaleString()} × {item.quantity}</p>
                                   </div>
                                 </div>
                               ))
@@ -3919,17 +3921,17 @@ export default function AdminOrdersPage() {
                               className="w-10 h-10 object-cover rounded flex-shrink-0"
                             />
                           )}
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                             <p className="truncate font-medium">{item.product.title}</p>
                             {item.variantAttributes && Object.keys(item.variantAttributes).length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-0.5">
+                              <div className="flex flex-wrap gap-1 mt-0.5 mb-0.5">
                                 {Object.entries(item.variantAttributes).map(([k, v]) => (
                                   <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground border">{k}: {v}</span>
                                 ))}
                               </div>
                             )}
-                            <p className="text-xs text-muted-foreground">
-                              ${parseFloat(item.price).toLocaleString()} x {item.quantity}
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              ${parseFloat(item.price).toLocaleString()} × {item.quantity}
                             </p>
                           </div>
                         </div>

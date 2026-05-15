@@ -1505,11 +1505,6 @@ export default function AdminProductsPage() {
                 <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
                 <span>This product was rejected. Saving will auto-approve it and make it Active.</span>
               </div>
-            ) : editProductStatus === "ACTIVE" ? (
-              <div className="flex items-start gap-2 mt-2 p-2.5 rounded-lg text-xs bg-yellow-50 border border-yellow-200 text-yellow-700 dark:bg-yellow-950/30 dark:border-yellow-800 dark:text-yellow-300">
-                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-                <span>Editing a live product will set it to Inactive. Use the activate toggle to re-list it when ready.</span>
-              </div>
             ) : null}
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
