@@ -880,7 +880,6 @@ const AdminCategoriesPage = () => {
 									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Category</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Action</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Actor</th>
-									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Changed Fields</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Timestamp</th>
 									<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase whitespace-nowrap">Diff</th>
 								</tr>
@@ -915,16 +914,6 @@ const AdminCategoriesPage = () => {
 														"bg-muted text-muted-foreground"
 													)}>{entry.actorRole}</span>
 												)}
-											</td>
-											<td className="px-4 py-2">
-												<div className="flex flex-wrap gap-1">
-													{entry.changedFields?.length > 0
-														? entry.changedFields.map((f) => (
-															<span key={f} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{f}</span>
-														))
-														: <span className="text-[10px] text-muted-foreground">—</span>
-													}
-												</div>
 											</td>
 											<td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">{formatDate(entry.createdAt)}</td>
 											<td className="px-4 py-2">

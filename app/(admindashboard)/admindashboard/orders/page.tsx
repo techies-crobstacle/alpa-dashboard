@@ -3255,7 +3255,7 @@ export default function AdminOrdersPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-semibold flex items-center justify-end gap-1 text-muted-foreground uppercase tracking-wider mb-1">
-                        <DollarSign className="h-3.5 w-3.5" /> Total
+                        Total
                       </p>
                       <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
@@ -3882,7 +3882,7 @@ export default function AdminOrdersPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-semibold flex items-center justify-end gap-1 text-muted-foreground uppercase tracking-wider mb-1">
-                      <DollarSign className="h-3.5 w-3.5" /> Total
+                      Total
                     </p>
                     <p className="text-sm font-semibold">${parseFloat(order.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                   </div>
